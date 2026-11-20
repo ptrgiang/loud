@@ -31,6 +31,8 @@ jobs:
       # pnpm installed the same way as on a developer machine; through corepack it wants to rewrite the lockfile.
       - run: npm install -g pnpm@12.14.0
       - run: pnpm install --frozen-lockfile
+      # Make sure Electron's binary is in place before tests load it; on Windows the install can leave it unfinished.
+      - run: pnpm --filter @loud/desktop exec install-electron
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
@@ -45,7 +47,11 @@ jobs:
             echo "APPLE_API_KEY=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
           fi
       - name: Package and upload to the draft release
-        run: pnpm --filter @loud/desktop release
+        # The app is in a subfolder, where electron-builder cannot read the git remote; name the repository instead.
+        run: >-
+          pnpm --filter @loud/desktop exec electron-builder --publish always
+          -c.publish.owner=${{ github.repository_owner }}
+          -c.publish.repo=${{ github.event.repository.name }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Windows: a code-signing certificate (base64 .pfx) and its password.

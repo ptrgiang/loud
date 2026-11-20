@@ -35,7 +35,7 @@ electronFuses:
   grantFileProtocolExtraPrivileges: false
 
 publish:
-  # Owner and repository come from the git remote of the checkout that builds the release.
+  # The release workflow sets owner and repo to the repository it runs in.
   provider: github
   releaseType: draft
 
