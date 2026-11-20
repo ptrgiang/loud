@@ -4,6 +4,10 @@ The project page: plain HTML and CSS in `public/`, no build step. Screens come f
 
 `site.js` asks the GitHub API for the latest release and points the download buttons at the installer for the visitor's system. Without it, the buttons link to the release page.
 
-To look at it locally, serve `public/` with any static server, for example `npx serve apps/site/public`.
+It runs on Cloudflare as a Worker with only static assets (`wrangler.jsonc`); `public/_headers` sets the security headers. Deploying also creates the `loud.trysometh.ing` DNS record and certificate:
 
-It is published by the [Site workflow](../../.github/workflows/site.yml) to GitHub Pages, with `public/CNAME` for the domain. DNS: a `CNAME` record from `loud` to `<owner>.github.io`.
+```sh
+npx wrangler deploy -c apps/site/wrangler.jsonc
+```
+
+To look at it locally: `npx wrangler dev -c apps/site/wrangler.jsonc`.
