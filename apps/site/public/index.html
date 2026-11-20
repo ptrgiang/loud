@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Loud: see which of your posts work, and what to post next</title>
+    <meta
+      name="description"
+      content="A free, open-source desktop app that reads your own Threads, Instagram, Facebook Page and X numbers through your own logins, on your computer, and tells you what to post next."
+    />
+    <meta name="theme-color" content="#000000" />
+    <link rel="canonical" href="https://loud.trysometh.ing/" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://loud.trysometh.ing/" />
+    <meta property="og:title" content="Loud: try something loud." />
+    <meta
+      property="og:description"
+      content="See which of your posts work on Threads, Instagram, Facebook and X, and what to post next. Local first, free and open source."
+    />
+    <meta property="og:image" content="https://loud.trysometh.ing/img/overview.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="stylesheet" href="style.css" />
+    <script src="site.js" defer></script>
+  </head>
+  <body>
+    <header class="nav">
+      <div class="container nav-inner">
+        <a class="brand" href="./" aria-label="Loud home">
+          <img src="icon.svg" alt="" width="28" height="28" />
+          <span>Loud</span>
+        </a>
+        <nav class="nav-links" aria-label="Sections">
+          <a href="#how">How it works</a>
+          <a href="#accounts">Your accounts</a>
+          <a href="https://github.com/ptrgiang/loud">GitHub</a>
+        </nav>
+        <a class="btn btn-small" href="#download">Download</a>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="container">
+          <p class="eyebrow">Version <span data-version>0.1</span> · free and open source</p>
+          <h1 class="display">Try something<br />loud.</h1>
+          <p class="lede">
+            See which of your posts actually work on Threads, Instagram, Facebook and X. Loud reads
+            your own numbers through your own logins, on your computer, and tells you what to post
+            next.
+          </p>
+          <div class="actions">
+            <a
+              class="btn btn-primary"
+              data-download
+              href="https://github.com/ptrgiang/loud/releases/latest"
+            >
+              <span data-download-label>Download Loud</span>
+            </a>
+            <a class="link" href="https://github.com/ptrgiang/loud">View the source on GitHub →</a>
+          </div>
+          <p class="fine" data-download-note>Windows, macOS and Linux.</p>
+
+          <figure class="shot shot-hero">
+            <img
+              src="img/overview.png"
+              width="1304"
+              height="841"
+              alt="Loud's overview with the fictional Acme Forms demo: followers, views, posts and engagement for the last seven days, and views by publish day per channel."
+            />
+          </figure>
+          <p class="caption">
+            Screens use Loud's built-in demo, Acme Forms. Every name and number in it is made up.
+          </p>
+        </div>
+      </section>
+
+      <section id="how" class="section">
+        <div class="container">
+          <h2 class="section-title">Numbers you can act on</h2>
+
+          <div class="feature">
+            <div class="feature-text">
+              <h3>Your posts, measured fairly</h3>
+              <p>
+                A post keeps collecting views for a day, so Loud compares only posts at least a day
+                old. It uses medians, so one viral post does not hide the rest, and engagement per
+                1,000 views, so a quiet week is not a bad week.
+              </p>
+              <ul>
+                <li>
+                  Patterns such as "posts that ask a question" are shown only with 3 or more posts
+                  on each side.
+                </li>
+                <li>Timing in 3-hour blocks, and how often you post on each channel.</li>
+              </ul>
+            </div>
+            <figure class="shot">
+              <img
+                src="img/insights.png"
+                width="1304"
+                height="841"
+                loading="lazy"
+                alt="Insights with demo data: what the numbers say, views per post on a log scale per channel, and engagement rates."
+              />
+            </figure>
+          </div>
+
+          <div class="feature feature-flip">
+            <div class="feature-text">
+              <h3>What to post next</h3>
+              <p>
+                Proposals come from what already worked for you and from what people ask about your
+                topics. Write drafts with the right character count for each platform, then post
+                them yourself.
+              </p>
+              <ul>
+                <li>
+                  An optional agent, through Claude Code or Codex signed in on your computer, can
+                  analyse and draft. It is off until you turn it on, and it cannot post.
+                </li>
+                <li>Listening shows other people's posts on your keywords, for reference.</li>
+              </ul>
+            </div>
+            <figure class="shot">
+              <img
+                src="img/proposals.png"
+                width="1304"
+                height="841"
+                loading="lazy"
+                alt="Proposals with demo data: three suggested posts with an opening line, an outline and the reason for each."
+              />
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <section id="accounts" class="section">
+        <div class="container">
+          <div class="feature">
+            <div class="feature-text">
+              <h3>Your accounts come first</h3>
+              <p>
+                You log in on each platform's own page, inside Loud. Loud never sees a password. It
+                reads what those pages already show you, slowly: requests are spaced out and capped
+                each day, and Loud stops at any login check or captcha until you deal with it
+                yourself.
+              </p>
+              <ul>
+                <li>Loud reads. It does not post, like or follow.</li>
+                <li>Collect one platform at a time, or all of them, when you choose.</li>
+              </ul>
+            </div>
+            <figure class="shot">
+              <img
+                src="img/connections.png"
+                width="1304"
+                height="841"
+                loading="lazy"
+                alt="Connections with a demo profile: four platforms, each with its handle, today's request count and a Collect now button; one platform shows a pause notice."
+              />
+            </figure>
+          </div>
+
+          <div class="grid3">
+            <div>
+              <h3>On your computer</h3>
+              <p>
+                Sessions, posts and numbers stay on your machine. Loud talks only to the platforms
+                you connect.
+              </p>
+            </div>
+            <div>
+              <h3>No account with us</h3>
+              <p>
+                There is no Loud server and nothing to sign up for. Update checks are off until you
+                turn them on.
+              </p>
+            </div>
+            <div>
+              <h3>Open source</h3>
+              <p>
+                MIT licensed. Read every line on
+                <a href="https://github.com/ptrgiang/loud">GitHub</a>.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="download" class="section cta">
+        <div class="container">
+          <h2 class="display cta-title">Try something loud.</h2>
+          <div class="actions actions-center">
+            <a
+              class="btn btn-primary"
+              data-download
+              href="https://github.com/ptrgiang/loud/releases/latest"
+            >
+              <span data-download-label>Download Loud</span>
+            </a>
+          </div>
+          <ul class="platforms" data-platforms>
+            <li><a href="https://github.com/ptrgiang/loud/releases/latest">All downloads</a></li>
+          </ul>
+          <p class="fine">
+            Early version. The installers are not code-signed yet, so Windows asks you to confirm
+            the first time. macOS and Linux builds have not been tried by us yet.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container footer-inner">
+        <p>
+          Loud is a <a href="https://trysometh.ing">Try Something</a> project. Not affiliated with
+          Meta or X.
+        </p>
+        <nav aria-label="Project">
+          <a href="https://github.com/ptrgiang/loud">GitHub</a>
+          <a href="https://github.com/ptrgiang/loud/blob/main/SECURITY.md">Security</a>
+          <a href="https://github.com/ptrgiang/loud/blob/main/TRADEMARK.md">Trademark</a>
+          <a href="https://github.com/ptrgiang/loud/blob/main/LICENSE">MIT License</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -4,8 +4,8 @@
   "private": true,
   "description": "A desktop app for people who build things and forget to tell anyone.",
   "homepage": "https://loud.trysometh.ing",
-  "repository": "github:ptrgiang/loud",
   "author": "Try Something",
+  "repository": "github:ptrgiang/loud",
   "type": "module",
   "main": "dist-electron/main.cjs",
   "scripts": {
