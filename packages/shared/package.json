@@ -1,0 +1,30 @@
+{
+  "name": "@loud/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./analytics": {
+      "types": "./src/analytics.ts",
+      "import": "./src/analytics.ts"
+    },
+    "./stamp": {
+      "types": "./src/stamp.ts",
+      "import": "./src/stamp.ts"
+    },
+    "./text": {
+      "types": "./src/text.ts",
+      "import": "./src/text.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vp test run --passWithNoTests"
+  },
+  "dependencies": {
+    "@loud/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "vite-plus": "catalog:"
+  }
+}

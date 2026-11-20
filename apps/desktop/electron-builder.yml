@@ -1,0 +1,70 @@
+# Packaging: `pnpm --filter @loud/desktop dist` after `pnpm build`. Signing and notarization come from the
+# environment (see docs/releasing.md); without it the build is unsigned, which is fine for a local try.
+appId: ing.trysometh.loud
+productName: Loud
+copyright: Copyright © Try Something
+directories:
+  output: release
+  buildResources: resources
+
+# Everything the app runs is bundled into dist-electron by scripts/build.mjs, so no node_modules ship.
+files:
+  - package.json
+  - dist-electron/**/*
+  - "!dist-electron/**/*.map"
+  - "!dist-electron/demo.cjs"
+  - "!**/node_modules/**/*"
+extraResources:
+  - from: ../web/dist
+    to: web
+    filter: ["**/*", "!**/*.map"]
+# No native modules: nothing to rebuild.
+npmRebuild: false
+# The agent's tool server runs as a plain Node process (ELECTRON_RUN_AS_NODE), which cannot read inside the asar.
+asarUnpack:
+  - dist-electron/mcp.cjs
+
+electronFuses:
+  # Needed: the agent CLIs start mcp.cjs with Loud's own executable in Node mode.
+  runAsNode: true
+  enableCookieEncryption: true
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+  grantFileProtocolExtraPrivileges: false
+
+publish:
+  # Owner and repository come from the git remote of the checkout that builds the release.
+  provider: github
+  releaseType: draft
+
+win:
+  target:
+    - target: nsis
+      arch: [x64, arm64]
+  # Certificate from CSC_LINK / CSC_KEY_PASSWORD, or Azure Trusted Signing when its variables are set.
+  verifyUpdateCodeSignature: true
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  artifactName: Loud-${version}-${arch}-setup.${ext}
+
+mac:
+  target:
+    # The zip is what the updater downloads; the dmg is for people.
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  category: public.app-category.productivity
+  hardenedRuntime: true
+  # Notarized when APPLE_API_KEY, APPLE_API_KEY_ID and APPLE_API_ISSUER are set.
+dmg:
+  artifactName: Loud-${version}-${arch}.${ext}
+
+linux:
+  target: [AppImage]
+  category: Utility
+  artifactName: Loud-${version}-${arch}.${ext}
