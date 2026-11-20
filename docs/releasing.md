@@ -6,7 +6,7 @@ Development and use stay apart. Code changes here, run from source against a `Lo
 2. Tag the commit `v<version>` and push the tag. The [Release workflow](../.github/workflows/release.yml) builds Windows (NSIS, x64 and arm64), macOS (dmg and zip, arm64 and x64) and Linux (AppImage), and uploads them with the updater's `latest*.yml` files to a **draft** GitHub Release.
 3. Try the installers, then publish the draft (`gh release edit v<version> --draft=false`). Installed copies with update checks turned on see it within 6 hours, or at once with Check now in Settings.
 
-The release goes to the repository the workflow runs in (`-c.publish.owner` and `-c.publish.repo`). A local build (`--publish never`) has no update channel, and the app says so in Settings.
+The release goes to the repository named in `apps/desktop/package.json` (`repository`), which is also where installed copies look for updates. A fork that releases its own builds changes it there.
 
 ## Signing
 

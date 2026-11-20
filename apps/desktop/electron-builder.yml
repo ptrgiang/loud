@@ -35,7 +35,7 @@ electronFuses:
   grantFileProtocolExtraPrivileges: false
 
 publish:
-  # The release workflow sets owner and repo to the repository it runs in.
+  # Owner and repository come from `repository` in package.json.
   provider: github
   releaseType: draft
 
@@ -67,4 +67,6 @@ dmg:
 linux:
   target: [AppImage]
   category: Utility
+  # The default comes from the package name, whose "@" and "/" are not allowed in a file name.
+  executableName: loud
   artifactName: Loud-${version}-${arch}.${ext}
