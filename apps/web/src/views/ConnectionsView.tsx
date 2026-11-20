@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { ListeningRow } from "~/components/ListenNow";
 import { ChannelDot, PageHeader } from "~/components/PageHeader";
 import { StepIcon } from "~/components/StepIcon";
 import { Badge } from "~/components/ui/badge";
@@ -309,6 +310,8 @@ export function ConnectionsView() {
               />
             ))}
           </ul>
+
+          <ListeningRow />
 
           <div className="flex gap-3 rounded-xl border border-dashed px-4 py-3.5 text-muted-foreground text-xs leading-relaxed">
             <ShieldCheck className="mt-0.5 size-4 shrink-0" />

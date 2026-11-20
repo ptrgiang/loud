@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.1.2 (2026-11-21)
+
+- Listening has its own Search now: a Listening row in Connections and a button on the Listening page search the keywords without collecting the accounts. It names why it is unavailable (no keywords, no connected platform included in runs, paused, or the demo).
+
 ## 0.1.1 (2026-11-21)
 
 - Usage reports, off until you answer: on first launch Loud asks whether to send one small report a day to loud.trysometh.ing (version, OS, connected platforms, and how many collection runs worked, failed or hit a login check). Settings shows the exact report and can turn it off, which asks the server to delete what that install sent. Nothing is sent from source or with the demo data.

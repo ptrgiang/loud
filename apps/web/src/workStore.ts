@@ -13,6 +13,7 @@ import type {
   CollectStep,
   Draft,
   DraftInput,
+  Keywords,
   StepState,
   UpdateSettings,
   UpdateStatus,
@@ -37,6 +38,7 @@ interface WorkState {
   readonly updates: UpdateStatus | null;
   readonly updateSettings: UpdateSettings | null;
   readonly usage: UsageStatus | null;
+  readonly keywords: Keywords | null;
 
   readonly loadAgent: () => Promise<void>;
   readonly loadProviders: () => Promise<void>;
@@ -57,6 +59,7 @@ interface WorkState {
   readonly checkUpdates: () => Promise<void>;
   readonly installUpdate: () => Promise<void>;
   readonly loadUsage: () => Promise<void>;
+  readonly loadKeywords: () => Promise<void>;
   readonly configureUsage: (share: boolean) => Promise<void>;
   readonly previewUsage: () => Promise<UsageReport | null>;
 }
@@ -77,6 +80,7 @@ export const useWork = create<WorkState>()((set) => ({
   updates: null,
   updateSettings: null,
   usage: null,
+  keywords: null,
 
   loadAgent: async () => {
     try {
@@ -221,6 +225,13 @@ export const useWork = create<WorkState>()((set) => ({
   installUpdate: async () => {
     try {
       await call("updates.install", {});
+    } catch (e) {
+      report(e);
+    }
+  },
+  loadKeywords: async () => {
+    try {
+      set({ keywords: await call("keywords.get", {}) });
     } catch (e) {
       report(e);
     }

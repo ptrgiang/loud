@@ -25,6 +25,8 @@ import { compact, dayLabel, fmt, isNum, parseStamp, relative, short } from "~/li
 import { cn } from "~/lib/utils";
 import { useLoud } from "~/store";
 import { patchView, useViewState } from "~/viewState";
+import { useWork } from "~/workStore";
+import { ListenNow } from "~/components/ListenNow";
 
 /** The table shows the top rows of the current sort; the rest stay a filter away. */
 const MAX_ROWS = 300;
@@ -79,6 +81,7 @@ function KeywordEditor({
         ),
       };
       await call("keywords.set", next);
+      void useWork.getState().loadKeywords();
       setState("saved");
     } catch (e) {
       setState(e instanceof Error ? e.message : String(e));
@@ -88,7 +91,7 @@ function KeywordEditor({
   return (
     <Card
       title="Listening keywords"
-      hint="One per line. They apply from the next collection."
+      hint="One per line. They apply from the next search."
       actions={
         <Button size="xs" variant="ghost-muted" onClick={onClose}>
           Close
@@ -260,13 +263,14 @@ export function ListeningView() {
           <Pencil />
           Edit keywords
         </Button>
+        <ListenNow />
       </PageHeader>
       <ViewBody wide>
         {editing && <KeywordEditor channels={channels} onClose={() => setEditing(false)} />}
         {items.length === 0 ? (
           <Card>
             <div className="py-6 text-center text-muted-foreground text-sm">
-              No listening results yet. Add keywords; they are searched on the next collection.
+              No listening results yet. Add keywords, then Search now.
             </div>
           </Card>
         ) : (
