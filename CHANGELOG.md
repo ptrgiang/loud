@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.1.3 (2026-11-21)
+
+- Updates install silently and reopen Loud; the Windows setup wizard is shown only on the first install. The update into 0.1.3 still shows it once, because the version doing the install decides.
+
 ## 0.1.2 (2026-11-21)
 
 - Listening has its own Search now: a Listening row in Connections and a button on the Listening page search the keywords without collecting the accounts. It names why it is unavailable (no keywords, no connected platform included in runs, paused, or the demo).

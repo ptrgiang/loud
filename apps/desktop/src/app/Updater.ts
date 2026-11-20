@@ -106,7 +106,9 @@ export const layer = Layer.effect(
         return status;
       }),
       install: Effect.sync(() => {
-        if (supported && status.state === "ready") autoUpdater.quitAndInstall();
+        // Silent, then relaunch: the NSIS wizard (oneClick is off for the first install) is for first installs only.
+        // It is the running version that decides this, so the update into this build still shows the wizard once.
+        if (supported && status.state === "ready") autoUpdater.quitAndInstall(true, true);
       }),
       reschedule: Effect.map(settings.get, (s) => arm(s.updates, true)),
     });
