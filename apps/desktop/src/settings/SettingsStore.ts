@@ -26,6 +26,7 @@ export const defaults = (): Settings => ({
   agent: { enabled: false, provider: "claude", model: "", playbook: "" },
   collection: { auto: false, everyHours: 12, keepInTray: false },
   updates: { check: false },
+  usage: { share: null },
 });
 
 /** Trimmed, deduplicated, sorted lists for the known keys only. */
@@ -55,6 +56,7 @@ export const parse = (raw: unknown): Settings => {
     agent: { ...base.agent, ...o.agent },
     collection: { ...base.collection, ...o.collection },
     updates: { ...base.updates, ...o.updates },
+    usage: { ...base.usage, ...o.usage },
   };
   return Option.getOrElse(decode(merged), () => base);
 };

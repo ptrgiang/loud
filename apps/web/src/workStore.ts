@@ -16,6 +16,8 @@ import type {
   StepState,
   UpdateSettings,
   UpdateStatus,
+  UsageReport,
+  UsageStatus,
 } from "@loud/contracts";
 import { create } from "zustand";
 
@@ -34,6 +36,7 @@ interface WorkState {
   readonly budgets: ReadonlyArray<BudgetView>;
   readonly updates: UpdateStatus | null;
   readonly updateSettings: UpdateSettings | null;
+  readonly usage: UsageStatus | null;
 
   readonly loadAgent: () => Promise<void>;
   readonly loadProviders: () => Promise<void>;
@@ -53,6 +56,9 @@ interface WorkState {
   readonly configureUpdates: (update: UpdateSettings) => Promise<void>;
   readonly checkUpdates: () => Promise<void>;
   readonly installUpdate: () => Promise<void>;
+  readonly loadUsage: () => Promise<void>;
+  readonly configureUsage: (share: boolean) => Promise<void>;
+  readonly previewUsage: () => Promise<UsageReport | null>;
 }
 
 /** Errors go to the app's error bar, like every other failed call. */
@@ -70,6 +76,7 @@ export const useWork = create<WorkState>()((set) => ({
   budgets: [],
   updates: null,
   updateSettings: null,
+  usage: null,
 
   loadAgent: async () => {
     try {
@@ -216,6 +223,28 @@ export const useWork = create<WorkState>()((set) => ({
       await call("updates.install", {});
     } catch (e) {
       report(e);
+    }
+  },
+  loadUsage: async () => {
+    try {
+      set({ usage: await call("usage.status", {}) });
+    } catch (e) {
+      report(e);
+    }
+  },
+  configureUsage: async (share) => {
+    try {
+      set({ usage: await call("usage.configure", { share }) });
+    } catch (e) {
+      report(e);
+    }
+  },
+  previewUsage: async () => {
+    try {
+      return await call("usage.preview", {});
+    } catch (e) {
+      report(e);
+      return null;
     }
   },
 }));

@@ -10,6 +10,7 @@ import * as AppProtocol from "./app/AppProtocol.ts";
 import { createTray } from "./app/AppTray.ts";
 import * as EventBus from "./app/EventBus.ts";
 import * as Updater from "./app/Updater.ts";
+import * as Usage from "./app/Usage.ts";
 import { BRAND } from "./brand.ts";
 import * as Builder from "./build/Builder.ts";
 import * as Collector from "./collect/Collector.ts";
@@ -31,7 +32,8 @@ const ServicesLayer = Layer.mergeAll(
   Agent.layer,
   Updater.layer,
 ).pipe(Layer.provideMerge(StoresLayer));
-const MainLayer = Collector.layer.pipe(Layer.provideMerge(ServicesLayer));
+const UsageLayer = Usage.layer.pipe(Layer.provideMerge(ServicesLayer));
+const MainLayer = Collector.layer.pipe(Layer.provideMerge(UsageLayer));
 
 // Dev only: LOUD_SHOT=<file.png> saves the dashboard once it settles, then quits. LOUD_SHOT_JS runs first (to open a
 // view), LOUD_SHOT_WAIT sets the settle time in ms.

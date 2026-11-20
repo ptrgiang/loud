@@ -21,6 +21,7 @@ import * as NodePath from "node:path";
 
 import { AppPaths } from "../app/AppPaths.ts";
 import { EventBus } from "../app/EventBus.ts";
+import { Usage } from "../app/Usage.ts";
 import { Builder } from "../build/Builder.ts";
 import { formatStamp, parseStamp, wallClock } from "../build/time.ts";
 import { DEMO_MARKER, readJson, writeJson } from "../data/files.ts";
@@ -69,6 +70,7 @@ export const layer = Layer.effect(
     const paths = yield* AppPaths;
     const settings = yield* SettingsStore;
     const platforms = yield* Platforms;
+    const usage = yield* Usage;
     const builder = yield* Builder;
     const events = yield* EventBus;
 
@@ -296,6 +298,8 @@ export const layer = Layer.effect(
                   detail: e instanceof Error ? e.message : String(e),
                 }),
               );
+              const ended = status.steps.find((s) => s.step === step);
+              if (ended) usage.record(step, ended.status, ended.detail);
             }
             await Effect.runPromise(builder.build);
             abort = null;

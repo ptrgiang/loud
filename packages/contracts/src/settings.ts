@@ -5,6 +5,7 @@ import { ChannelId } from "./channel.ts";
 import { FbPage } from "./platform.ts";
 import { CollectionSettings } from "./collect.ts";
 import { UpdateSettings } from "./updates.ts";
+import { UsageSettings } from "./usage.ts";
 
 export const PlatformSettings = Schema.Struct({
   enabled: Schema.Boolean,
@@ -33,6 +34,7 @@ export const Settings = Schema.Struct({
   agent: AgentSettings,
   collection: CollectionSettings,
   updates: UpdateSettings,
+  usage: UsageSettings,
 });
 export type Settings = typeof Settings.Type;
 

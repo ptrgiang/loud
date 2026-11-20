@@ -24,6 +24,7 @@ import { deleteDraft, readDrafts, upsertDraft } from "../agent/tools.ts";
 import { AppPaths } from "../app/AppPaths.ts";
 import { EventBus } from "../app/EventBus.ts";
 import { Updater } from "../app/Updater.ts";
+import { Usage } from "../app/Usage.ts";
 import { Builder } from "../build/Builder.ts";
 import { Collector } from "../collect/Collector.ts";
 import { APP_ORIGIN, BRAND } from "../brand.ts";
@@ -57,6 +58,7 @@ export const install = (isMainFrame: (frame: Electron.WebFrameMain | null) => bo
     const agent = yield* Agent;
     const collector = yield* Collector;
     const updater = yield* Updater;
+    const usage = yield* Usage;
 
     // The time zone, start date and enabled platforms shape the hub: rebuild in the background after they change.
     const rebuild = Effect.asVoid(Effect.forkDetach(builder.build));
@@ -205,6 +207,9 @@ export const install = (isMainFrame: (frame: Electron.WebFrameMain | null) => bo
       "updates.status": () => updater.status,
       "updates.check": () => updater.check,
       "updates.install": () => Effect.as(updater.install, {}),
+      "usage.status": () => usage.status,
+      "usage.configure": ({ share }) => usage.configure(share),
+      "usage.preview": () => usage.preview,
     };
 
     const run = async (method: unknown, input: unknown): Promise<IpcResult<unknown>> => {

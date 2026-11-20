@@ -4,6 +4,7 @@ import { useEffect } from "react";
 
 import { AppSidebar } from "~/components/AppSidebar";
 import { Empty } from "~/components/PageHeader";
+import { UsageQuestion } from "~/components/UsageReports";
 import { Button } from "~/components/ui/button";
 import { inDesktop } from "~/lib/loud";
 import { useLoud, type View, wireStore } from "~/store";
@@ -18,6 +19,7 @@ import { PostsView } from "~/views/PostsView";
 import { ProposalsView } from "~/views/ProposalsView";
 import { ScheduleView } from "~/views/ScheduleView";
 import { SettingsView } from "~/views/SettingsView";
+import { useWork } from "~/workStore";
 
 const VIEW: Record<View, () => React.ReactNode> = {
   overview: OverviewView,
@@ -63,6 +65,7 @@ export function App() {
   useEffect(() => {
     wireStore();
     void useLoud.getState().load();
+    if (inDesktop()) void useWork.getState().loadUsage();
     // Settings or a login may have changed while the window was in the background.
     const onFocus = () => void useLoud.getState().load();
     window.addEventListener("focus", onFocus);
@@ -79,7 +82,10 @@ export function App() {
             Start it with pnpm dev from the repository.
           </Empty>
         ) : (
-          <Current view={view} />
+          <>
+            <Current view={view} />
+            <UsageQuestion />
+          </>
         )}
       </main>
     </div>

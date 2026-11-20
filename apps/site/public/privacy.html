@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy and usage reports · Loud</title>
+    <meta
+      name="description"
+      content="What Loud sends if you agree to share usage, what it never sends, how long it is kept, and how to turn it off."
+    />
+    <meta name="theme-color" content="#000000" />
+    <link rel="canonical" href="https://loud.trysometh.ing/privacy" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="nav">
+      <div class="container nav-inner">
+        <a class="brand" href="./" aria-label="Loud home">
+          <img src="icon.svg" alt="" width="28" height="28" />
+          <span>Loud</span>
+        </a>
+        <nav class="nav-links" aria-label="Sections">
+          <a href="./#numbers">In the open</a>
+          <a href="https://github.com/ptrgiang/loud">GitHub</a>
+        </nav>
+        <a class="btn btn-small" href="./#download">Download</a>
+      </div>
+    </header>
+
+    <main class="container prose">
+      <h1>Privacy and usage reports</h1>
+      <p>
+        Loud runs on your computer. Your sessions, posts and numbers stay there, and Loud talks to
+        the platforms you connect. The one thing it can send us is a small usage report, and only if
+        you say yes.
+      </p>
+
+      <h2>The question</h2>
+      <p>
+        The first time you open Loud, it asks whether to share usage. Until you answer, nothing is
+        counted or sent. If you choose Don't share, that is the end of it. You can change your
+        answer any time in Settings, under Usage reports, where Loud also shows the exact report it
+        would send next.
+      </p>
+
+      <h2>What a report contains</h2>
+      <p>One report a day, at most, sent to <code>loud.trysometh.ing/api/usage</code>:</p>
+      <ul>
+        <li>
+          <code>install</code>: a random id made on your computer when you turn sharing on. It is
+          not tied to your accounts, your computer or anything else.
+        </li>
+        <li><code>version</code>, <code>os</code> and <code>arch</code>: which Loud you run.</li>
+        <li>
+          <code>platforms</code>: for Threads, Instagram, Facebook Page and X, whether it is
+          connected and whether it is included in runs.
+        </li>
+        <li>
+          <code>collect</code>: since the last report, how many collection runs on each platform
+          worked, failed, or stopped at a login check, captcha or rate limit.
+        </li>
+        <li>
+          <code>agent</code> and <code>updateChecks</code>: whether those two features are on.
+        </li>
+      </ul>
+      <p>An example, with a made-up id:</p>
+      <pre><code>{
+  "v": 1,
+  "install": "00000000-0000-4000-8000-000000000000",
+  "version": "0.1.1",
+  "os": "win32",
+  "arch": "x64",
+  "platforms": {
+    "threads": { "connected": true, "included": true },
+    "ig": { "connected": false, "included": false },
+    "fb": { "connected": false, "included": false },
+    "x": { "connected": true, "included": true }
+  },
+  "collect": {
+    "threads": { "runs": 2, "done": 2, "failed": 0, "blocked": 0 },
+    "ig": { "runs": 0, "done": 0, "failed": 0, "blocked": 0 },
+    "fb": { "runs": 0, "done": 0, "failed": 0, "blocked": 0 },
+    "x": { "runs": 1, "done": 0, "failed": 0, "blocked": 1 },
+    "listen": { "runs": 0, "done": 0, "failed": 0, "blocked": 0 }
+  },
+  "agent": false,
+  "updateChecks": true
+}</code></pre>
+
+      <h2>What is never sent</h2>
+      <ul>
+        <li>Handles, page names, profile details, posts, or any number from your accounts.</li>
+        <li>Anything you typed: drafts, keywords, settings text, or what the agent said.</li>
+        <li>Error messages, file paths or the name of your computer.</li>
+      </ul>
+      <p>
+        The server refuses any report with a field that is not on the list above, so a change to
+        what Loud sends has to show up here and in the
+        <a href="https://github.com/ptrgiang/loud">source</a> first.
+      </p>
+
+      <h2>How it is kept</h2>
+      <ul>
+        <li>Reports are stored in a Cloudflare D1 database, one row per install id and UTC day.</li>
+        <li>
+          Your IP address reaches Cloudflare, as with any website, but the server does not read or
+          store it, and request logging is off.
+        </li>
+        <li>Rows are deleted after 400 days.</li>
+        <li>
+          Turning sharing off asks the server to delete every report from your install id, then
+          deletes the id and the counts on your computer. Turning it on again makes a new id.
+        </li>
+        <li>
+          Only totals are shown, on the <a href="./#numbers">home page</a>, from
+          <code>loud.trysometh.ing/api/stats</code>. Single reports are never published.
+        </li>
+      </ul>
+
+      <h2>Other requests Loud makes</h2>
+      <ul>
+        <li>The platforms you connect, through their own pages.</li>
+        <li>
+          GitHub Releases, if you turn on update checks: GitHub sees your IP address and Loud's
+          version.
+        </li>
+        <li>
+          The agent, if you turn it on, runs through Claude Code or Codex signed in on your
+          computer, and their own terms apply.
+        </li>
+      </ul>
+
+      <h2>This website</h2>
+      <p>
+        This site sets no cookies and runs no analytics. To show the right download button, your
+        browser asks GitHub for the latest release, so GitHub sees that request.
+      </p>
+
+      <h2>Questions</h2>
+      <p>
+        Ask in
+        <a href="https://github.com/ptrgiang/loud/discussions">GitHub Discussions</a>. Security
+        reports go through
+        <a href="https://github.com/ptrgiang/loud/blob/main/SECURITY.md">SECURITY.md</a>.
+      </p>
+    </main>
+
+    <footer class="footer">
+      <div class="container footer-inner">
+        <p>
+          Loud is a <a href="https://trysometh.ing">Try Something</a> project. Not affiliated with
+          Meta or X.
+        </p>
+        <nav aria-label="Project">
+          <a href="https://github.com/ptrgiang/loud">GitHub</a>
+          <a href="privacy">Privacy</a>
+          <a href="https://github.com/ptrgiang/loud/blob/main/SECURITY.md">Security</a>
+          <a href="https://github.com/ptrgiang/loud/blob/main/LICENSE">MIT License</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>

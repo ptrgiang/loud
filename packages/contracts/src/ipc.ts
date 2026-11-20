@@ -21,6 +21,7 @@ import {
 import { PlatformUpdate, PlatformView } from "./platform.ts";
 import { GeneralUpdate, Keywords } from "./settings.ts";
 import { UpdateSettings, UpdateStatus } from "./updates.ts";
+import { UsageReport, UsageStatus } from "./usage.ts";
 
 const None = Schema.Struct({});
 const ById = Schema.Struct({ id: ChannelId });
@@ -79,6 +80,10 @@ export const IpcMethods = {
   "updates.check": { input: None, output: UpdateStatus },
   /** Quits, installs the downloaded version and starts it again. */
   "updates.install": { input: None, output: Schema.Struct({}) },
+  "usage.status": { input: None, output: UsageStatus },
+  "usage.configure": { input: Schema.Struct({ share: Schema.Boolean }), output: UsageStatus },
+  /** The report that would be sent now, to show before the user decides. */
+  "usage.preview": { input: None, output: UsageReport },
 } as const;
 
 export type IpcMethod = keyof typeof IpcMethods;
@@ -91,5 +96,6 @@ export const IpcEvent = Schema.Union([
   Schema.Struct({ type: Schema.Literal("agent"), state: AgentState }),
   Schema.Struct({ type: Schema.Literal("collect"), status: CollectStatus }),
   Schema.Struct({ type: Schema.Literal("updates"), status: UpdateStatus }),
+  Schema.Struct({ type: Schema.Literal("usage"), status: UsageStatus }),
 ]);
 export type IpcEvent = typeof IpcEvent.Type;

@@ -148,6 +148,7 @@ export function wireStore() {
       if (!event.status.running) void useWork.getState().loadCollect();
     } else if (event.type === "drafts") void useWork.getState().loadDrafts();
     else if (event.type === "updates") useWork.setState({ updates: event.status });
+    else if (event.type === "usage") useWork.setState({ usage: event.status });
     else if (event.type === "data") void load();
     else void loadPlatforms();
   });

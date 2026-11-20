@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { Card } from "~/components/Card";
 import { PageHeader } from "~/components/PageHeader";
 import { StepIcon } from "~/components/StepIcon";
+import { openUsagePage, ReportPreview } from "~/components/UsageReports";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -429,11 +430,59 @@ function UpdatesCard() {
   );
 }
 
+function UsageCard() {
+  const usage = useWork((s) => s.usage);
+  const configure = useWork((s) => s.configureUsage);
+  if (!usage) return null;
+  const line = !usage.available
+    ? usage.reason
+    : usage.share !== true
+      ? "Off. Nothing is counted or sent."
+      : usage.lastSent
+        ? `On. Last report sent ${new Date(usage.lastSent).toLocaleString()}.`
+        : "On. The first report goes out within a minute.";
+
+  return (
+    <Card
+      title="Usage reports"
+      actions={
+        <Button size="sm" variant="outline" onClick={openUsagePage}>
+          What is kept
+        </Button>
+      }
+    >
+      <div className="divide-y">
+        <p className="pb-3 text-muted-foreground text-xs">{line}</p>
+        <Row
+          label="Share usage"
+          hint={
+            <>
+              Once a day, sends {new URL(usage.endpoint).host} your version, OS, which platforms are
+              connected, and how many collection runs worked or failed. Never a handle, a post, a
+              number from your accounts or anything you typed. Turning it off deletes the reports
+              already sent, the install id and the counts.
+            </>
+          }
+        >
+          <Switch
+            checked={usage.share === true}
+            disabled={!usage.available}
+            aria-label="Share usage"
+            onCheckedChange={(share) => void configure(share)}
+          />
+        </Row>
+        <ReportPreview className="pt-3" />
+      </div>
+    </Card>
+  );
+}
+
 export function SettingsView() {
   const loadCollect = useWork((s) => s.loadCollect);
   const loadAgent = useWork((s) => s.loadAgent);
   const loadProviders = useWork((s) => s.loadProviders);
   const loadUpdates = useWork((s) => s.loadUpdates);
+  const loadUsage = useWork((s) => s.loadUsage);
   const ready = useWork((s) => s.collection !== null && s.agentSettings !== null);
 
   useEffect(() => {
@@ -441,7 +490,8 @@ export function SettingsView() {
     void loadAgent();
     void loadProviders();
     void loadUpdates();
-  }, [loadCollect, loadAgent, loadProviders, loadUpdates]);
+    void loadUsage();
+  }, [loadCollect, loadAgent, loadProviders, loadUpdates, loadUsage]);
 
   return (
     <>
@@ -454,6 +504,7 @@ export function SettingsView() {
             <AgentSettingsCard />
             <DataCard />
             <UpdatesCard />
+            <UsageCard />
           </div>
         )}
       </div>

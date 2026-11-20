@@ -1,0 +1,17 @@
+{
+  "name": "@loud/site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@loud/contracts": "workspace:*",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "vite-plus": "catalog:"
+  }
+}

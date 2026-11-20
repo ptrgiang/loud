@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.1.1 (2026-11-21)
+
+- Usage reports, off until you answer: on first launch Loud asks whether to send one small report a day to loud.trysometh.ing (version, OS, connected platforms, and how many collection runs worked, failed or hit a login check). Settings shows the exact report and can turn it off, which asks the server to delete what that install sent. Nothing is sent from source or with the demo data.
+- loud.trysometh.ing: `/api/usage` and `/api/stats` on Cloudflare D1, an "In the open" section with the totals, and a privacy page listing every field.
+
 ## 0.1.0 (2026-11-20)
 
 - Desktop app (Electron) with the dashboard served from `loud://app`.

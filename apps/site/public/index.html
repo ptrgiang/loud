@@ -15,7 +15,7 @@
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://loud.trysometh.ing/" />
-    <meta property="og:title" content="Loud: try something loud." />
+    <meta property="og:title" content="Loud: try something loud" />
     <meta
       property="og:description"
       content="See which of your posts work on Threads, Instagram, Facebook and X, and what to post next. Local first, free and open source."
@@ -35,6 +35,7 @@
         <nav class="nav-links" aria-label="Sections">
           <a href="#how">How it works</a>
           <a href="#accounts">Your accounts</a>
+          <a href="#numbers">In the open</a>
           <a href="https://github.com/ptrgiang/loud">GitHub</a>
         </nav>
         <a class="btn btn-small" href="#download">Download</a>
@@ -175,8 +176,8 @@
             <div>
               <h3>No account with us</h3>
               <p>
-                There is no Loud server and nothing to sign up for. Update checks are off until you
-                turn them on.
+                Nothing to sign up for. Loud asks once whether to send a small daily usage report,
+                and sends nothing unless you say yes. <a href="privacy">What it contains</a>.
               </p>
             </div>
             <div>
@@ -187,6 +188,54 @@
               </p>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section id="numbers" class="section">
+        <div class="container">
+          <h2 class="section-title">In the open</h2>
+          <p class="section-lede">
+            How many people use Loud, and whether collecting still works on each platform. Counted
+            only from installs that chose to share usage, so the real numbers are higher. Updated
+            every hour. <a href="privacy">Exactly what is counted</a>.
+          </p>
+          <div class="stats" data-stats>
+            <div class="stat">
+              <div class="stat-value" data-stat="days7">–</div>
+              <div class="stat-label">Installs active in the last 7 days</div>
+            </div>
+            <div class="stat">
+              <div class="stat-value" data-stat="days30">–</div>
+              <div class="stat-label">Installs active in the last 30 days</div>
+            </div>
+            <div class="stat">
+              <div class="stat-value" data-stat="installers">–</div>
+              <div class="stat-label">Installer downloads, including updates on Windows</div>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="table">
+              <caption>
+                Collection in the last 30 days, from installs that share usage
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Platform</th>
+                  <th scope="col">Installs connected</th>
+                  <th scope="col">Runs</th>
+                  <th scope="col">Worked</th>
+                  <th scope="col">Stopped at a login check or limit</th>
+                  <th scope="col">Failed</th>
+                </tr>
+              </thead>
+              <tbody data-collect>
+                <tr>
+                  <td colspan="6" class="muted">No numbers yet.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="fine" data-stats-note></p>
         </div>
       </section>
 
@@ -221,6 +270,7 @@
         </p>
         <nav aria-label="Project">
           <a href="https://github.com/ptrgiang/loud">GitHub</a>
+          <a href="privacy">Privacy</a>
           <a href="https://github.com/ptrgiang/loud/blob/main/SECURITY.md">Security</a>
           <a href="https://github.com/ptrgiang/loud/blob/main/TRADEMARK.md">Trademark</a>
           <a href="https://github.com/ptrgiang/loud/blob/main/LICENSE">MIT License</a>

@@ -7,3 +7,4 @@ export * from "./ipc.ts";
 export * from "./platform.ts";
 export * from "./settings.ts";
 export * from "./updates.ts";
+export * from "./usage.ts";
