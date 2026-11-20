@@ -283,17 +283,20 @@ function AgentSettingsCard() {
               key={p.id}
               p={p}
               selected={p.id === settings.provider}
-              onSelect={() => void configure({ provider: p.id, model: "" })}
+              onSelect={() => void configure({ provider: p.id, model: "", effort: "" })}
             />
           ))}
         </div>
         {current && current.models.length > 1 && (
-          <Row label="Model">
+          <Row
+            label="Model"
+            hint="The default for new chats. Each chat can switch it in the composer."
+          >
             <select
               className="h-8 rounded-md border border-input bg-background px-2 text-sm"
               value={settings.model}
               aria-label="Model"
-              onChange={(e) => void configure({ model: e.target.value })}
+              onChange={(e) => void configure({ model: e.target.value, effort: "" })}
             >
               {current.models.map((m) => (
                 <option key={m.id} value={m.id}>

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.4 (2026-11-21)
+
+- Agent chats are saved: a history list beside the conversation, New chat keeps the old one, and each chat can be reopened or deleted. The single conversation of earlier versions becomes the first saved chat.
+- The composer picks the CLI, model and reasoning effort, with the model lists read from Claude Code and Codex themselves. A chat keeps the CLI it started on; the choice is the default for new chats.
+- Attach images and text files (button, paste or drop): images go to the model as images, text files are pasted into the message. They are kept with the chat in the profile.
+- Plan usage in the composer, like T3 Code: the 5-hour and weekly limits of the signed-in Claude Code and Codex accounts, with reset times. Checking sends no message.
+
 ## 0.1.3 (2026-11-21)
 
 - Updates install silently and reopen Loud; the Windows setup wizard is shown only on the first install. The update into 0.1.3 still shows it once, because the version doing the install decides.

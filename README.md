@@ -52,7 +52,9 @@ LOUD_HOME=/tmp/loud-home LOUD_DEMO=1 pnpm dev
 
 ### The agent
 
-Install and sign in to Claude Code or Codex the usual way; Loud finds it on your `PATH`. Then turn the agent on in Settings and pick the provider and model. Loud stores no model key. What the agent reads (posts, numbers, drafts, listening results) and what you type is sent to that provider.
+Install and sign in to Claude Code or Codex the usual way; Loud finds it on your `PATH`. Then turn the agent on in Settings. Loud stores no model key. What the agent reads (posts, numbers, drafts, listening results), what you type and the files you attach are sent to that provider.
+
+Chats are saved in the profile and listed beside the conversation. The composer picks the CLI, model and reasoning effort (a chat keeps the CLI it started on), takes images and text files, and shows the plan limits of the signed-in account as each CLI reports them.
 
 | Variable         | What it does                                                                                                                       |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------- |

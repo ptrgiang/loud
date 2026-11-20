@@ -1,6 +1,12 @@
 // The agent runs through a CLI the user already signed in to. Claude Code goes through the Agent SDK; Codex through
 // `codex exec --json`. Either way the only tools it gets are Loud's, over the stdio MCP server.
-import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import {
+  type EffortLevel,
+  query,
+  type SDKMessage,
+  type SDKRateLimitInfo,
+  type SDKUserMessage,
+} from "@anthropic-ai/claude-agent-sdk";
 import { AGENT_VENDORS, type AgentModel, type AgentProviderId } from "@loud/contracts";
 import * as NodeChild from "node:child_process";
 import * as NodeFS from "node:fs";
@@ -20,6 +26,10 @@ export interface Turn {
   readonly prompt: string;
   readonly system: string;
   readonly model: string;
+  /** Empty: the model's default. */
+  readonly effort: string;
+  /** Saved on disk; Claude gets the bytes, Codex the path. */
+  readonly images: ReadonlyArray<{ readonly path: string; readonly mime: string }>;
   /** The CLI's session id from the previous turn of this conversation. */
   readonly resume: string | null;
   readonly cwd: string;
@@ -27,6 +37,7 @@ export interface Turn {
   readonly signal: AbortSignal;
   readonly onText: (delta: string) => void;
   readonly onTool: (name: string) => void;
+  readonly onRateLimit: (info: SDKRateLimitInfo) => void;
 }
 
 export interface TurnResult {
@@ -84,18 +95,46 @@ export function versionOf(exe: string): string | null {
 
 const claude: Provider = {
   id: "claude",
+  // Until Claude Code lists its own (see usage.ts), these aliases stand in.
   models: [
-    { id: "", label: "Claude Code default" },
-    { id: "claude-opus-5-5", label: "Claude Opus 5.5" },
-    { id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5" },
-    { id: "claude-haiku-5-5", label: "Claude Haiku 5.5" },
+    { id: "", label: "Claude Code default", efforts: [], images: true },
+    { id: "opus", label: "Opus", efforts: [], images: true },
+    { id: "sonnet", label: "Sonnet", efforts: [], images: true },
+    { id: "haiku", label: "Haiku", efforts: [], images: true },
   ],
   locate: () => findOnPath("claude", [NodePath.join(home, ".local", "bin")]),
   run: async (exe, turn) => {
     const abort = new AbortController();
     turn.signal.addEventListener("abort", () => abort.abort(), { once: true });
+    // Images need the streaming input form; it stays open until the result so the CLI does not see the end of input
+    // before it has answered.
+    let answered: () => void = () => undefined;
+    const done = new Promise<void>((resolve) => (answered = resolve));
+    const message: SDKUserMessage = {
+      type: "user",
+      parent_tool_use_id: null,
+      message: {
+        role: "user",
+        content: [
+          ...turn.images.map((i) => ({
+            type: "image" as const,
+            source: {
+              type: "base64" as const,
+              media_type: i.mime as "image/png",
+              data: NodeFS.readFileSync(i.path).toString("base64"),
+            },
+          })),
+          { type: "text" as const, text: turn.prompt },
+        ],
+      },
+    };
     const q = query({
-      prompt: turn.prompt,
+      prompt: turn.images.length
+        ? (async function* () {
+            yield message;
+            await done;
+          })()
+        : turn.prompt,
       options: {
         pathToClaudeCodeExecutable: exe,
         systemPrompt: turn.system,
@@ -119,6 +158,7 @@ const claude: Provider = {
         cwd: turn.cwd,
         abortController: abort,
         ...(turn.model ? { model: turn.model } : {}),
+        ...(turn.effort ? { effort: turn.effort as EffortLevel } : {}),
         ...(turn.resume ? { resume: turn.resume } : {}),
         env: {
           ...process.env,
@@ -150,7 +190,10 @@ const claude: Provider = {
           for (const b of m.message.content)
             if (b.type === "tool_use") turn.onTool(toolName(b.name));
           if (m.error) error = m.error.replaceAll("_", " ");
+        } else if (m.type === "rate_limit_event") {
+          turn.onRateLimit(m.rate_limit_info);
         } else if (m.type === "result") {
+          answered();
           costUsd = m.total_cost_usd;
           if (m.subtype !== "success") error = m.subtype.replaceAll("_", " ");
           else if (m.is_error) error = m.result || "the agent stopped with an error";
@@ -158,6 +201,8 @@ const claude: Provider = {
       }
     } catch (e) {
       if (!turn.signal.aborted) error = e instanceof Error ? e.message : String(e);
+    } finally {
+      answered();
     }
     return { session, costUsd, ...(error ? { error } : {}) };
   },
@@ -192,7 +237,7 @@ export function codexBinary(found: string | null): string | null {
 
 const codex: Provider = {
   id: "codex",
-  models: [{ id: "", label: "Codex default" }],
+  models: [{ id: "", label: "Codex default", efforts: [], images: true }],
   locate: () => codexBinary(findOnPath("codex")),
   run: (exe, turn) =>
     new Promise<TurnResult>((resolve) => {
@@ -231,6 +276,8 @@ const codex: Provider = {
         `approval_policy=${tomlLiteral("never")}`,
         ...(turn.resume ? [] : ["-s", "read-only", "-C", turn.cwd]),
         ...(turn.model ? ["-m", turn.model] : []),
+        ...(turn.effort ? ["-c", `model_reasoning_effort=${tomlLiteral(turn.effort)}`] : []),
+        ...turn.images.flatMap((i) => ["-i", i.path]),
         // The prompt goes on stdin: it can be long and hold anything.
         "-",
       ];

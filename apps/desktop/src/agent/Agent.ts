@@ -1,11 +1,20 @@
-// The in-app agent: one conversation at a time, run through the provider the user picked. Off by default; while off,
-// nothing is sent anywhere.
+// The in-app agent: saved chats, each run through the CLI it was started with. Off by default; while off, nothing is
+// sent anywhere and no agent process is started.
 import {
+  AGENT_LIMITS,
+  AGENT_PROVIDER_IDS,
   AGENT_VENDORS,
+  type AgentAttachment,
+  type AgentChatSummary,
   type AgentMessage,
+  type AgentModel,
+  type AgentProviderId,
   type AgentProviderView,
+  type AgentSelect,
   type AgentSettings,
   type AgentState,
+  type AgentUpload,
+  type AgentUsage,
   CHANNEL_IDS,
   CHANNEL_NAMES,
   type ChannelId,
@@ -20,16 +29,40 @@ import { AppPaths } from "../app/AppPaths.ts";
 import { EventBus } from "../app/EventBus.ts";
 import { DEMO_MARKER, type DemoMarker, readJson, writeJson } from "../data/files.ts";
 import { SettingsStore } from "../settings/SettingsStore.ts";
+import {
+  type ChatStore,
+  chatStore,
+  classify,
+  newId,
+  type SavedChat,
+  titleOf,
+  withTextFiles,
+} from "./chats.ts";
 import type { ServerContext } from "./mcp.ts";
 import { type McpLaunch, PROVIDERS, versionOf } from "./providers.ts";
 import { stampNow, TOOLS } from "./tools.ts";
+import { applyClaudeEvent, probeClaude, probeCodex, unavailable } from "./usage.ts";
 
 export interface AgentShape {
   readonly providers: Effect.Effect<ReadonlyArray<AgentProviderView>>;
   readonly state: Effect.Effect<AgentState>;
-  readonly send: (text: string) => Effect.Effect<AgentState, Error>;
+  readonly send: (
+    text: string,
+    files: ReadonlyArray<AgentUpload>,
+  ) => Effect.Effect<AgentState, Error>;
   readonly cancel: Effect.Effect<AgentState>;
-  readonly reset: Effect.Effect<AgentState>;
+  /** A new, empty chat; the open one stays in the history. */
+  readonly reset: Effect.Effect<AgentState, Error>;
+  readonly select: (input: AgentSelect) => Effect.Effect<AgentState, Error>;
+  readonly chats: Effect.Effect<ReadonlyArray<AgentChatSummary>>;
+  readonly open: (id: string) => Effect.Effect<AgentState, Error>;
+  readonly remove: (id: string) => Effect.Effect<AgentState, Error>;
+  readonly attachment: (
+    chatId: string,
+    id: string,
+  ) => Effect.Effect<{ mime: string; data: string }, Error>;
+  /** Cached plan limits; refresh asks the CLIs again (at most once a minute). */
+  readonly usage: (refresh: boolean) => Effect.Effect<ReadonlyArray<AgentUsage>>;
 }
 
 export class Agent extends Context.Service<Agent, AgentShape>()("@loud/desktop/agent/Agent") {}
@@ -68,14 +101,11 @@ ${input.playbook.trim() || "(no playbook yet)"}
 }
 
 const PUBLISH_EVERY_MS = 120;
+/** An answer about plan limits is reused this long before the CLIs are asked again. */
+const USAGE_FRESH_MS = 5 * 60_000;
+const USAGE_MIN_MS = 60_000;
 
-/** The conversation, kept in the profile so it survives a restart and can be resumed. */
-interface SavedChat {
-  readonly messages: Array<AgentMessage>;
-  readonly session: string | null;
-  readonly sessionProvider: AgentSettings["provider"] | null;
-  readonly costUsd: number | null;
-}
+const fail = (message: string) => Effect.fail(new Error(message));
 
 export const layer = Layer.effect(
   Agent,
@@ -83,19 +113,32 @@ export const layer = Layer.effect(
     const paths = yield* AppPaths;
     const settings = yield* SettingsStore;
     const events = yield* EventBus;
+    const store: ChatStore = chatStore(paths.home);
+    store.migrate(
+      NodePath.join(paths.home, "agent-chat.json"),
+      (yield* settings.get).agent.provider,
+    );
 
-    const chatFile = NodePath.join(paths.home, "agent-chat.json");
-    const saved = readJson<SavedChat>(chatFile);
-    let messages: Array<AgentMessage> = Array.isArray(saved?.messages) ? saved.messages : [];
-    let session: string | null = saved?.session ?? null;
-    let sessionProvider: AgentSettings["provider"] | null = saved?.sessionProvider ?? null;
-    let costUsd: number | null = saved?.costUsd ?? null;
-    const save = () =>
-      writeJson(chatFile, { messages, session, sessionProvider, costUsd } satisfies SavedChat);
-    let running: AbortController | null = null;
-    let provider: AgentSettings["provider"] = (yield* settings.get).agent.provider;
+    const prefs = () => Effect.runSync(settings.get).agent;
+    // The open chat. Null is a new one: until its first message, its provider and model are the defaults in settings.
+    let chat: SavedChat | null = (() => {
+      const latest = store.list()[0];
+      return latest ? store.read(latest.id) : null;
+    })();
+    let running: { readonly abort: AbortController; readonly chatId: string } | null = null;
 
-    const snapshot = (): AgentState => ({ busy: running !== null, provider, messages, costUsd });
+    const snapshot = (): AgentState => {
+      const p = prefs();
+      return {
+        busy: running !== null,
+        chatId: chat?.id ?? null,
+        provider: chat?.provider ?? p.provider,
+        model: chat?.model ?? p.model,
+        effort: chat?.effort ?? p.effort,
+        messages: [...(chat?.messages ?? [])],
+        costUsd: chat?.costUsd ?? null,
+      };
+    };
 
     let timer: NodeJS.Timeout | undefined;
     const publishNow = () => {
@@ -105,6 +148,17 @@ export const layer = Layer.effect(
     };
     const publishSoon = () => {
       timer ??= setTimeout(publishNow, PUBLISH_EVERY_MS);
+    };
+    const publishChats = () =>
+      Effect.runFork(events.publish({ type: "agentChats", chats: store.list() }));
+
+    /** Changes a saved chat, open or not, keeping the open copy in step. Streaming updates skip the disk. */
+    const updateChat = (id: string, f: (c: SavedChat) => SavedChat, persist = true) => {
+      const base = chat?.id === id ? chat : store.read(id);
+      if (!base) return;
+      const next = f(base);
+      if (chat?.id === id) chat = next;
+      if (persist) store.write(next);
     };
 
     const isDemo = () =>
@@ -138,6 +192,52 @@ export const layer = Layer.effect(
       };
     };
 
+    // ---- What each CLI offers: its models and the account's plan limits ----
+
+    const models: Partial<Record<AgentProviderId, ReadonlyArray<AgentModel>>> = {};
+    let usage: Record<AgentProviderId, AgentUsage> = {
+      claude: unavailable("claude", "Not checked yet."),
+      codex: unavailable("codex", "Not checked yet."),
+    };
+    let checked = 0;
+    let checking: Promise<void> | null = null;
+    const publishUsage = () =>
+      Effect.runFork(events.publish({ type: "agentUsage", usage: Object.values(usage) }));
+
+    const checkUsage = () =>
+      (checking ??= (async () => {
+        try {
+          await Promise.all(
+            AGENT_PROVIDER_IDS.map(async (id) => {
+              const exe = PROVIDERS[id].locate();
+              if (!exe) {
+                usage = {
+                  ...usage,
+                  [id]: unavailable(
+                    id,
+                    `${AGENT_VENDORS[id].name} is not installed or not on PATH.`,
+                    new Date().toISOString(),
+                  ),
+                };
+                return;
+              }
+              const probe = await (id === "claude" ? probeClaude(exe) : probeCodex(exe));
+              usage = { ...usage, [id]: probe.usage };
+              if (probe.models) models[id] = probe.models;
+            }),
+          );
+          checked = Date.now();
+          publishUsage();
+        } finally {
+          checking = null;
+        }
+      })());
+
+    // Only once the agent is on: before that, Loud starts no agent CLI at all.
+    if (prefs().enabled) setTimeout(() => void checkUsage(), 3000).unref();
+
+    const modelsOf = (id: AgentProviderId) => models[id] ?? PROVIDERS[id].models;
+
     const providerViews = Effect.sync((): ReadonlyArray<AgentProviderView> =>
       Object.values(PROVIDERS).map((p) => {
         const exe = p.locate();
@@ -152,20 +252,24 @@ export const layer = Layer.effect(
               ? exe
               : `${exe} did not answer --version`
             : `${AGENT_VENDORS[p.id].name} is not installed or not on PATH`,
-          models: p.models,
+          models: modelsOf(p.id),
         };
       }),
     );
 
+    // ---- A turn ----
+
     const runTurn = (
-      text: string,
-      s: AgentSettings,
+      chatId: string,
+      prompt: string,
+      images: ReadonlyArray<{ path: string; mime: string }>,
       system: string,
       mcp: McpLaunch,
       abort: AbortController,
     ) =>
       Effect.promise(async () => {
-        const p = PROVIDERS[s.provider];
+        const c = (chat?.id === chatId ? chat : store.read(chatId))!;
+        const p = PROVIDERS[c.provider];
         const exe = p.locate();
         const reply: AgentMessage = {
           id: `a${Date.now().toString(36)}`,
@@ -174,9 +278,16 @@ export const layer = Layer.effect(
           tools: [],
           at: stampNow(new Date()),
         };
-        messages = [...messages, reply];
+        updateChat(chatId, (x) => ({ ...x, messages: [...x.messages, reply] }), false);
         const update = (patch: Partial<AgentMessage>) => {
-          messages = messages.map((m) => (m.id === reply.id ? { ...m, ...patch } : m));
+          updateChat(
+            chatId,
+            (x) => ({
+              ...x,
+              messages: x.messages.map((m) => (m.id === reply.id ? { ...m, ...patch } : m)),
+            }),
+            false,
+          );
           publishSoon();
         };
         let wroteData = false;
@@ -184,12 +295,14 @@ export const layer = Layer.effect(
         const tools: Array<string> = [];
         try {
           if (!exe)
-            throw new Error(`${AGENT_VENDORS[s.provider].name} is not installed or not on PATH`);
+            throw new Error(`${AGENT_VENDORS[c.provider].name} is not installed or not on PATH`);
           const result = await p.run(exe, {
-            prompt: text,
+            prompt,
             system,
-            model: s.model,
-            resume: sessionProvider === s.provider ? session : null,
+            model: c.model,
+            effort: c.effort,
+            images,
+            resume: c.session,
             cwd: paths.data,
             mcp,
             signal: abort.signal,
@@ -202,41 +315,110 @@ export const layer = Layer.effect(
               if (TOOLS.find((t) => t.name === name)?.writes) wroteData = true;
               update({ tools: [...tools] });
             },
+            onRateLimit: (info) => {
+              usage = { ...usage, claude: applyClaudeEvent(usage.claude, info) };
+              publishUsage();
+            },
           });
-          session = result.session;
-          sessionProvider = s.provider;
-          if (result.costUsd !== null) costUsd = (costUsd ?? 0) + result.costUsd;
+          updateChat(
+            chatId,
+            (x) => ({
+              ...x,
+              session: result.session,
+              costUsd: result.costUsd !== null ? (x.costUsd ?? 0) + result.costUsd : x.costUsd,
+            }),
+            false,
+          );
           if (result.error) update({ error: result.error });
           else if (abort.signal.aborted) update({ error: "stopped" });
         } catch (e) {
           update({ error: e instanceof Error ? e.message : String(e) });
         } finally {
           running = null;
-          save();
+          updateChat(chatId, (x) => ({ ...x, updated: new Date().toISOString() }));
           publishNow();
+          publishChats();
           // Proposals reload through the data folder watcher; drafts have their own notice.
           if (wroteData) Effect.runFork(events.publish({ type: "drafts" }));
+          // The turn used some of the plan, and Codex reports it only when asked.
+          if (c.provider === "codex") void checkUsage();
         }
       });
+
+    /** Decodes and checks the composer's files before anything is saved. */
+    const readUploads = (files: ReadonlyArray<AgentUpload>, model: AgentModel | undefined) => {
+      if (files.length > AGENT_LIMITS.files)
+        return { error: `Attach at most ${AGENT_LIMITS.files} files.` } as const;
+      const out: Array<{ upload: AgentUpload; bytes: Buffer; kind: AgentAttachment["kind"] }> = [];
+      for (const f of files) {
+        const bytes = Buffer.from(f.data, "base64");
+        const c = classify(f, bytes.length);
+        if ("error" in c) return { error: c.error } as const;
+        if (c.kind === "image" && model && !model.images)
+          return { error: `${model.label} does not take images.` } as const;
+        out.push({ upload: f, bytes, kind: c.kind });
+      }
+      return { files: out } as const;
+    };
+
+    const idle = (what: string) =>
+      running ? fail(`The agent is still answering; stop it before you ${what}.`) : Effect.void;
 
     return Agent.of({
       providers: providerViews,
       state: Effect.sync(snapshot),
-      send: (raw) =>
+      chats: Effect.sync(() => store.list()),
+      send: (raw, files) =>
         Effect.gen(function* () {
           const text = raw.trim();
           const s = yield* settings.get;
           if (!s.agent.enabled)
-            return yield* Effect.fail(new Error("The agent is off. Turn it on in Settings first."));
-          if (running) return yield* Effect.fail(new Error("The agent is still answering."));
-          if (!text) return snapshot();
-          provider = s.agent.provider;
+            return yield* fail("The agent is off. Turn it on in Settings first.");
+          if (running) return yield* fail("The agent is still answering.");
+          if (!text && !files.length) return snapshot();
+          const now = new Date();
+          const provider = chat?.provider ?? s.agent.provider;
+          const model = chat?.model ?? s.agent.model;
+          const read = readUploads(
+            files,
+            modelsOf(provider).find((m) => m.id === model),
+          );
+          if ("error" in read) return yield* fail(read.error);
+
+          const open: SavedChat = chat ?? {
+            id: newId(),
+            title: titleOf(text || read.files[0]?.upload.name || ""),
+            provider,
+            model,
+            effort: s.agent.effort,
+            created: now.toISOString(),
+            updated: now.toISOString(),
+            messages: [],
+            session: null,
+            costUsd: null,
+          };
+          const attachments: Array<AgentAttachment> = [];
+          const images: Array<{ path: string; mime: string }> = [];
+          const texts: Array<{ name: string; content: string }> = [];
+          for (const f of read.files) {
+            const a: AgentAttachment = {
+              id: newId(),
+              name: f.upload.name.slice(0, 120),
+              mime: f.upload.mime,
+              size: f.bytes.length,
+              kind: f.kind,
+            };
+            attachments.push(a);
+            const path = store.saveFile(open.id, a, f.bytes);
+            if (f.kind === "image") images.push({ path, mime: a.mime });
+            else texts.push({ name: a.name, content: f.bytes.toString("utf8") });
+          }
+
           const demo = isDemo();
           const enabled = demo
             ? [...CHANNEL_IDS]
             : CHANNEL_IDS.filter((id) => s.platforms[id].enabled);
           const hub = readJson<Hub>(NodePath.join(paths.data, "hub.json"));
-          const now = new Date();
           const system = systemPrompt({
             today: now.toLocaleDateString("en-US", {
               weekday: "long",
@@ -255,38 +437,88 @@ export const layer = Layer.effect(
             demo,
           });
           const mcp = launch(s.agent, enabled, s.keywords);
-          messages = [
-            ...messages,
-            {
-              id: `u${now.getTime().toString(36)}`,
-              role: "user",
-              text,
-              tools: [],
-              at: stampNow(now),
-            },
-          ];
+          const message: AgentMessage = {
+            id: `u${now.getTime().toString(36)}`,
+            role: "user",
+            text,
+            tools: [],
+            at: stampNow(now),
+            ...(attachments.length ? { attachments } : {}),
+          };
+          chat = { ...open, messages: [...open.messages, message], updated: now.toISOString() };
+          store.write(chat);
           const abort = new AbortController();
-          running = abort;
+          running = { abort, chatId: chat.id };
           publishNow();
-          yield* Effect.forkDetach(runTurn(text, s.agent, system, mcp, abort));
+          publishChats();
+          const prompt = withTextFiles(text || "See the attached files.", texts);
+          yield* Effect.forkDetach(runTurn(chat.id, prompt, images, system, mcp, abort));
           return snapshot();
         }),
       cancel: Effect.sync(() => {
-        running?.abort();
+        running?.abort.abort();
         return snapshot();
       }),
       reset: Effect.gen(function* () {
-        running?.abort();
-        running = null;
-        messages = [];
-        session = null;
-        sessionProvider = null;
-        costUsd = null;
-        provider = (yield* settings.get).agent.provider;
-        save();
+        yield* idle("start a new chat");
+        chat = null;
         publishNow();
         return snapshot();
       }),
+      open: (id) =>
+        Effect.gen(function* () {
+          yield* idle("open another chat");
+          const c = store.read(id);
+          if (!c) return yield* fail("That chat is gone.");
+          chat = c;
+          publishNow();
+          return snapshot();
+        }),
+      remove: (id) =>
+        Effect.gen(function* () {
+          if (running?.chatId === id)
+            return yield* fail("Stop the agent before you delete this chat.");
+          store.remove(id);
+          if (chat?.id === id) chat = null;
+          publishNow();
+          publishChats();
+          return snapshot();
+        }),
+      select: (input) =>
+        Effect.gen(function* () {
+          yield* idle("change the model");
+          const current = snapshot();
+          const provider = input.provider ?? current.provider;
+          if (chat?.messages.length && provider !== chat.provider)
+            return yield* fail(
+              `This chat runs on ${AGENT_VENDORS[chat.provider].name}. Start a new chat to use ${AGENT_VENDORS[provider].name}.`,
+            );
+          const switched = provider !== current.provider;
+          const model = input.model ?? (switched ? "" : current.model);
+          const efforts = modelsOf(provider).find((m) => m.id === model)?.efforts ?? [];
+          const wanted = input.effort ?? (switched ? "" : current.effort);
+          const effort = efforts.includes(wanted) ? wanted : "";
+          // The choice is also the default for the next new chat.
+          yield* settings.update((s) => ({ ...s, agent: { ...s.agent, provider, model, effort } }));
+          if (chat) updateChat(chat.id, (c) => ({ ...c, provider, model, effort }));
+          publishNow();
+          return snapshot();
+        }),
+      attachment: (chatId, id) =>
+        Effect.gen(function* () {
+          const c = store.read(chatId);
+          const a = c?.messages.flatMap((m) => m.attachments ?? []).find((x) => x.id === id);
+          const bytes = a ? store.readFile(chatId, id) : null;
+          if (!a || !bytes) return yield* fail("That attachment is gone.");
+          return { mime: a.mime, data: bytes.toString("base64") };
+        }),
+      usage: (refresh) =>
+        Effect.promise(async () => {
+          const age = Date.now() - checked;
+          if (checked === 0 || (refresh && age > USAGE_MIN_MS)) await checkUsage();
+          else if (age > USAGE_FRESH_MS) void checkUsage();
+          return Object.values(usage);
+        }),
     });
   }),
 );

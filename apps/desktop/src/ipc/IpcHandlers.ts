@@ -179,9 +179,15 @@ export const install = (isMainFrame: (frame: Electron.WebFrameMain | null) => bo
           (s) => s.agent,
         ),
       "agent.state": () => agent.state,
-      "agent.send": ({ text }) => Effect.orDie(agent.send(text)),
+      "agent.send": ({ text, files }) => Effect.orDie(agent.send(text, files)),
       "agent.cancel": () => agent.cancel,
-      "agent.reset": () => agent.reset,
+      "agent.reset": () => Effect.orDie(agent.reset),
+      "agent.select": (input) => Effect.orDie(agent.select(input)),
+      "agent.chats": () => agent.chats,
+      "agent.open": ({ id }) => Effect.orDie(agent.open(id)),
+      "agent.delete": ({ id }) => Effect.orDie(agent.remove(id)),
+      "agent.attachment": ({ chatId, id }) => Effect.orDie(agent.attachment(chatId, id)),
+      "agent.usage": ({ refresh }) => agent.usage(refresh),
       "drafts.list": () => Effect.sync(() => readDrafts(paths.data)),
       "drafts.save": (input) =>
         Effect.sync(() =>

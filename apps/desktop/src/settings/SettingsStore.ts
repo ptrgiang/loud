@@ -23,7 +23,7 @@ export const defaults = (): Settings => ({
     CHANNEL_IDS.map((id) => [id, { enabled: false, handle: "" } satisfies PlatformSettings]),
   ) as Settings["platforms"],
   keywords: Object.fromEntries(Object.values(LISTEN_KEYS).map((k) => [k, []])),
-  agent: { enabled: false, provider: "claude", model: "", playbook: "" },
+  agent: { enabled: false, provider: "claude", model: "", effort: "", playbook: "" },
   collection: { auto: false, everyHours: 12, keepInTray: false },
   updates: { check: false },
   usage: { share: null },

@@ -9,6 +9,10 @@ import {
   AgentState,
   Draft,
   DraftInput,
+  AgentChatSummary,
+  AgentSelect,
+  AgentUpload,
+  AgentUsage,
 } from "./agent.ts";
 import { ChannelId } from "./channel.ts";
 import {
@@ -68,9 +72,27 @@ export const IpcMethods = {
   "agent.settings": { input: None, output: AgentSettings },
   "agent.configure": { input: AgentSettingsUpdate, output: AgentSettings },
   "agent.state": { input: None, output: AgentState },
-  "agent.send": { input: Schema.Struct({ text: Schema.String }), output: AgentState },
+  "agent.send": {
+    input: Schema.Struct({ text: Schema.String, files: Schema.Array(AgentUpload) }),
+    output: AgentState,
+  },
   "agent.cancel": { input: None, output: AgentState },
+  /** Starts a new chat; the open one stays in the history. */
   "agent.reset": { input: None, output: AgentState },
+  "agent.select": { input: AgentSelect, output: AgentState },
+  "agent.chats": { input: None, output: Schema.Array(AgentChatSummary) },
+  "agent.open": { input: Schema.Struct({ id: Schema.String }), output: AgentState },
+  "agent.delete": { input: Schema.Struct({ id: Schema.String }), output: AgentState },
+  /** An attachment of a saved message, as base64, to show it again. */
+  "agent.attachment": {
+    input: Schema.Struct({ chatId: Schema.String, id: Schema.String }),
+    output: Schema.Struct({ mime: Schema.String, data: Schema.String }),
+  },
+  /** Plan limits of each CLI's signed-in account; refresh asks the CLIs again. */
+  "agent.usage": {
+    input: Schema.Struct({ refresh: Schema.Boolean }),
+    output: Schema.Array(AgentUsage),
+  },
   "drafts.list": { input: None, output: Schema.Array(Draft) },
   "drafts.save": { input: DraftInput, output: Draft },
   "drafts.delete": { input: Schema.Struct({ id: Schema.String }), output: Schema.Struct({}) },
@@ -94,6 +116,8 @@ export type IpcOutput<M extends IpcMethod> = (typeof IpcMethods)[M]["output"]["T
 export const IpcEvent = Schema.Union([
   Schema.Struct({ type: Schema.Literals(["platforms", "data", "settings", "drafts"]) }),
   Schema.Struct({ type: Schema.Literal("agent"), state: AgentState }),
+  Schema.Struct({ type: Schema.Literal("agentChats"), chats: Schema.Array(AgentChatSummary) }),
+  Schema.Struct({ type: Schema.Literal("agentUsage"), usage: Schema.Array(AgentUsage) }),
   Schema.Struct({ type: Schema.Literal("collect"), status: CollectStatus }),
   Schema.Struct({ type: Schema.Literal("updates"), status: UpdateStatus }),
   Schema.Struct({ type: Schema.Literal("usage"), status: UsageStatus }),

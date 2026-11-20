@@ -143,7 +143,12 @@ export function wireStore() {
   onEvent((event) => {
     const { load, loadPlatforms } = useLoud.getState();
     if (event.type === "agent") useWork.setState({ agent: event.state });
-    else if (event.type === "collect") {
+    else if (event.type === "agentChats") useWork.setState({ chats: event.chats });
+    else if (event.type === "agentUsage") {
+      useWork.setState({ agentUsage: event.usage });
+      // A check also lists each CLI's current models.
+      void useWork.getState().loadProviders();
+    } else if (event.type === "collect") {
       setCollect(event.status);
       if (!event.status.running) void useWork.getState().loadCollect();
     } else if (event.type === "drafts") void useWork.getState().loadDrafts();

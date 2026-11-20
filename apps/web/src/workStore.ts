@@ -1,10 +1,14 @@
 // State for the work surfaces: the agent conversation, drafts and collection. Kept apart from the data store because
 // it changes on its own events (streamed agent text, collection progress) far more often than the data does.
 import type {
+  AgentChatSummary,
   AgentProviderView,
+  AgentSelect,
   AgentSettings,
   AgentSettingsUpdate,
   AgentState,
+  AgentUpload,
+  AgentUsage,
   BudgetView,
   CollectionSettings,
   CollectionSettingsUpdate,
@@ -28,6 +32,8 @@ import { useLoud } from "~/store";
 interface WorkState {
   readonly agent: AgentState | null;
   readonly agentSettings: AgentSettings | null;
+  readonly chats: ReadonlyArray<AgentChatSummary>;
+  readonly agentUsage: ReadonlyArray<AgentUsage>;
   readonly providers: ReadonlyArray<AgentProviderView>;
   readonly drafts: ReadonlyArray<Draft>;
   readonly collect: CollectStatus | null;
@@ -43,7 +49,12 @@ interface WorkState {
   readonly loadAgent: () => Promise<void>;
   readonly loadProviders: () => Promise<void>;
   readonly configureAgent: (update: AgentSettingsUpdate) => Promise<void>;
-  readonly send: (text: string) => Promise<boolean>;
+  readonly send: (text: string, files?: ReadonlyArray<AgentUpload>) => Promise<boolean>;
+  readonly selectAgent: (input: AgentSelect) => Promise<void>;
+  readonly loadChats: () => Promise<void>;
+  readonly openChat: (id: string) => Promise<void>;
+  readonly deleteChat: (id: string) => Promise<void>;
+  readonly loadAgentUsage: (refresh: boolean) => Promise<void>;
   readonly cancel: () => Promise<void>;
   readonly reset: () => Promise<void>;
   readonly loadDrafts: () => Promise<void>;
@@ -71,6 +82,8 @@ const report = (error: unknown) =>
 export const useWork = create<WorkState>()((set) => ({
   agent: null,
   agentSettings: null,
+  chats: [],
+  agentUsage: [],
   providers: [],
   drafts: [],
   collect: null,
@@ -103,17 +116,55 @@ export const useWork = create<WorkState>()((set) => ({
   configureAgent: async (update) => {
     try {
       set({ agentSettings: await call("agent.configure", update) });
+      // A new chat takes its provider and model from these settings.
+      set({ agent: await call("agent.state", {}) });
     } catch (e) {
       report(e);
     }
   },
-  send: async (text) => {
+  send: async (text, files = []) => {
     try {
-      set({ agent: await call("agent.send", { text }) });
+      set({ agent: await call("agent.send", { text, files: [...files] }) });
       return true;
     } catch (e) {
       report(e);
       return false;
+    }
+  },
+  selectAgent: async (input) => {
+    try {
+      const agent = await call("agent.select", input);
+      set({ agent, agentSettings: await call("agent.settings", {}) });
+    } catch (e) {
+      report(e);
+    }
+  },
+  loadChats: async () => {
+    try {
+      set({ chats: await call("agent.chats", {}) });
+    } catch (e) {
+      report(e);
+    }
+  },
+  openChat: async (id) => {
+    try {
+      set({ agent: await call("agent.open", { id }) });
+    } catch (e) {
+      report(e);
+    }
+  },
+  deleteChat: async (id) => {
+    try {
+      set({ agent: await call("agent.delete", { id }) });
+    } catch (e) {
+      report(e);
+    }
+  },
+  loadAgentUsage: async (refresh) => {
+    try {
+      set({ agentUsage: await call("agent.usage", { refresh }) });
+    } catch (e) {
+      report(e);
     }
   },
   cancel: async () => {
