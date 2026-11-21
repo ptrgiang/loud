@@ -1,16 +1,10 @@
-import {
-  AGENT_VENDORS,
-  CHANNEL_NAMES,
-  type AgentProviderView,
-  type StepState,
-} from "@loud/contracts";
-import { Download, Play, RefreshCw, RotateCcw, ShieldCheck, Square } from "lucide-react";
+import { AGENT_VENDORS, type AgentProviderView } from "@loud/contracts";
+import { Download, RefreshCw, RotateCcw, ShieldCheck } from "lucide-react";
 import type * as React from "react";
 import { useEffect, useState } from "react";
 
 import { Card } from "~/components/Card";
 import { PageHeader } from "~/components/PageHeader";
-import { StepIcon } from "~/components/StepIcon";
 import { openUsagePage, ReportPreview } from "~/components/UsageReports";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
@@ -83,67 +77,29 @@ function General() {
   );
 }
 
-const STEP_LABEL: Record<StepState["step"], string> = { ...CHANNEL_NAMES, listen: "Listening" };
-
+/** The timer only: collecting now, per platform and pausing are in Connections. */
 function Collection() {
   const collect = useWork((s) => s.collect);
   const collection = useWork((s) => s.collection);
-  const budgets = useWork((s) => s.budgets);
-  const start = useWork((s) => s.startCollect);
-  const cancel = useWork((s) => s.cancelCollect);
   const configure = useWork((s) => s.configureCollection);
-  const resume = useWork((s) => s.resumePlatform);
   const demo = useLoud((s) => s.info?.demo ?? false);
   const [every, setEvery] = useState(String(collection?.everyHours ?? 12));
   if (!collection) return null;
 
   return (
-    <Card
-      title="Collection"
-      actions={
-        collect?.running ? (
-          <Button size="sm" variant="outline" onClick={() => void cancel()}>
-            <Square />
-            Stop
-          </Button>
-        ) : (
-          <Button size="sm" disabled={demo} onClick={() => void start()}>
-            <Play />
-            Collect all
-          </Button>
-        )
-      }
-    >
+    <Card title="Automatic collection">
       <div className="divide-y">
         {demo && (
           <p className="py-3 text-muted-foreground text-xs">
             This data folder holds the fictional demo, so collection is off here.
           </p>
         )}
-        {collect && collect.steps.length > 0 && (
-          <ul className="flex flex-col gap-1.5 py-3">
-            {collect.steps.map((s) => (
-              <li key={s.step} className="flex items-center gap-2 text-sm">
-                <StepIcon status={s.status} />
-                <span className="w-24 shrink-0">{STEP_LABEL[s.step]}</span>
-                <span className="truncate text-muted-foreground text-xs">
-                  {s.detail || s.status}
-                </span>
-              </li>
-            ))}
-            {collect.finished && !collect.running && (
-              <li className="text-2xs text-muted-foreground">
-                Last run finished {collect.finished}
-              </li>
-            )}
-          </ul>
-        )}
         <Row
           label="Collect on a timer"
           hint={
             collection.auto && collect?.next
               ? `Next run ${new Date(collect.next).toLocaleString()}`
-              : "Off: Loud collects only when you ask, here or per platform in Connections."
+              : "Off: Loud collects only when you press Collect in Connections."
           }
         >
           <Switch
@@ -175,38 +131,6 @@ function Collection() {
             onCheckedChange={(keepInTray) => void configure({ keepInTray })}
           />
         </Row>
-        <div className="py-3">
-          <div className="mb-2 font-medium text-sm">Request budget today</div>
-          <ul className="flex flex-col gap-1.5">
-            {budgets.map((b) => (
-              <li key={b.id} className="flex items-center gap-3 text-xs">
-                <span className="w-20 shrink-0">{CHANNEL_NAMES[b.id]}</span>
-                <span className="w-20 shrink-0 text-muted-foreground tabular-nums">
-                  {b.usedToday} / {b.dailyCap}
-                </span>
-                {b.pausedUntil ? (
-                  <>
-                    <Badge variant="warning">Paused</Badge>
-                    <span
-                      className="min-w-0 flex-1 truncate text-muted-foreground"
-                      title={b.reason ?? ""}
-                    >
-                      {b.reason}
-                    </span>
-                    <Button size="xs" variant="outline" onClick={() => void resume(b.id)}>
-                      Resume
-                    </Button>
-                  </>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-          <p className="mt-2 text-2xs text-muted-foreground leading-relaxed">
-            Requests are spaced out, capped per day, paused for hours after a "too many requests"
-            answer, and stopped at any login check or captcha until you deal with it on the
-            platform's own page.
-          </p>
-        </div>
       </div>
     </Card>
   );
@@ -278,6 +202,9 @@ function AgentSettingsCard() {
         </Row>
         <div className="flex flex-col gap-2 py-3">
           <div className="font-medium text-sm">Provider</div>
+          <div className="text-muted-foreground text-xs">
+            The CLI new chats start on. Model and effort are picked in the chat itself.
+          </div>
           {providers.map((p) => (
             <ProviderOption
               key={p.id}
@@ -287,25 +214,6 @@ function AgentSettingsCard() {
             />
           ))}
         </div>
-        {current && current.models.length > 1 && (
-          <Row
-            label="Model"
-            hint="The default for new chats. Each chat can switch it in the composer."
-          >
-            <select
-              className="h-8 rounded-md border border-input bg-background px-2 text-sm"
-              value={settings.model}
-              aria-label="Model"
-              onChange={(e) => void configure({ model: e.target.value, effort: "" })}
-            >
-              {current.models.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-          </Row>
-        )}
         <div className="flex flex-col gap-2 py-3">
           <div className="font-medium text-sm">Playbook</div>
           <div className="text-muted-foreground text-xs">

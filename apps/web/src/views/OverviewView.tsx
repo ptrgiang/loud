@@ -13,7 +13,7 @@ import { ShareBar } from "~/components/Bars";
 import { Card, Quiet, ViewBody } from "~/components/Card";
 import { TipRow, useChartTip, useWidth } from "~/components/ChartTip";
 import { PostText } from "~/components/Filters";
-import { byLevel, FlagList } from "~/components/Flags";
+import { FlagList } from "~/components/Flags";
 import { ChannelDot, ChannelTag, Empty, PageHeader } from "~/components/PageHeader";
 import { Button } from "~/components/ui/button";
 import { CheckboxMark } from "~/components/ui/checkbox";
@@ -23,11 +23,9 @@ import {
   type DayViews,
   engPer1k,
   isOwn,
-  median,
   niceMax,
   postsBetween,
   rising,
-  settled,
   sumOf,
   viewsByPublishDay,
 } from "~/lib/analytics";
@@ -37,18 +35,14 @@ import {
   dayLabel,
   dec,
   fmt,
-  hm,
   monthDay,
-  parseStamp,
   relative,
   short,
-  stampLabel,
-  until,
   ymd,
 } from "~/lib/format";
 import { cn } from "~/lib/utils";
 import { useLoud } from "~/store";
-import { ProposalCard } from "~/views/ProposalsView";
+import { ProposalActions } from "~/views/PlanView";
 
 // ---- KPI tiles ----
 
@@ -518,114 +512,46 @@ function ChannelCard({ c }: { c: ChannelSummary }) {
   );
 }
 
-// ---- Top posts, up next ----
+// ---- To do ----
 
-function TopPosts({ hub }: { hub: Hub }) {
-  const now = builtAt(hub);
-  const top = [...postsBetween(hub.posts, now, 0, 7)]
-    .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
-    .slice(0, 8);
-  const medians = new Map(
-    CHANNEL_ORDER.map((id) => [id, median(settled(hub.posts, id).map((p) => p.views))] as const),
-  );
+/** Checks that want something done, then the agent's next ideas, each with a way to start on it. */
+function ToDo({ hub }: { hub: Hub }) {
+  const proposals = useLoud((s) => s.proposals);
   const go = useLoud((s) => s.go);
+  const checks = hub.flags.filter((f) => f.level === "warn");
+  const ideas = proposals?.items.slice(0, 3) ?? [];
   return (
     <Card
-      title="Top posts, 7 days"
-      hint="×Med is how many times the channel's median views."
+      title="To do"
+      hint="Checks from the last build and the agent's next ideas."
+      bodyClassName="px-0 pb-0"
       actions={
-        <Button size="xs" variant="ghost-muted" onClick={() => go("posts")}>
-          All posts
+        <Button size="xs" variant="ghost-muted" onClick={() => go("plan")}>
+          Plan
         </Button>
       }
     >
-      {top.length ? (
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="border-b text-muted-foreground">
-              <th className="w-5 py-2" />
-              <th className="py-2 text-left font-medium">Post</th>
-              <th className="px-2 py-2 text-right font-medium">Views</th>
-              <th className="px-2 py-2 text-right font-medium">×Med</th>
-              <th className="py-2 pl-2 text-right font-medium">Eng/1k</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {top.map((p, i) => {
-              const m = medians.get(p.channel);
-              return (
-                <tr key={`${p.channel}:${p.id}`}>
-                  <td className="py-2 align-top text-muted-foreground tabular-nums">{i + 1}</td>
-                  <td className="py-2">
-                    <PostText
-                      url={p.url}
-                      text={short(p.text, 120) || "(no text)"}
-                      className="line-clamp-1"
-                    />
-                    <div className="mt-0.5 flex items-center gap-1.5 text-2xs text-muted-foreground">
-                      <ChannelDot id={p.channel} />
-                      {CHANNEL_NAMES[p.channel]} · {stampLabel(p.posted)}
-                    </div>
-                  </td>
-                  <td className="px-2 py-2 text-right font-semibold tabular-nums">
-                    {fmt(p.views)}
-                  </td>
-                  <td className="px-2 py-2 text-right tabular-nums">
-                    {m ? `×${dec((p.views ?? 0) / m)}` : "–"}
-                  </td>
-                  <td className="py-2 pl-2 text-right tabular-nums">{dec(engPer1k([p]))}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      ) : (
-        <Quiet>No posts in the last 7 days.</Quiet>
-      )}
-    </Card>
-  );
-}
-
-function UpNext({ hub }: { hub: Hub }) {
-  const now = builtAt(hub);
-  const go = useLoud((s) => s.go);
-  const next = hub.scheduled
-    .filter((s) => (parseStamp(s.when)?.getTime() ?? 0) >= now.getTime())
-    .sort((a, b) => (a.when > b.when ? 1 : -1))
-    .slice(0, 5);
-  return (
-    <Card
-      title="Up next"
-      actions={
-        <Button size="xs" variant="ghost-muted" onClick={() => go("schedule")}>
-          Schedule
-        </Button>
-      }
-    >
-      {next.length ? (
-        <ul className="flex flex-col divide-y">
-          {next.map((s) => (
+      {checks.length > 0 && <FlagList flags={checks} />}
+      {ideas.length > 0 && (
+        <ul className={cn("divide-y", checks.length > 0 && "border-t")}>
+          {ideas.map((p) => (
             <li
-              key={`${s.channel}:${s.when}:${s.text ?? ""}`}
-              className="flex gap-3 py-2 first:pt-0 last:pb-0"
+              key={`${p.channel}:${p.title}`}
+              className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2.5"
             >
-              <div className="w-16 shrink-0">
-                <div className="font-semibold text-sm tabular-nums">{hm(s.when)}</div>
-                <div className="text-2xs text-muted-foreground">{dayLabel(parseStamp(s.when))}</div>
-              </div>
-              <div className="min-w-0 text-xs">
-                <div className="mb-0.5 flex items-center gap-1.5 text-2xs text-muted-foreground">
-                  <ChannelDot id={s.channel} />
-                  {CHANNEL_NAMES[s.channel]} · {until(s.when, now)}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 text-2xs text-muted-foreground">
+                  <ChannelTag id={p.channel} />
+                  {p.when && <span>{p.when}</span>}
                 </div>
-                <div className="line-clamp-2">{short(s.text, 160)}</div>
+                <div className="mt-0.5 truncate font-medium text-sm">{p.title}</div>
               </div>
+              <ProposalActions p={p} />
             </li>
           ))}
         </ul>
-      ) : (
-        <Quiet>Nothing scheduled.</Quiet>
       )}
+      {!checks.length && !ideas.length && <Quiet>Nothing needs doing right now.</Quiet>}
     </Card>
   );
 }
@@ -643,7 +569,7 @@ export function OverviewView() {
   if (!hub) {
     return (
       <>
-        <PageHeader title="Overview" />
+        <PageHeader title="Today" />
         <Empty
           icon={<LayoutDashboard />}
           title={connected ? "No data yet" : "Connect a platform to start"}
@@ -670,59 +596,24 @@ export function OverviewView() {
   return (
     <>
       <PageHeader
-        title="Overview"
+        title="Today"
         description={`Built ${relative(hub.built)} · ${hub.channels.length} channels since ${hub.since ?? "the start date"}, ${hub.timezone ?? "local"} time`}
       />
       <ViewBody wide>
         {proposals?.summary && <p className="text-muted-foreground text-sm">{proposals.summary}</p>}
-        <Kpis hub={hub} history={history} />
         <div className="grid grid-cols-1 gap-4 @5xl:grid-cols-3">
           <div className="@5xl:col-span-2">
-            <ViewsByDay days={days} channels={channels} />
+            <ToDo hub={hub} />
           </div>
           <RisingNow hub={hub} />
         </div>
+        <Kpis hub={hub} history={history} />
+        <ViewsByDay days={days} channels={channels} />
         <div className="grid grid-cols-1 gap-4 @3xl:grid-cols-2 @6xl:grid-cols-4">
           {ordered.map((c) => (
             <ChannelCard key={c.id} c={c} />
           ))}
         </div>
-        <div className="grid grid-cols-1 gap-4 @5xl:grid-cols-4">
-          <div className="@5xl:col-span-2">
-            <TopPosts hub={hub} />
-          </div>
-          <UpNext hub={hub} />
-          <Card
-            title="Worth a look"
-            bodyClassName="px-0 pb-0"
-            actions={
-              <Button size="xs" variant="ghost-muted" onClick={() => go("audit")}>
-                Audit
-              </Button>
-            }
-          >
-            {hub.flags.length ? (
-              <FlagList flags={byLevel(hub.flags).slice(0, 4)} />
-            ) : (
-              <Quiet>Nothing stands out.</Quiet>
-            )}
-          </Card>
-        </div>
-        {proposals && proposals.items.length > 0 && (
-          <>
-            <div className="flex items-center justify-between pt-2">
-              <h2 className="font-medium text-sm">Top proposals</h2>
-              <Button size="xs" variant="ghost-muted" onClick={() => go("proposals")}>
-                All proposals
-              </Button>
-            </div>
-            <div className="grid grid-cols-1 gap-4 @3xl:grid-cols-2 @6xl:grid-cols-3">
-              {proposals.items.slice(0, 3).map((p) => (
-                <ProposalCard key={`${p.channel}:${p.title}`} p={p} />
-              ))}
-            </div>
-          </>
-        )}
         {!hub.posts.some(isOwn) && <Quiet>No posts read yet.</Quiet>}
       </ViewBody>
     </>

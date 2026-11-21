@@ -8,6 +8,7 @@ import {
   fbFollowers,
   fbIsProfileChange,
   fbRows,
+  igInfoOwned,
   igInsights,
   igMediaId,
   igMediaInfo,
@@ -52,10 +53,6 @@ const IG_APP_ID = "936619743392459";
 
 const nowStamp = (tz: string) => wallClock(new Date(), tz);
 
-/** Stored posts inside the scan window are read again by id, even if the list page no longer shows them. */
-const inWindow = (old: ChannelFile | null, from: string, seen: ReadonlySet<string>) =>
-  (old?.posts ?? []).filter((p) => (p.posted ?? "") >= from && !seen.has(p.id));
-
 /** Two roots older than the window (one may be pinned) means the list has gone far enough back. */
 const pastWindow = (rows: ReadonlyArray<{ posted?: string | undefined }>, from: string) =>
   rows.filter((r) => r.posted && r.posted < from).length >= 2;
@@ -83,15 +80,50 @@ async function scrollFor<T extends { posted?: string | undefined }>(
   return rows;
 }
 
+interface ReadPlan {
+  /** Stored posts that stay: all of them, unless the list proved some are not the account's. */
+  readonly old: ReadonlyArray<CollectedPost>;
+  /** Posts whose own page is read this run. */
+  readonly read: ReadonlyArray<Row>;
+  /** New posts past the per-run cap: stored with the list's numbers, read on a later run. */
+  readonly listedOnly: ReadonlyArray<Row>;
+}
+
+/**
+ * Listed posts in the scan window first, then stored ones in the window the list no longer showed, then older
+ * stored ones still without views, so a first read capped at MAX_POST_PAGES fills in over the next runs.
+ */
+export function readPlan(
+  input: Pick<CollectInput, "since" | "scanFrom" | "old">,
+  listed: ReadonlyArray<Row>,
+): ReadPlan {
+  const seen = new Set(listed.map((p) => p.id));
+  // The list went back past the start date, so a stored post it did not show is deleted or was never the account's.
+  const complete = pastWindow(listed, input.since);
+  const old = (input.old?.posts ?? []).filter((p) => !complete || seen.has(p.id));
+  const stored = new Set(old.map((p) => p.id));
+  const read = [
+    ...listed.filter((p) => (p.posted ?? "") >= input.scanFrom),
+    ...old.filter((p) => (p.posted ?? "") >= input.scanFrom && !seen.has(p.id)),
+    ...old.filter((p) => (p.posted ?? "") < input.scanFrom && p.views === undefined),
+  ].slice(0, MAX_POST_PAGES) as Array<Row>;
+  const reading = new Set(read.map((p) => p.id));
+  const listedOnly = listed.filter(
+    (p) => (p.posted ?? "") >= input.since && !reading.has(p.id) && !stored.has(p.id),
+  );
+  return { old, read, listedOnly };
+}
+
 const file = (
   input: CollectInput,
+  plan: ReadPlan,
   fresh: ReadonlyArray<CollectedPost>,
   followers: number | null,
   scheduled: ReadonlyArray<Queued> | null,
 ): ChannelFile => ({
   collected: nowStamp(input.timezone),
   followers: followers ?? input.old?.followers ?? null,
-  posts: mergePosts(input.old?.posts ?? [], fresh, input.since),
+  posts: mergePosts(plan.old, [...plan.listedOnly, ...fresh], input.since),
   scheduled: scheduled ?? [],
   scheduled_known: scheduled !== null,
 });
@@ -118,10 +150,8 @@ export async function collectThreads(input: CollectInput): Promise<ChannelFile> 
     input.scanFrom,
     input.full ? 25 : 4,
   );
-  const want = [
-    ...listed.filter((p) => (p.posted ?? "") >= input.scanFrom),
-    ...inWindow(input.old, input.scanFrom, new Set(listed.map((p) => p.id))),
-  ].slice(0, MAX_POST_PAGES);
+  const plan = readPlan(input, listed);
+  const want = plan.read;
   input.progress(`profile read, ${want.length} posts to update`, 0);
   const fresh: Array<CollectedPost> = [];
   for (const p of want) {
@@ -135,7 +165,7 @@ export async function collectThreads(input: CollectInput): Promise<ChannelFile> 
     input.progress(`${fresh.length} of ${want.length} posts`, fresh.length);
   }
   // The queue sits behind the composer's Drafts dialog; Loud does not drive the composer, so it is left unknown.
-  return file(input, fresh, followers, null);
+  return file(input, plan, fresh, followers, null);
 }
 
 // ---- Instagram ----
@@ -145,7 +175,7 @@ const IG_ANSWERS = /\/(api\/graphql|graphql\/query|api\/v1\/)/;
 
 export async function collectInstagram(input: CollectInput): Promise<ChannelFile> {
   const { reader, handle, timezone: tz } = input;
-  const read = (objs: ReadonlyArray<unknown>) => igProfile(objs, tz);
+  const read = (objs: ReadonlyArray<unknown>) => igProfile(objs, handle, tz);
   const first = await reader.open(`${IG}/${handle}/`, {
     capture: IG_ANSWERS,
     embedKeys: ["taken_at", "follower_count"],
@@ -167,21 +197,24 @@ export async function collectInstagram(input: CollectInput): Promise<ChannelFile
     input.scanFrom,
     input.full ? 15 : 3,
   );
-  const want: Array<Row> = [
-    ...listed.filter((p) => (p.posted ?? "") >= input.scanFrom),
-    ...inWindow(input.old, input.scanFrom, new Set(listed.map((p) => p.id))),
-  ].slice(0, MAX_POST_PAGES);
+  const plan = readPlan(input, listed);
+  const want = plan.read;
   input.progress(`profile read, ${want.length} posts to update`, 0);
   const fresh: Array<CollectedPost> = [];
+  // Stored by earlier versions, which did not check the owner: dropped once their info says they are someone else's.
+  const foreign = new Set<string>();
   for (const p of want) {
     const mid = igMediaId(p.id);
-    const info = igMediaInfo(
-      await reader.fetchJson(`${IG}/api/v1/media/${mid}/info/`, {
-        "X-IG-App-ID": IG_APP_ID,
-        "X-Requested-With": "XMLHttpRequest",
-        Referer: `${IG}/`,
-      }),
-    );
+    const body = await reader.fetchJson(`${IG}/api/v1/media/${mid}/info/`, {
+      "X-IG-App-ID": IG_APP_ID,
+      "X-Requested-With": "XMLHttpRequest",
+      Referer: `${IG}/`,
+    });
+    if (igInfoOwned(body, handle) === false) {
+      foreign.add(p.id);
+      continue;
+    }
+    const info = igMediaInfo(body);
     const page = await reader.open(`${IG}/insights/media/${mid}/`, {
       capture: IG_ANSWERS,
       timeoutMs: 10_000,
@@ -196,7 +229,8 @@ export async function collectInstagram(input: CollectInput): Promise<ChannelFile
     timeoutMs: 10_000,
     until: (objs) => igScheduled(objs, tz) !== null,
   });
-  return file(input, fresh, followers, igScheduled(queue.objs, tz));
+  const kept = { ...plan, old: plan.old.filter((p) => !foreign.has(p.id)) };
+  return file(input, kept, fresh, followers, igScheduled(queue.objs, tz));
 }
 
 // ---- Facebook ----
@@ -243,14 +277,19 @@ export async function collectFacebook(input: CollectInput): Promise<ChannelFile>
         (r.row.posted ?? "") >= input.scanFrom &&
         !fbIsProfileChange(r.row.text ?? ""),
     )
-    .map((r) => r.row)
-    .slice(0, MAX_POST_PAGES);
-  input.progress(`Business Suite read, ${rows.length} posts to update`, 0);
+    .map((r) => r.row);
+  const stored = new Set((input.old?.posts ?? []).map((p) => p.id));
+  const plan: ReadPlan = {
+    old: input.old?.posts ?? [],
+    read: rows.slice(0, MAX_POST_PAGES),
+    listedOnly: rows.slice(MAX_POST_PAGES).filter((r) => !stored.has(r.id)),
+  };
+  input.progress(`Business Suite read, ${plan.read.length} posts to update`, 0);
   const fresh: Array<CollectedPost> = [];
-  for (const r of rows) {
+  for (const r of plan.read) {
     const post = await reader.open(r.url!, { capture: FB_ANSWERS, timeoutMs: 6_000 });
     fresh.push({ ...r, ...fbPostCounts(post.html) });
-    input.progress(`${fresh.length} of ${rows.length} posts`, fresh.length);
+    input.progress(`${fresh.length} of ${plan.read.length} posts`, fresh.length);
   }
   const sched = await reader.open(`${BUSINESS}/scheduled_posts?asset_id=${input.assetId}`, {
     capture: FB_ANSWERS,
@@ -264,7 +303,7 @@ export async function collectFacebook(input: CollectInput): Promise<ChannelFile>
         text: (r.row.text ?? "").slice(0, 400),
       }))
     : null;
-  return file(input, fresh, followers, queue);
+  return file(input, plan, fresh, followers, queue);
 }
 
 // ---- X ----
@@ -299,7 +338,8 @@ export async function collectX(input: CollectInput): Promise<ChannelFile> {
     timeoutMs: 10_000,
     until: (objs) => xScheduled(objs, tz) !== null,
   });
-  return file(input, fresh, followers, xScheduled(queue.objs, tz));
+  const plan: ReadPlan = { old: input.old?.posts ?? [], read: [], listedOnly: [] };
+  return file(input, plan, fresh, followers, xScheduled(queue.objs, tz));
 }
 
 export const COLLECTORS: Record<ChannelId, (input: CollectInput) => Promise<ChannelFile>> = {

@@ -1,13 +1,15 @@
 // Fixtures are fictional and trimmed to the shapes docs/platform-notes.md describes.
 import { describe, expect, it } from "vite-plus/test";
 
-import { fbDate, fbPostCounts } from "./collectors.ts";
+import { fbDate, fbPostCounts, readPlan } from "./collectors.ts";
 import { embedded, parseLoose } from "./json.ts";
 import { isCheckpoint } from "./PageReader.ts";
 import {
   fbRows,
+  igInfoOwned,
   igInsights,
   igMediaId,
+  igProfile,
   igScheduled,
   mergePosts,
   threadsPostNumbers,
@@ -106,6 +108,33 @@ describe("Instagram", () => {
     ];
     expect(igInsights(objs)).toEqual({ views: 900 });
     expect(igInsights([{}])).toBeNull();
+  });
+
+  it("keeps the handle's own media and collabs, not suggested reels", () => {
+    const media = (code: string, extra: object) => ({
+      code,
+      taken_at: 1_763_640_000,
+      like_count: 4,
+      media_type: 2,
+      ...extra,
+    });
+    const objs = [
+      {
+        items: [
+          media("OWN", { user: { username: "AcmeForms" } }),
+          media("COLLAB", {
+            user: { username: "friend" },
+            coauthor_producers: [{ username: "acmeforms" }],
+          }),
+          media("SUGGESTED", { user: { username: "someone" }, owner: { username: "someone" } }),
+          media("NOOWNER", {}),
+        ],
+      },
+    ];
+    expect(igProfile(objs, "acmeforms", TZ).map((r) => r.id)).toEqual(["OWN", "COLLAB"]);
+    expect(igInfoOwned({ items: [{ user: { username: "someone" } }] }, "acmeforms")).toBe(false);
+    expect(igInfoOwned({ items: [{ owner: { username: "acmeforms" } }] }, "acmeforms")).toBe(true);
+    expect(igInfoOwned({ items: [{}] }, "acmeforms")).toBeNull();
   });
 
   it("tells an empty queue from an unreadable one", () => {
@@ -226,6 +255,63 @@ describe("merge", () => {
       { id: "b", posted: "2026-11-02 10:00", views: 7 },
       { id: "a", posted: "2026-11-01 10:00", views: 50, likes: 1 },
     ]);
+  });
+});
+
+describe("read plan", () => {
+  const day = (n: number) =>
+    `2026-${n < 31 ? "10" : "11"}-${String(n < 31 ? n : n - 30).padStart(2, "0")} 10:00`;
+  const rows = (from: number, to: number) =>
+    Array.from({ length: to - from + 1 }, (_, i) => ({ id: `p${to - i}`, posted: day(to - i) }));
+
+  it("stores every listed post of a full read, reading the newest 40", () => {
+    // 50 posts from Oct 2 on, and two older ones that show the list went past the start date.
+    const listed = [
+      ...rows(2, 51),
+      { id: "old1", posted: "2026-09-01 10:00" },
+      { id: "old2", posted: "2026-09-02 10:00" },
+    ];
+    const plan = readPlan({ since: "2026-10-01", scanFrom: "2026-10-01", old: null }, listed);
+    expect(plan.read).toHaveLength(40);
+    expect(plan.read[0]!.id).toBe("p51");
+    expect(plan.listedOnly.map((p) => p.id)).toEqual(rows(2, 11).map((p) => p.id));
+  });
+
+  it("drops stored posts a complete list did not show", () => {
+    const listed = [
+      { id: "a", posted: day(5) },
+      { id: "o1", posted: "2026-09-01 10:00" },
+      { id: "o2", posted: "2026-09-02 10:00" },
+    ];
+    const old = {
+      collected: "",
+      followers: null,
+      scheduled: [],
+      scheduled_known: false,
+      posts: [
+        { id: "a", posted: day(5), views: 3 },
+        { id: "x", posted: day(6), views: 9 },
+      ],
+    };
+    const plan = readPlan({ since: "2026-10-01", scanFrom: "2026-10-01", old }, listed);
+    expect(plan.old.map((p) => p.id)).toEqual(["a"]);
+  });
+
+  it("keeps stored posts when the list stopped early, and fills in missing views", () => {
+    const listed = rows(40, 45);
+    const old = {
+      collected: "",
+      followers: null,
+      scheduled: [],
+      scheduled_known: false,
+      posts: [
+        { id: "p10", posted: day(10) },
+        { id: "p11", posted: day(11), views: 2 },
+      ],
+    };
+    const plan = readPlan({ since: "2026-10-01", scanFrom: day(39).slice(0, 10), old }, listed);
+    expect(plan.old).toHaveLength(2);
+    expect(plan.read.map((p) => p.id)).toEqual([...listed.map((p) => p.id), "p10"]);
   });
 });
 

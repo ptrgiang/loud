@@ -9,25 +9,21 @@ import { Button } from "~/components/ui/button";
 import { inDesktop } from "~/lib/loud";
 import { useLoud, type View, wireStore } from "~/store";
 import { AgentView } from "~/views/AgentView";
-import { AuditView } from "~/views/AuditView";
 import { ConnectionsView } from "~/views/ConnectionsView";
 import { DraftsView } from "~/views/DraftsView";
 import { InsightsView } from "~/views/InsightsView";
 import { ListeningView } from "~/views/ListeningView";
 import { OverviewView } from "~/views/OverviewView";
+import { PlanView } from "~/views/PlanView";
 import { PostsView } from "~/views/PostsView";
-import { ProposalsView } from "~/views/ProposalsView";
-import { ScheduleView } from "~/views/ScheduleView";
 import { SettingsView } from "~/views/SettingsView";
 import { useWork } from "~/workStore";
 
 const VIEW: Record<View, () => React.ReactNode> = {
   overview: OverviewView,
   insights: InsightsView,
-  proposals: ProposalsView,
-  schedule: ScheduleView,
+  plan: PlanView,
   posts: PostsView,
-  audit: AuditView,
   listening: ListeningView,
   agent: AgentView,
   drafts: DraftsView,

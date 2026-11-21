@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.1.5 (2026-11-21)
+
+- Threads and Facebook: a first read now keeps every post since the start date. It used to keep only the newest 40; the rest are stored with the list's numbers and get their own page read over the next runs.
+- Instagram: only the account's own posts and collabs are kept. The profile page also loads suggested reels from other accounts, and those were being stored as yours. Ones stored before are dropped on the next run.
+- Threads, Instagram and Facebook do one full read again after this update, to fill in and clean up what earlier versions stored.
+- Fewer places, one job each. Today (was Overview) puts a To do list first: the build's checks and the agent's next ideas. Plan joins Proposals and Schedule. Audit moved into Insights. Collecting is only in Connections, the search for listening only in Listening, and the model only in the chat.
+- Every idea has Draft it (a draft with the opening line, opened in Drafts) and Write with agent (a new chat that writes and saves the draft).
+
 ## 0.1.4 (2026-11-21)
 
 - Agent chats are saved: a history list beside the conversation, New chat keeps the old one, and each chat can be reopened or deleted. The single conversation of earlier versions becomes the first saved chat.

@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-import { ListeningRow } from "~/components/ListenNow";
 import { ChannelDot, PageHeader } from "~/components/PageHeader";
 import { StepIcon } from "~/components/StepIcon";
 import { Badge } from "~/components/ui/badge";
@@ -283,7 +282,7 @@ function CollectAll() {
     <Button
       size="sm"
       disabled={demo || !anyConnected}
-      title={demo ? DEMO_BLOCK : "Every platform with Collect on, then listening"}
+      title={demo ? DEMO_BLOCK : "Every platform included in runs, then listening"}
       onClick={() => void start()}
     >
       <Play />
@@ -311,14 +310,15 @@ export function ConnectionsView() {
             ))}
           </ul>
 
-          <ListeningRow />
-
           <div className="flex gap-3 rounded-xl border border-dashed px-4 py-3.5 text-muted-foreground text-xs leading-relaxed">
             <ShieldCheck className="mt-0.5 size-4 shrink-0" />
             <p>
               Each platform gets its own browser profile inside Loud. You log in on the platform's
               own page, so Loud never sees your password. Sessions, posts and numbers stay on this
               computer, and Loud talks only to the platform itself. Disconnect clears that profile.
+              Requests are spaced out, capped per day, paused for hours after a "too many requests"
+              answer, and stopped at any login check or captcha until you deal with it on the
+              platform's own page.
             </p>
           </div>
         </div>

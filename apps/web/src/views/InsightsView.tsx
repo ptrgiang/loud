@@ -1,9 +1,10 @@
-import { CHANNEL_NAMES, type ChannelId, type Hub, type Post } from "@loud/contracts";
+import { CHANNEL_IDS, CHANNEL_NAMES, type ChannelId, type Hub, type Post } from "@loud/contracts";
 import { ArrowDown, ArrowUp, ChartNoAxesColumn } from "lucide-react";
 import { Fragment, useMemo } from "react";
 
 import { BucketBars, InlineBar } from "~/components/Bars";
 import { Card, ViewBody } from "~/components/Card";
+import { FlagList } from "~/components/Flags";
 import { TipRow, useChartTip, useWidth } from "~/components/ChartTip";
 import { NoData } from "~/components/NoData";
 import { ChannelDot, ChannelTag, Empty, PageHeader } from "~/components/PageHeader";
@@ -102,6 +103,58 @@ function Callouts({ hub }: { hub: Hub }) {
         ))}
       </div>
     </Card>
+  );
+}
+
+// ---- Notes: the build's findings and the agent's ----
+
+/** "Threads: …" or "Instagram by format …" belongs to that channel. The name must stand alone, so "Xenial" is not X. */
+export function noteChannel(note: string): { channel: ChannelId | null; body: string } {
+  for (const id of CHANNEL_IDS) {
+    const name = CHANNEL_NAMES[id];
+    if (new RegExp(`^${name}(?![\\p{L}\\p{N}])`, "iu").test(note)) {
+      const body = note.replace(new RegExp(`^${name}\\s*:\\s*`, "iu"), "");
+      return { channel: id, body: body.charAt(0).toUpperCase() + body.slice(1) };
+    }
+  }
+  return { channel: null, body: note };
+}
+
+/** What went well and the agent's notes. Checks that need doing are on Today. */
+function Notes({ hub }: { hub: Hub }) {
+  const proposals = useLoud((s) => s.proposals);
+  const notes = proposals?.audit ?? [];
+  const flags = hub.flags.filter((f) => f.level !== "warn");
+  if (!notes.length && !flags.length) return null;
+  return (
+    <div className="grid grid-cols-1 gap-4 @5xl:grid-cols-2">
+      {flags.length > 0 && (
+        <Card title="Worked well" hint="Found by the build" bodyClassName="px-0 pb-0">
+          <FlagList flags={flags} />
+        </Card>
+      )}
+      {notes.length > 0 && (
+        <Card title="Agent notes" hint="Written with the proposals" bodyClassName="px-0 pb-0">
+          <ul className="divide-y">
+            {notes.map((note) => {
+              const { channel, body } = noteChannel(note);
+              return (
+                <li key={note} className="flex gap-3 px-4 py-2.5 text-sm">
+                  <span className="w-24 shrink-0 pt-px">
+                    {channel ? (
+                      <ChannelTag id={channel} />
+                    ) : (
+                      <span className="text-muted-foreground text-xs">General</span>
+                    )}
+                  </span>
+                  <span>{body}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      )}
+    </div>
   );
 }
 
@@ -630,6 +683,7 @@ export function InsightsView() {
       />
       <ViewBody wide>
         <Callouts hub={hub} />
+        <Notes hub={hub} />
         <div className="grid grid-cols-1 gap-4 @6xl:grid-cols-12">
           <Card
             className="@6xl:col-span-7"

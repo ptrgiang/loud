@@ -22,6 +22,9 @@ Platforms change these without notice; when a collector breaks, this is the map 
 | Scheduled         | `/scheduled_content/` sends `POST /api/graphql` → `data.viewer.all_scheduled_ig_content`                                                        | `scheduled_publish_time`, `caption_text`                                                                                                                                                               |
 | Search            | `/explore/search/keyword/?q=...` sends `PolarisKeywordSearchExplorePageRelayQuery` → `data.xdt_fbsearch__top_serp_graphql.edges[].node.items[]` | `pk`, `code`, `media_type`, `user`, `caption`, `taken_at`, `like_count`, `comment_count`, `view_count` when present. Search returns old posts too: filter `taken_at` before asking for details by `pk` |
 
+The profile page also loads other accounts' media in the same shape (suggested reels), so a profile item is kept only
+when the handle is its `user`, `owner` or one of its `coauthor_producers`; the info answer is checked the same way.
+
 ## Facebook (Pages)
 
 | Flow                  | Source                                                                                                             | Fields                                                                                                                 |
@@ -44,7 +47,9 @@ The public Reels tab embeds `profile_reel_node` with `play_count_reduced`, a rou
 ## General flow
 
 1. Read the list of your posts; keep id, link, time and the numbers the list has.
-2. Read insights by id for the posts that need more. Keep the collection time with every number.
+2. Read insights by id for the posts that need more, at most 40 per run: the rest are stored with the list's numbers
+   and read on later runs. Keep the collection time with every number. When the list reached past the start date, a
+   stored post it did not show is dropped.
 3. Read the queue. Keep "empty" and "could not read" as different states.
 4. Search each keyword, keep the keyword and the Top/Latest filter with each result, filter by date before asking for
    details.

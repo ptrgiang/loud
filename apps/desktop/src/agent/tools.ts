@@ -472,14 +472,14 @@ export const TOOLS: ReadonlyArray<Tool> = [
   },
   {
     name: "get_proposals",
-    description: "The proposals currently on the Proposals page.",
+    description: "The proposals currently on the Plan page.",
     inputSchema: { type: "object", properties: {} },
     run: (_a, ctx) => ok(readJson(NodePath.join(ctx.data, "proposals.json")) ?? "(none yet)"),
   },
   {
     name: "save_proposals",
     description:
-      "Replace the Proposals page with a new set. Only when the user wants proposals saved.",
+      "Replace the proposals on the Plan page with a new set. Only when the user wants proposals saved.",
     writes: true,
     inputSchema: {
       type: "object",

@@ -54,8 +54,15 @@ const MIN_EVERY_HOURS = 3;
 /** A failed look-up is not retried sooner than this, however often the login cookie refreshes. */
 const DETECT_RETRY_MS = 30 * 60_000;
 
+/**
+ * Raised when a collector changes what a full read stores, so platforms read before get one full read again.
+ * 2: Threads and Facebook kept only the newest 40 posts of a full read; Instagram kept other accounts' reels.
+ */
+const FULL_READ: Partial<Record<ChannelId, number>> = { threads: 2, ig: 2, fb: 2 };
+
 interface ScanState {
   readonly fullDone?: string;
+  readonly version?: number;
   readonly lastScan?: string;
 }
 
@@ -210,7 +217,8 @@ export const layer = Layer.effect(
       if (!p.handle)
         return setStep(step, { status: "skipped", detail: "set the handle in Connections first" });
       const scan = readJson<Partial<Record<ChannelId, ScanState>>>(stateFile) ?? {};
-      const fullRun = full || !scan[id]?.fullDone;
+      const version = FULL_READ[id] ?? 1;
+      const fullRun = full || !scan[id]?.fullDone || (scan[id]?.version ?? 1) < version;
       const now = wallClock(new Date(), tz);
       const scanFrom = fullRun ? s.since : [s.since, daysBefore(now, RESCAN_DAYS)].sort().at(-1)!;
       const out = NodePath.join(paths.data, `${id}.json`);
@@ -231,7 +239,7 @@ export const layer = Layer.effect(
         writeJson(out, written);
         writeJson(stateFile, {
           ...scan,
-          [id]: { ...scan[id], lastScan: now, ...(fullRun ? { fullDone: now } : {}) },
+          [id]: { ...scan[id], lastScan: now, ...(fullRun ? { fullDone: now, version } : {}) },
         });
         setStep(step, {
           status: "done",

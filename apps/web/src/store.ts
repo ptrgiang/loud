@@ -16,10 +16,8 @@ import { setCollect, useWork } from "~/workStore";
 export const VIEWS = [
   "overview",
   "insights",
-  "proposals",
-  "schedule",
+  "plan",
   "posts",
-  "audit",
   "listening",
   "agent",
   "drafts",
@@ -28,9 +26,12 @@ export const VIEWS = [
 ] as const;
 export type View = (typeof VIEWS)[number];
 
+/** Views that were merged into another keep their old links working. */
+const MOVED: Record<string, View> = { proposals: "plan", schedule: "plan", audit: "insights" };
+
 const viewFromHash = (): View => {
   const h = location.hash.replace(/^#\/?/, "");
-  return (VIEWS as ReadonlyArray<string>).includes(h) ? (h as View) : "overview";
+  return (VIEWS as ReadonlyArray<string>).includes(h) ? (h as View) : (MOVED[h] ?? "overview");
 };
 
 interface LoudState {

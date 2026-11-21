@@ -58,9 +58,8 @@ const blank = (channel: ChannelId): EditorDraft => ({ id: undefined, channel, te
 
 function Editor({ start, onSaved }: { start: EditorDraft; onSaved: (d: Draft) => void }) {
   const saveDraft = useWork((s) => s.saveDraft);
-  const send = useWork((s) => s.send);
+  const ask = useWork((s) => s.ask);
   const agentOn = useWork((s) => s.agentSettings?.enabled ?? false);
-  const go = useLoud((s) => s.go);
   const [d, setD] = useState(start);
   const [copied, setCopied] = useState(false);
   const length = postLength(d.text, d.channel);
@@ -159,10 +158,7 @@ function Editor({ start, onSaved }: { start: EditorDraft; onSaved: (d: Draft) =>
             size="xs"
             variant="outline"
             disabled={!d.text.trim()}
-            onClick={async () => {
-              if (!agentOn) return go("settings");
-              if (await send(a.ask(d))) go("agent");
-            }}
+            onClick={() => void ask(a.ask(d))}
           >
             {a.label}
           </Button>
@@ -196,10 +192,12 @@ export function DraftsView() {
   return (
     <>
       <PageHeader title="Drafts" description="Posts you are writing, kept on this computer.">
-        <Button size="sm" variant="outline" onClick={() => setSelected(blank(first))}>
-          <Plus />
-          New draft
-        </Button>
+        {current && (
+          <Button size="sm" variant="outline" onClick={() => setSelected(blank(first))}>
+            <Plus />
+            New draft
+          </Button>
+        )}
       </PageHeader>
       {!current ? (
         <Empty

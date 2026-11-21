@@ -50,6 +50,8 @@ interface WorkState {
   readonly loadProviders: () => Promise<void>;
   readonly configureAgent: (update: AgentSettingsUpdate) => Promise<void>;
   readonly send: (text: string, files?: ReadonlyArray<AgentUpload>) => Promise<boolean>;
+  /** A request from elsewhere in the app: in a new chat, then the Agent view. Settings when the agent is off. */
+  readonly ask: (text: string) => Promise<void>;
   readonly selectAgent: (input: AgentSelect) => Promise<void>;
   readonly loadChats: () => Promise<void>;
   readonly openChat: (id: string) => Promise<void>;
@@ -79,7 +81,7 @@ interface WorkState {
 const report = (error: unknown) =>
   useLoud.setState({ error: error instanceof Error ? error.message : String(error) });
 
-export const useWork = create<WorkState>()((set) => ({
+export const useWork = create<WorkState>()((set, get) => ({
   agent: null,
   agentSettings: null,
   chats: [],
@@ -130,6 +132,17 @@ export const useWork = create<WorkState>()((set) => ({
       report(e);
       return false;
     }
+  },
+  ask: async (text) => {
+    const go = useLoud.getState().go;
+    if (!get().agentSettings) await get().loadAgent();
+    if (!get().agentSettings?.enabled) return go("settings");
+    if (get().agent?.busy) {
+      go("agent");
+      return report("The agent is still answering. Stop it or wait, then try again.");
+    }
+    if (get().agent?.messages.length) await get().reset();
+    if (await get().send(text)) go("agent");
   },
   selectAgent: async (input) => {
     try {

@@ -26,7 +26,7 @@ Part of [Try Something](https://trysometh.ing). Home: [loud.trysometh.ing](https
 | Area                                                                  | State                                                                                           |
 | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | Connections: per-platform profiles, login detection, handle detection | Working                                                                                         |
-| Overview, Insights, Posts, Audit, Proposals, Schedule, Listening      | Working; checked with demo data                                                                 |
+| Today, Posts, Insights, Plan, Listening                               | Working; checked with demo data                                                                 |
 | Build (analytics) in TypeScript                                       | Working; tested                                                                                 |
 | Collectors with rate limits, timer and tray                           | Written and unit-tested on fictional fixtures; **not yet run against the real platforms**       |
 | Agent (Claude Code, Codex) and Drafts                                 | Working with demo data; off until you turn it on                                                |

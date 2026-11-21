@@ -2,10 +2,8 @@ import {
   Bot,
   CalendarClock,
   ChartNoAxesColumn,
-  ClipboardCheck,
   Ear,
   LayoutDashboard,
-  Lightbulb,
   Loader,
   type LucideIcon,
   Moon,
@@ -35,25 +33,23 @@ const GROUPS: ReadonlyArray<{ readonly label: string; readonly items: ReadonlyAr
   {
     label: "Results",
     items: [
-      { view: "overview", label: "Overview", icon: LayoutDashboard },
-      { view: "insights", label: "Insights", icon: ChartNoAxesColumn },
+      { view: "overview", label: "Today", icon: LayoutDashboard },
       { view: "posts", label: "Posts", icon: Rows3 },
-      { view: "audit", label: "Audit", icon: ClipboardCheck },
+      { view: "insights", label: "Insights", icon: ChartNoAxesColumn },
     ],
   },
   {
-    label: "Plan",
+    label: "Next",
     items: [
-      { view: "proposals", label: "Proposals", icon: Lightbulb },
-      { view: "schedule", label: "Schedule", icon: CalendarClock },
+      { view: "plan", label: "Plan", icon: CalendarClock },
       { view: "listening", label: "Listening", icon: Ear },
     ],
   },
   {
     label: "Write",
     items: [
-      { view: "agent", label: "Agent", icon: Bot },
       { view: "drafts", label: "Drafts", icon: NotebookPen },
+      { view: "agent", label: "Agent", icon: Bot },
     ],
   },
 ];

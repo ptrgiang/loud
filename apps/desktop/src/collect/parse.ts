@@ -134,14 +134,30 @@ export const igMediaId = (code: string): string => {
   return n.toString();
 };
 
-export function igProfile(objs: ReadonlyArray<unknown>, tz: string): Array<Row> {
+/** Usernames a media item belongs to: its author, owner and collab co-authors. */
+const igOwners = (m: Record<string, unknown>): Array<string> => {
+  const names = [text(get(m, "user", "username")), text(get(m, "owner", "username"))];
+  const co = m.coauthor_producers;
+  if (Array.isArray(co)) for (const c of co) names.push(text(get(c, "username")));
+  return names.filter(Boolean).map((n) => n.toLowerCase());
+};
+
+/** True when the item is the handle's own or a collab it is part of; false for someone else's. */
+export const igOwnedBy = (m: Record<string, unknown>, handle: string): boolean =>
+  igOwners(m).includes(handle.toLowerCase());
+
+/**
+ * The handle's own posts. The profile page also loads suggested reels and other accounts' media with the same
+ * shape, so an item without the handle among its owners is left out.
+ */
+export function igProfile(objs: ReadonlyArray<unknown>, handle: string, tz: string): Array<Row> {
   const out = new Map<string, Row>();
   for (const m of walk(
     objs,
     (o) => !!text(o.code) && num(o.taken_at) !== null && "like_count" in o,
   )) {
     const code = text(m.code);
-    if (out.has(code)) continue;
+    if (out.has(code) || !igOwnedBy(m, handle)) continue;
     const reel = num(m.media_type) === 2;
     const row: Row = {
       id: code,
@@ -156,6 +172,14 @@ export function igProfile(objs: ReadonlyArray<unknown>, tz: string): Array<Row> 
     out.set(code, row);
   }
   return [...out.values()];
+}
+
+/** `/api/v1/media/{id}/info/`: null when the answer has no owner to check. */
+export function igInfoOwned(body: unknown, handle: string): boolean | null {
+  const m = get(body, "items");
+  const it = Array.isArray(m) ? m[0] : undefined;
+  if (!isObj(it) || !igOwners(it).length) return null;
+  return igOwnedBy(it, handle);
 }
 
 /** `/api/v1/media/{id}/info/`. */
