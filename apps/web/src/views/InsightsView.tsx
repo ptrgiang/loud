@@ -5,6 +5,7 @@ import { Fragment, useMemo } from "react";
 import { BucketBars, InlineBar } from "~/components/Bars";
 import { Card, ViewBody } from "~/components/Card";
 import { FlagList } from "~/components/Flags";
+import { Freshness } from "~/components/Freshness";
 import { TipRow, useChartTip, useWidth } from "~/components/ChartTip";
 import { NoData } from "~/components/NoData";
 import { ChannelDot, ChannelTag, Empty, PageHeader } from "~/components/PageHeader";
@@ -679,7 +680,11 @@ export function InsightsView() {
     <>
       <PageHeader
         title="Insights"
-        description="Your own posts at least a day old, since newer ones are still collecting views. Medians, not averages."
+        description={
+          <>
+            <Freshness hub={hub} />. Posts at least a day old; medians, not averages.
+          </>
+        }
       />
       <ViewBody wide>
         <Callouts hub={hub} />

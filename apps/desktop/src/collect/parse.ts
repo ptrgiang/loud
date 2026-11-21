@@ -411,17 +411,18 @@ export const xRow = (t: Tweet, handle: string): Row => {
   return row;
 };
 
+/** The first user object for the handle that carries a count: X also sends the handle without counts first. */
 export function xFollowers(objs: ReadonlyArray<unknown>, handle: string): number | null {
+  const count = (o: Record<string, unknown>) =>
+    num(get(o, "legacy", "followers_count")) ?? num(get(o, "relationship_counts", "followers"));
   const u = walk(
     objs,
     (o) =>
       (
         text(get(o, "core", "screen_name")) || text(get(o, "legacy", "screen_name"))
-      ).toLowerCase() === handle.toLowerCase(),
+      ).toLowerCase() === handle.toLowerCase() && count(o) !== null,
   )[0];
-  return u
-    ? (num(get(u, "legacy", "followers_count")) ?? num(get(u, "relationship_counts", "followers")))
-    : null;
+  return u ? count(u) : null;
 }
 
 export function xScheduled(objs: ReadonlyArray<unknown>, tz: string): Array<Queued> | null {

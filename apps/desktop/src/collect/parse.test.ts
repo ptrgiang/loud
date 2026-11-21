@@ -14,6 +14,7 @@ import {
   mergePosts,
   threadsPostNumbers,
   threadsProfile,
+  xFollowers,
   xScheduled,
   xTime,
   xTweets,
@@ -240,6 +241,20 @@ describe("X", () => {
       ["2", "long form", false, 1200],
       ["4", "short", true, 1200],
     ]);
+  });
+
+  it("reads followers from the user object that has them", () => {
+    const objs = [
+      { data: { user_result_by_screen_name: { result: { core: { screen_name: "acmeforms" } } } } },
+      {
+        data: {
+          user: {
+            result: { core: { screen_name: "AcmeForms" }, relationship_counts: { followers: 210 } },
+          },
+        },
+      },
+    ];
+    expect(xFollowers(objs, "acmeforms")).toBe(210);
   });
 
   it("reads the scheduled list", () => {

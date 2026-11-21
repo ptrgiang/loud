@@ -46,6 +46,9 @@ const langName = (l: string) => {
   }
 };
 
+/** Base UI drops an empty toggle value, so "all" needs a value of its own. */
+const ALL = "__all__";
+
 function KeywordEditor({
   channels,
   onClose,
@@ -281,7 +284,7 @@ export function ListeningView() {
                 title="Keywords"
                 hint="By total views (Threads has none, so it ranks low). Click a row to filter the table."
               >
-                <div className="max-h-90 overflow-y-auto">
+                <div className="max-h-90 overflow-y-auto pr-3 [scrollbar-gutter:stable]">
                   <table className="w-full text-xs">
                     <thead className="sticky top-0 bg-card">
                       <tr className="border-b text-muted-foreground">
@@ -348,7 +351,7 @@ export function ListeningView() {
                 title="Top authors"
                 hint="By the engagement score of the posts found."
               >
-                <div className="max-h-90 overflow-y-auto">
+                <div className="max-h-90 overflow-y-auto pr-3 [scrollbar-gutter:stable]">
                   <table className="w-full text-xs">
                     <thead className="sticky top-0 bg-card">
                       <tr className="border-b text-muted-foreground">
@@ -389,10 +392,10 @@ export function ListeningView() {
               variant="pill"
               aria-label="Keyword"
               className="flex-wrap"
-              value={[f.keyword ?? ""]}
-              onValueChange={(v) => setKeyword(v[0] ? v[0] : null)}
+              value={[f.keyword ?? ALL]}
+              onValueChange={(v) => setKeyword(v[0] && v[0] !== ALL ? v[0] : null)}
             >
-              <Toggle value="" size="xs">
+              <Toggle value={ALL} size="xs">
                 All keywords{" "}
                 <span className="text-muted-foreground tabular-nums">{items.length}</span>
               </Toggle>
@@ -413,12 +416,13 @@ export function ListeningView() {
               {langs.length > 1 && (
                 <ToggleGroup
                   aria-label="Language"
-                  value={[f.lang ?? ""]}
+                  value={[f.lang ?? ALL]}
                   onValueChange={(v) =>
-                    v[0] !== undefined && patchView("listening", { lang: v[0] || null })
+                    v[0] !== undefined &&
+                    patchView("listening", { lang: v[0] === ALL ? null : v[0] })
                   }
                 >
-                  <Toggle value="">All languages</Toggle>
+                  <Toggle value={ALL}>All languages</Toggle>
                   {langs.map((l) => (
                     <Toggle key={l} value={l}>
                       {langName(l)}

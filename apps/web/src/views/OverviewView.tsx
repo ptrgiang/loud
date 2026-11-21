@@ -14,6 +14,7 @@ import { Card, Quiet, ViewBody } from "~/components/Card";
 import { TipRow, useChartTip, useWidth } from "~/components/ChartTip";
 import { PostText } from "~/components/Filters";
 import { FlagList } from "~/components/Flags";
+import { Freshness } from "~/components/Freshness";
 import { ChannelDot, ChannelTag, Empty, PageHeader } from "~/components/PageHeader";
 import { Button } from "~/components/ui/button";
 import { CheckboxMark } from "~/components/ui/checkbox";
@@ -597,7 +598,12 @@ export function OverviewView() {
     <>
       <PageHeader
         title="Today"
-        description={`Built ${relative(hub.built)} · ${hub.channels.length} channels since ${hub.since ?? "the start date"}, ${hub.timezone ?? "local"} time`}
+        description={
+          <>
+            <Freshness hub={hub} /> · {hub.channels.length} channels since{" "}
+            {hub.since ?? "the start date"}
+          </>
+        }
       />
       <ViewBody wide>
         {proposals?.summary && <p className="text-muted-foreground text-sm">{proposals.summary}</p>}

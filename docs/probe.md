@@ -24,5 +24,5 @@ The console shows counts per day and the newest post, never post text. The files
 the probe refuses a folder inside the repository, and they are never committed. Requests go through the same limiter
 spacing as the app, but the daily count starts from zero, so keep probe runs small.
 
-Known limit: Instagram treats a session copied from Chrome as logged out in Electron, so Instagram is checked in the
-installed app instead.
+In Git Bash, set `MSYS_NO_PATHCONV=1` and give paths as Windows paths (`pwd -W`): otherwise any value starting with `/`,
+such as `LOUD_PROBE_CAPTURE=/api/v1/`, is rewritten into a file path and the page appears to load nothing.
