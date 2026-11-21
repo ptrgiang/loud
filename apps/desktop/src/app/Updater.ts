@@ -9,7 +9,7 @@ import { autoUpdater } from "electron-updater";
 import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
 
-import { stampNow } from "../agent/tools.ts";
+import { stampNow } from "../agent/drafts.ts";
 import { SettingsStore } from "../settings/SettingsStore.ts";
 import { EventBus } from "./EventBus.ts";
 

@@ -63,6 +63,8 @@ interface WorkState {
   readonly loadDrafts: () => Promise<void>;
   readonly saveDraft: (input: DraftInput) => Promise<Draft | null>;
   readonly deleteDraft: (id: string) => Promise<void>;
+  /** Runs a call that changes one draft's images and keeps the list in step; false when it failed. */
+  readonly changeDraft: (change: () => Promise<Draft>) => Promise<boolean>;
   readonly loadCollect: () => Promise<void>;
   readonly startCollect: (input?: CollectStart) => Promise<void>;
   readonly cancelCollect: () => Promise<void>;
@@ -210,6 +212,16 @@ export const useWork = create<WorkState>()((set, get) => ({
     } catch (e) {
       report(e);
       return null;
+    }
+  },
+  changeDraft: async (change) => {
+    try {
+      const d = await change();
+      set((s) => ({ drafts: s.drafts.map((x) => (x.id === d.id ? d : x)) }));
+      return true;
+    } catch (e) {
+      report(e);
+      return false;
     }
   },
   deleteDraft: async (id) => {

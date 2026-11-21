@@ -20,7 +20,15 @@ import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
 
 import { Agent } from "../agent/Agent.ts";
-import { deleteDraft, readDrafts, upsertDraft } from "../agent/tools.ts";
+import {
+  addDraftImages,
+  deleteDraft,
+  draftImagePath,
+  readDraftImage,
+  readDrafts,
+  removeDraftImage,
+  upsertDraft,
+} from "../agent/drafts.ts";
 import { AppPaths } from "../app/AppPaths.ts";
 import { EventBus } from "../app/EventBus.ts";
 import { Updater } from "../app/Updater.ts";
@@ -46,6 +54,9 @@ const isZone = (s: string) => {
     return false;
   }
 };
+
+/** Runs sync file work; a thrown Error reaches the dashboard with its own message. */
+const attempt = <A>(f: () => A) => Effect.try({ try: f, catch: (e) => e }).pipe(Effect.orDie);
 
 export const install = (isMainFrame: (frame: Electron.WebFrameMain | null) => boolean) =>
   Effect.gen(function* () {
@@ -206,6 +217,31 @@ export const install = (isMainFrame: (frame: Electron.WebFrameMain | null) => bo
           Effect.sync(() => deleteDraft(paths.data, id)),
           {},
         ),
+      "drafts.image": ({ id, name }) =>
+        attempt(() => {
+          const { mime, bytes } = readDraftImage(paths.data, id, name);
+          return { mime, data: bytes.toString("base64") };
+        }),
+      "drafts.addImage": ({ id, data }) =>
+        attempt(() => addDraftImages(paths.data, id, [Buffer.from(data, "base64")])),
+      "drafts.removeImage": ({ id, name }) => attempt(() => removeDraftImage(paths.data, id, name)),
+      "drafts.copyImage": ({ id, name }) =>
+        Effect.tryPromise({
+          try: async () => {
+            // Through nativeImage so a JPEG goes on the clipboard as PNG, the type every composer pastes.
+            const image = Electron.nativeImage.createFromPath(draftImagePath(paths.data, id, name));
+            if (image.isEmpty()) throw new Error("This image can't be copied; use Show in folder.");
+            const png = new Blob([new Uint8Array(image.toPNG())], { type: "image/png" });
+            await Electron.clipboard.write([new Electron.ClipboardItem({ "image/png": png })]);
+            return {};
+          },
+          catch: (e) => e,
+        }).pipe(Effect.orDie),
+      "drafts.showImage": ({ id, name }) =>
+        attempt(() => {
+          Electron.shell.showItemInFolder(draftImagePath(paths.data, id, name));
+          return {};
+        }),
       "updates.settings": () => Effect.map(settings.get, (s) => s.updates),
       "updates.configure": (input) =>
         Effect.gen(function* () {

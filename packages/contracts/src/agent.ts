@@ -157,6 +157,8 @@ export const Draft = Schema.Struct({
   /** What the post is for, or what the agent was asked. */
   note: Schema.String,
   by: Schema.Literals(["you", "agent"]),
+  /** File names in the draft's own folder, in posting order. */
+  images: Schema.optionalKey(Schema.Array(Schema.String)),
   created: Schema.String,
   updated: Schema.String,
 });
@@ -169,6 +171,9 @@ export const DraftInput = Schema.Struct({
   note: Schema.optionalKey(Schema.String),
 });
 export type DraftInput = typeof DraftInput.Type;
+
+/** Per draft. X takes 4 images a post; Threads and Instagram take 10 (Instagram as a carousel). */
+export const DRAFT_IMAGES_MAX = 10;
 
 export interface DraftsFile {
   readonly drafts: ReadonlyArray<Draft>;

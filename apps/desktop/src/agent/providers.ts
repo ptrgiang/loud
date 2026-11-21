@@ -78,6 +78,11 @@ export function findOnPath(name: string, extra: ReadonlyArray<string> = []): str
 
 const home = process.env.USERPROFILE ?? process.env.HOME ?? "";
 
+/** Where Codex's image tool saves (per thread, below this). Claude Code has no image tool. */
+export const imageRoots = (): Array<string> => [
+  NodePath.join(process.env.CODEX_HOME || NodePath.join(home, ".codex"), "generated_images"),
+];
+
 /** Run `<exe> --version`; null when it does not answer. Never through a shell: arguments stay arguments. */
 export function versionOf(exe: string): string | null {
   if (/\.(cmd|bat)$/i.test(exe)) return null;
@@ -251,7 +256,7 @@ const codex: Provider = {
         "--skip-git-repo-check",
         "--ignore-user-config",
         "--ignore-rules",
-        // No shell, no browser, no plugins or apps: the Loud tools are all it has.
+        // No shell, no browser, no plugins or apps: the Loud tools and image generation are all it has.
         ...[
           "shell_tool",
           "unified_exec",
@@ -259,7 +264,6 @@ const codex: Provider = {
           "in_app_browser",
           "apps",
           "plugins",
-          "image_generation",
         ].flatMap((f) => ["--disable", f]),
         "-c",
         `web_search=${tomlLiteral("disabled")}`,

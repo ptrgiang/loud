@@ -17,7 +17,7 @@ Part of [Try Something](https://trysometh.ing). Home: [loud.trysometh.ing](https
 - **Your data stays on your computer.** Sessions, posts and numbers live in Loud's profile folder. Loud talks to the platforms you connected and to nothing else, unless you turn on the agent, update checks or usage reports, and Settings says where each goes.
 - **Usage reports only if you say yes.** On first launch Loud asks whether to send one small report a day to loud.trysometh.ing: version, OS, which platforms are connected, and how many collection runs worked or failed. Never a handle, a post or a number from your accounts. Settings shows the exact report; turning it off deletes what was sent. Every field is listed on the [privacy page](https://loud.trysometh.ing/privacy), and the totals are [public](https://loud.trysometh.ing/#numbers).
 - **Gentle on your accounts.** Collection reads at a human pace, with daily caps, pauses for hours after a "too many requests", and stops at the first checkpoint or captcha rather than push through it.
-- **An agent if you want one.** Turn it on in Settings and it reads your numbers through Loud's own tools, proposes posts and writes drafts. It runs through Claude Code or Codex, signed in on your computer, so what it reads goes to Anthropic or OpenAI. It cannot post; you do.
+- **An agent if you want one.** Turn it on in Settings and it reads your numbers through Loud's own tools, proposes posts and writes drafts (through Codex, with images). It runs through Claude Code or Codex, signed in on your computer, so what it reads goes to Anthropic or OpenAI. It cannot post; you do.
 
 ![Connections](docs/assets/connections.png)
 

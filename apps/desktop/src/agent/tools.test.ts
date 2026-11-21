@@ -5,7 +5,14 @@ import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 
 import { generateDemo } from "../demo/demo.ts";
 import { handle } from "./mcp.ts";
-import { readDrafts, TOOLS, type ToolContext } from "./tools.ts";
+import {
+  deleteDraft,
+  readDraftImage,
+  readDrafts,
+  removeDraftImage,
+  upsertDraft,
+} from "./drafts.ts";
+import { TOOLS, type ToolContext } from "./tools.ts";
 
 let dir: string;
 let ctx: ToolContext;
@@ -20,6 +27,7 @@ beforeEach(() => {
     channels: ["threads", "x"],
     keywords: { x: ["form builder"] },
     playbook: "",
+    imageRoots: [],
     now: () => new Date(2026, 10, 20, 12, 0),
   };
 });
@@ -45,6 +53,45 @@ describe("agent tools", () => {
     expect(readDrafts(dir)).toMatchObject([
       { channel: "x", by: "agent", text: "Short and sharp." },
     ]);
+  });
+
+  it("attaches only images from the image tool's folder", () => {
+    const made = NodePath.join(dir, "made");
+    NodeFS.mkdirSync(made);
+    ctx = { ...ctx, imageRoots: [made] };
+    const png = NodePath.join(made, "a.png");
+    NodeFS.writeFileSync(
+      png,
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]),
+    );
+    const text = NodePath.join(made, "notes.png");
+    NodeFS.writeFileSync(text, "not an image");
+    const outside = NodePath.join(dir, "hub.json");
+    const before = readDrafts(dir).length;
+
+    for (const images of [[outside], [text], ["made/a.png"]])
+      expect(run("save_draft", { channel: "x", text: "With a picture.", images }).isError).toBe(
+        true,
+      );
+    expect(readDrafts(dir)).toHaveLength(before);
+
+    expect(
+      run("save_draft", { channel: "x", text: "With a picture.", images: [png, png] }).text,
+    ).toMatch(/with 1 images$/);
+    const [d] = readDrafts(dir);
+    expect(d?.images).toHaveLength(1);
+    const name = d!.images![0]!;
+    expect(readDraftImage(dir, d!.id, name).mime).toBe("image/png");
+
+    // Editing the text keeps the images; removing and deleting clean up the files.
+    expect(
+      upsertDraft(dir, { id: d!.id, channel: "x", text: "Edited." }, "you", new Date()).images,
+    ).toEqual([name]);
+    expect(removeDraftImage(dir, d!.id, name).images).toBeUndefined();
+    expect(() => readDraftImage(dir, d!.id, name)).toThrow();
+    expect(() => readDraftImage(dir, d!.id, "../../hub.json")).toThrow("Not a draft image.");
+    deleteDraft(dir, d!.id);
+    expect(NodeFS.existsSync(NodePath.join(dir, "drafts", d!.id))).toBe(false);
   });
 
   it("refuses proposals for a channel that is not enabled", () => {

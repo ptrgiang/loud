@@ -283,9 +283,10 @@ function AgentSettingsCard() {
           <ShieldCheck className="mt-0.5 size-4 shrink-0" />
           <p>
             The agent gets no shell, no file access and no web: only Loud's tools, which read the
-            built data and write proposals and drafts. It cannot post, like or message anyone. Loud
-            keeps the conversation on this computer until you start a new chat; Claude Code and
-            Codex also keep their own session logs.
+            built data and write proposals and drafts. Codex may also make images for a draft, on
+            your Codex plan. It cannot post, like or message anyone. Loud keeps the conversation on
+            this computer until you start a new chat; Claude Code and Codex also keep their own
+            session logs.
           </p>
         </div>
       </div>

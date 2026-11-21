@@ -5,8 +5,7 @@ import {
   CHANNEL_LIMITS,
   CHANNEL_NAMES,
   type ChannelId,
-  type Draft,
-  type DraftsFile,
+  DRAFT_IMAGES_MAX,
   type Hub,
   type Keywords,
   type Post,
@@ -35,6 +34,7 @@ import { postLength } from "@loud/shared/text";
 import * as NodePath from "node:path";
 
 import { readJson, writeJson } from "../data/files.ts";
+import { addDraftImages, readAllowedImage, readDrafts, stampNow, upsertDraft } from "./drafts.ts";
 
 export interface ToolContext {
   readonly data: string;
@@ -42,6 +42,8 @@ export interface ToolContext {
   readonly channels: ReadonlyArray<ChannelId>;
   readonly keywords: Keywords;
   readonly playbook: string;
+  /** Folders the agent's own image tool saves into; save_draft takes images from there only. */
+  readonly imageRoots: ReadonlyArray<string>;
   readonly now: () => Date;
 }
 
@@ -193,47 +195,6 @@ function cadence(hub: Hub, days: number) {
       longest_gap_days: longestGap,
     };
   });
-}
-
-export const readDrafts = (data: string): Array<Draft> => {
-  const f = readJson<DraftsFile>(NodePath.join(data, "drafts.json"));
-  return Array.isArray(f?.drafts) ? [...f.drafts] : [];
-};
-
-export const stampNow = (d: Date) =>
-  `${ymd(d)} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-
-const newId = () => `d${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-
-/** Insert or replace by id, newest first. Shared with the desktop's drafts handlers. */
-export function upsertDraft(
-  data: string,
-  input: { id?: string | undefined; channel: ChannelId; text: string; note?: string | undefined },
-  by: Draft["by"],
-  now: Date,
-): Draft {
-  const all = readDrafts(data);
-  const at = stampNow(now);
-  const prev = input.id ? all.find((d) => d.id === input.id) : undefined;
-  const draft: Draft = {
-    id: prev?.id ?? newId(),
-    channel: input.channel,
-    text: input.text,
-    note: input.note ?? prev?.note ?? "",
-    by: prev?.by ?? by,
-    created: prev?.created ?? at,
-    updated: at,
-  };
-  writeJson(NodePath.join(data, "drafts.json"), {
-    drafts: [draft, ...all.filter((d) => d.id !== draft.id)],
-  } satisfies DraftsFile);
-  return draft;
-}
-
-export function deleteDraft(data: string, id: string) {
-  writeJson(NodePath.join(data, "drafts.json"), {
-    drafts: readDrafts(data).filter((d) => d.id !== id),
-  } satisfies DraftsFile);
 }
 
 const PROPOSAL_FIELDS = ["channel", "title", "when", "format", "hook", "outline", "why"] as const;
@@ -526,6 +487,13 @@ export const TOOLS: ReadonlyArray<Tool> = [
         text: { type: "string", description: "The post, exactly as it should be published" },
         note: { type: "string", description: "One line: what it is for" },
         id: { type: "string", description: "Replace this draft instead of adding one" },
+        images: {
+          type: "array",
+          items: { type: "string" },
+          maxItems: DRAFT_IMAGES_MAX,
+          description:
+            "Absolute paths of images you generated for this post, in posting order. They are added to the draft's images. X takes at most 4.",
+        },
       },
       required: ["channel", "text"],
     },
@@ -540,13 +508,25 @@ export const TOOLS: ReadonlyArray<Tool> = [
         return fail(
           `too long for ${CHANNEL_NAMES[ch]}: ${length} of ${CHANNEL_LIMITS[ch]} characters`,
         );
+      const paths = Array.isArray(a.images) ? a.images.filter((p) => typeof p === "string") : [];
+      const read = paths.map((p) => readAllowedImage(p, ctx.imageRoots));
+      const refused = read.filter((r) => typeof r === "string");
+      if (refused.length) return fail(`not saved: ${refused.join("; ")}`);
       const d = upsertDraft(
         ctx.data,
         { id: str(a.id) || undefined, channel: ch, text, note: str(a.note) },
         "agent",
         ctx.now(),
       );
-      return ok(`saved draft ${d.id}`);
+      if (!paths.length) return ok(`saved draft ${d.id}`);
+      try {
+        const withImages = addDraftImages(ctx.data, d.id, read as Array<Uint8Array>);
+        return ok(`saved draft ${d.id} with ${withImages.images?.length ?? 0} images`);
+      } catch (error) {
+        return fail(
+          `saved draft ${d.id} without images: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
     },
   },
 ];

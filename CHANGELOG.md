@@ -2,10 +2,16 @@
 
 ## Unreleased
 
+## 0.1.8 (2026-11-21)
+
+- Drafts carry images. With Codex, the agent can make an image for a post and attach it to the draft ("Make an image" in Drafts, or ask in the chat); Claude Code describes the image instead. You can add your own, copy one to paste into the platform's composer, or show it in its folder. Images stay in the data folder next to the draft.
+- X: followers are read again. The first answer X sends for a profile carries no counts; Loud now takes them from the one that does. Checked against a real account.
+- Listening: "All keywords" showed nothing; it now shows every result. The scrollbar no longer covers the last column of the tables.
+- Insights and Today say when the numbers were last built and when the next collection runs.
+
 ## 0.1.7 (2026-11-21)
 
 - Threads missed its newest posts: they are only in the profile page's first, embedded batch, which Threads removes from the page once it has rendered, and Loud kept only what the page held after the last scroll. Every read is now kept. Checked against a real account: the newest posts are read again.
-
 - Old pinned posts at the top no longer stop the scroll early: only the end of the list counts.
 - Each platform's result line says the newest post it stored, so a missing one shows at a glance.
 - Settings: "Later runs read again" sets how many recent days each run reads again (7 by default), under Count from, which the first read goes back to. Read everything again does a full read once.

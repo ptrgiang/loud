@@ -29,6 +29,7 @@ import { UsageReport, UsageStatus } from "./usage.ts";
 
 const None = Schema.Struct({});
 const ById = Schema.Struct({ id: ChannelId });
+const DraftImageRef = Schema.Struct({ id: Schema.String, name: Schema.String });
 
 export const AppInfo = Schema.Struct({
   name: Schema.String,
@@ -96,6 +97,20 @@ export const IpcMethods = {
   "drafts.list": { input: None, output: Schema.Array(Draft) },
   "drafts.save": { input: DraftInput, output: Draft },
   "drafts.delete": { input: Schema.Struct({ id: Schema.String }), output: Schema.Struct({}) },
+  /** One image of a draft, as base64, to show it. */
+  "drafts.image": {
+    input: DraftImageRef,
+    output: Schema.Struct({ mime: Schema.String, data: Schema.String }),
+  },
+  /** Adds an image the user picked (base64 of the file). */
+  "drafts.addImage": {
+    input: Schema.Struct({ id: Schema.String, data: Schema.String }),
+    output: Draft,
+  },
+  "drafts.removeImage": { input: DraftImageRef, output: Draft },
+  /** Puts the image on the clipboard, to paste into the platform's composer. */
+  "drafts.copyImage": { input: DraftImageRef, output: Schema.Struct({}) },
+  "drafts.showImage": { input: DraftImageRef, output: Schema.Struct({}) },
   "updates.settings": { input: None, output: UpdateSettings },
   "updates.configure": { input: UpdateSettings, output: UpdateSettings },
   "updates.status": { input: None, output: UpdateStatus },
