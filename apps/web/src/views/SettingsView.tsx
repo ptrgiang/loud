@@ -38,6 +38,8 @@ function Row({
 
 function General() {
   const info = useLoud((s) => s.info);
+  // Keyed on the stored value so the field shows it once collection settings have loaded.
+  const rescan = useWork((s) => s.collection?.rescanDays);
   const [tz, setTz] = useState(info?.timezone ?? "");
   const [since, setSince] = useState(info?.since ?? "");
   if (!info) return null;
@@ -61,7 +63,10 @@ function General() {
             onBlur={() => tz !== info.timezone && void save({ timezone: tz })}
           />
         </Row>
-        <Row label="Count from" hint="Posts before this day are ignored everywhere.">
+        <Row
+          label="Count from"
+          hint="The first read of each platform goes back to this day. Posts before it are ignored everywhere."
+        >
           <Input
             size="sm"
             className="w-40"
@@ -72,8 +77,53 @@ function General() {
             onBlur={() => since !== info.since && void save({ since })}
           />
         </Row>
+        <Rescan key={rescan ?? "loading"} />
       </div>
     </Card>
+  );
+}
+
+/** After the first read, each run reads only the recent posts again; older ones keep their numbers. */
+function Rescan() {
+  const collection = useWork((s) => s.collection);
+  const configure = useWork((s) => s.configureCollection);
+  const start = useWork((s) => s.startCollect);
+  const running = useWork((s) => s.collect?.running ?? false);
+  const demo = useLoud((s) => s.info?.demo ?? false);
+  const [days, setDays] = useState(String(collection?.rescanDays ?? 7));
+  if (!collection) return null;
+  return (
+    <Row
+      label="Later runs read again"
+      hint={
+        <>
+          After the first read, each run reads only the posts of the last {collection.rescanDays}{" "}
+          days again; older posts keep their numbers. Read everything again reads back to the Count
+          from day once.
+        </>
+      }
+    >
+      <Input
+        size="sm"
+        className="w-16"
+        type="number"
+        min={1}
+        max={60}
+        value={days}
+        aria-label="Days to read again"
+        onValueChange={setDays}
+        onBlur={() => void configure({ rescanDays: Number(days) || 7 })}
+      />
+      <span className="text-muted-foreground text-xs">days</span>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={demo || running}
+        onClick={() => void start({ full: true })}
+      >
+        Read everything again
+      </Button>
+    </Row>
   );
 }
 

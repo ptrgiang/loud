@@ -10,14 +10,18 @@ import {
   NotebookPen,
   Plug,
   Rows3,
+  Search,
   Settings,
   Sun,
 } from "lucide-react";
 import { CHANNEL_NAMES, type CollectStep } from "@loud/contracts";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
+import { useTheme } from "~/lib/theme";
 import { cn } from "~/lib/utils";
+import { usePalette } from "~/components/CommandPalette";
 import { LoudMark } from "~/components/LoudMark";
+import { RestartToUpdate, UpdateButton } from "~/components/UpdateControl";
 import { useLoud, type View } from "~/store";
 import { useWork } from "~/workStore";
 
@@ -81,21 +85,13 @@ function SidebarRow({
   );
 }
 
-function useTheme() {
-  const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", dark);
-    localStorage.setItem("loud:theme", dark ? "dark" : "light");
-  }, [dark]);
-  return [dark, () => setDark((d) => !d)] as const;
-}
-
 export function AppSidebar() {
   const view = useLoud((s) => s.view);
   const go = useLoud((s) => s.go);
   const platforms = useLoud((s) => s.platforms);
   const connected = platforms.filter((p) => p.status === "connected").length;
-  const [dark, toggleTheme] = useTheme();
+  const dark = useTheme((s) => s.dark);
+  const toggleTheme = useTheme((s) => s.toggle);
   const current = useWork((s) =>
     s.collect?.running ? (s.collect.steps.find((x) => x.status === "running")?.step ?? null) : null,
   );
@@ -110,6 +106,20 @@ export function AppSidebar() {
       <div className="flex h-[var(--workspace-topbar-height)] shrink-0 items-center gap-2 px-4">
         <LoudMark />
         <span className="font-semibold text-sm tracking-tight">Loud</span>
+      </div>
+
+      <div className="px-[var(--sidebar-content-inset)] pb-2">
+        <button
+          type="button"
+          onClick={() => usePalette.getState().set(true)}
+          className="flex h-8 w-full cursor-pointer items-center gap-[var(--sidebar-control-gap)] rounded-[var(--control-radius)] border border-sidebar-border px-[var(--sidebar-row-content-inset)] text-left text-sidebar-muted-foreground text-sm hover:bg-sidebar-row-hover hover:text-sidebar-foreground [&>svg]:size-4"
+        >
+          <Search />
+          <span className="flex-1 truncate">Search</span>
+          <kbd className="rounded border border-sidebar-border px-1 font-sans text-2xs">
+            {navigator.platform.startsWith("Mac") ? "⌘K" : "Ctrl K"}
+          </kbd>
+        </button>
       </div>
 
       <nav className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-[var(--sidebar-content-inset)] pt-1 pb-3">
@@ -141,6 +151,9 @@ export function AppSidebar() {
           active={view === "settings"}
           onSelect={() => go("settings")}
         />
+        <div className="px-[var(--sidebar-row-content-inset)] pt-1 empty:hidden">
+          <RestartToUpdate />
+        </div>
         <div className="flex items-center justify-between gap-2 px-[var(--sidebar-row-content-inset)] pt-1">
           <button
             type="button"
@@ -158,14 +171,17 @@ export function AppSidebar() {
               </span>
             )}
           </button>
-          <button
-            type="button"
-            onClick={toggleTheme}
-            aria-label={dark ? "Use light theme" : "Use dark theme"}
-            className="flex size-6 cursor-pointer items-center justify-center rounded-md text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground [&>svg]:size-3.5"
-          >
-            {dark ? <Sun /> : <Moon />}
-          </button>
+          <div className="flex items-center gap-0.5">
+            <UpdateButton />
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={dark ? "Use light theme" : "Use dark theme"}
+              className="flex size-6 cursor-pointer items-center justify-center rounded-md text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground [&>svg]:size-3.5"
+            >
+              {dark ? <Sun /> : <Moon />}
+            </button>
+          </div>
         </div>
       </div>
     </aside>

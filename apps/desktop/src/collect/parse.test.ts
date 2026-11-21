@@ -1,7 +1,7 @@
 // Fixtures are fictional and trimmed to the shapes docs/platform-notes.md describes.
 import { describe, expect, it } from "vite-plus/test";
 
-import { fbDate, fbPostCounts, readPlan } from "./collectors.ts";
+import { fbDate, fbPostCounts, pastWindow, readPlan } from "./collectors.ts";
 import { embedded, parseLoose } from "./json.ts";
 import { isCheckpoint } from "./PageReader.ts";
 import {
@@ -74,6 +74,23 @@ describe("Threads", () => {
         shares: 0,
       },
     ]);
+  });
+
+  it("takes a post whose user is only the profile's id", () => {
+    const objs = [
+      {
+        edges: [
+          { thread_items: [{ post: { code: "NEW", taken_at: 1_763_640_000, user: { pk: 42 } } }] },
+        ],
+      },
+      {
+        edges: [
+          { thread_items: [{ post: { code: "OTHER", taken_at: 1_763_640_000, user: { pk: 7 } } }] },
+        ],
+      },
+      { user: { username: "acmeforms", pk: "42", follower_count: 520 } },
+    ];
+    expect(threadsProfile(objs, "acmeforms", TZ).posts.map((p) => p.id)).toEqual(["NEW"]);
   });
 
   it("reads views and insights from a post page", () => {
@@ -275,6 +292,12 @@ describe("read plan", () => {
     expect(plan.read).toHaveLength(40);
     expect(plan.read[0]!.id).toBe("p51");
     expect(plan.listedOnly.map((p) => p.id)).toEqual(rows(2, 11).map((p) => p.id));
+  });
+
+  it("does not stop at old pinned posts on top of the list", () => {
+    const pinned = [{ posted: "2026-09-01 10:00" }, { posted: "2026-09-02 10:00" }];
+    expect(pastWindow([...pinned, { posted: day(50) }], "2026-11-10")).toBe(false);
+    expect(pastWindow([...pinned, { posted: day(50) }, ...pinned], "2026-11-10")).toBe(true);
   });
 
   it("drops stored posts a complete list did not show", () => {

@@ -53,9 +53,14 @@ const IG_APP_ID = "936619743392459";
 
 const nowStamp = (tz: string) => wallClock(new Date(), tz);
 
-/** Two roots older than the window (one may be pinned) means the list has gone far enough back. */
-const pastWindow = (rows: ReadonlyArray<{ posted?: string | undefined }>, from: string) =>
-  rows.filter((r) => r.posted && r.posted < from).length >= 2;
+/**
+ * The list has gone far enough back when its last two rows are older than the window. Only the tail counts: pinned
+ * posts sit at the top however old they are, and counting them stopped the scroll before the newest posts were read.
+ */
+export const pastWindow = (rows: ReadonlyArray<{ posted?: string | undefined }>, from: string) => {
+  const tail = rows.slice(-2);
+  return tail.length === 2 && tail.every((r) => !!r.posted && r.posted < from);
+};
 
 async function scrollFor<T extends { posted?: string | undefined }>(
   reader: PageReader,
@@ -148,7 +153,7 @@ export async function collectThreads(input: CollectInput): Promise<ChannelFile> 
     META_GQL,
     first.objs,
     input.scanFrom,
-    input.full ? 25 : 4,
+    input.full ? 25 : 8,
   );
   const plan = readPlan(input, listed);
   const want = plan.read;
@@ -195,7 +200,7 @@ export async function collectInstagram(input: CollectInput): Promise<ChannelFile
     IG_ANSWERS,
     first.objs,
     input.scanFrom,
-    input.full ? 15 : 3,
+    input.full ? 15 : 5,
   );
   const plan = readPlan(input, listed);
   const want = plan.read;

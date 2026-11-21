@@ -27,6 +27,7 @@ import type {
 import { create } from "zustand";
 
 import { call } from "~/lib/loud";
+import { toast } from "~/lib/toast";
 import { useLoud } from "~/store";
 
 interface WorkState {
@@ -326,6 +327,16 @@ export const useWork = create<WorkState>()((set, get) => ({
 
 /** Every collection status goes through here, from a call or an event. */
 export function setCollect(collect: CollectStatus) {
+  const was = useWork.getState().collect;
+  if (was?.running && !collect.running) {
+    const failed = collect.steps.filter((s) => s.status === "failed").length;
+    if (failed)
+      toast(
+        "error",
+        `Collection finished; ${failed} step${failed > 1 ? "s" : ""} failed. See Connections.`,
+      );
+    else toast("done", "Collection finished.");
+  }
   const lastSteps = { ...useWork.getState().lastSteps };
   for (const step of collect.steps) if (step.status !== "waiting") lastSteps[step.step] = step;
   useWork.setState({ collect, lastSteps });

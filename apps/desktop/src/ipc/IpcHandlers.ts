@@ -159,6 +159,9 @@ export const install = (isMainFrame: (frame: Electron.WebFrameMain | null) => bo
               ...(input.everyHours !== undefined
                 ? { everyHours: Math.min(168, Math.max(3, Math.round(input.everyHours))) }
                 : {}),
+              ...(input.rescanDays !== undefined
+                ? { rescanDays: Math.min(60, Math.max(1, Math.round(input.rescanDays))) }
+                : {}),
             },
           }));
           yield* collector.reschedule;

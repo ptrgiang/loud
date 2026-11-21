@@ -26,6 +26,7 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { builtAt, CHANNEL_ORDER } from "~/lib/analytics";
 import { dayLabel, dec, hm, parseStamp, relative, until, ymd } from "~/lib/format";
+import { toast } from "~/lib/toast";
 import { cn } from "~/lib/utils";
 import { useLoud } from "~/store";
 import { patchView, useViewState } from "~/viewState";
@@ -83,7 +84,10 @@ export function ProposalActions({ p, size = "xs" }: { p: ProposalItem; size?: "x
         variant="outline"
         onClick={async () => {
           const saved = await saveDraft({ channel: p.channel, text: p.hook ?? "", note: p.title });
-          if (saved) go("drafts");
+          if (saved) {
+            toast("done", `Draft saved: ${p.title}`);
+            go("drafts");
+          }
         }}
       >
         <NotebookPen />

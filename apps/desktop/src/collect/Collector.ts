@@ -48,8 +48,6 @@ export class Collector extends Context.Service<Collector, CollectorShape>()(
   "@loud/desktop/collect/Collector",
 ) {}
 
-/** After the first full read, later runs re-read only this many days; older posts keep their numbers. */
-export const RESCAN_DAYS = 7;
 const MIN_EVERY_HOURS = 3;
 /** A failed look-up is not retried sooner than this, however often the login cookie refreshes. */
 const DETECT_RETRY_MS = 30 * 60_000;
@@ -220,7 +218,10 @@ export const layer = Layer.effect(
       const version = FULL_READ[id] ?? 1;
       const fullRun = full || !scan[id]?.fullDone || (scan[id]?.version ?? 1) < version;
       const now = wallClock(new Date(), tz);
-      const scanFrom = fullRun ? s.since : [s.since, daysBefore(now, RESCAN_DAYS)].sort().at(-1)!;
+      // Later runs re-read only the last few days (a setting); older posts keep their numbers.
+      const scanFrom = fullRun
+        ? s.since
+        : [s.since, daysBefore(now, s.collection.rescanDays)].sort().at(-1)!;
       const out = NodePath.join(paths.data, `${id}.json`);
       const reader = new PageReader(id, platforms.session(id), limiter, signal);
       try {
@@ -243,7 +244,8 @@ export const layer = Layer.effect(
         });
         setStep(step, {
           status: "done",
-          detail: `${written.posts.length} posts stored${written.scheduled_known ? "" : "; queue not readable"}`,
+          // The newest post says at a glance whether the latest ones were read.
+          detail: `${written.posts.length} posts stored${written.posts[0]?.posted ? `, newest ${written.posts[0].posted}` : ""}${written.scheduled_known ? "" : "; queue not readable"}`,
         });
       } catch (e) {
         setStep(step, {

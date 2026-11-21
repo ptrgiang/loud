@@ -9,6 +9,8 @@ export const CollectionSettings = Schema.Struct({
   everyHours: Schema.Number,
   /** Closing the window leaves Loud in the tray so the timer keeps running. */
   keepInTray: Schema.Boolean,
+  /** After the first read from the start date, each run reads again only the posts of the last this many days. */
+  rescanDays: Schema.Number,
 });
 export type CollectionSettings = typeof CollectionSettings.Type;
 
@@ -16,6 +18,7 @@ export const CollectionSettingsUpdate = Schema.Struct({
   auto: Schema.optionalKey(Schema.Boolean),
   everyHours: Schema.optionalKey(Schema.Number),
   keepInTray: Schema.optionalKey(Schema.Boolean),
+  rescanDays: Schema.optionalKey(Schema.Number),
 });
 export type CollectionSettingsUpdate = typeof CollectionSettingsUpdate.Type;
 

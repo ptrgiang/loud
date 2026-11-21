@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.1.6 (2026-11-21)
+
+- New posts could be missed on Threads: two old pinned posts at the top made Loud think the list had gone back far enough, so it stopped before scrolling. Only the end of the list counts now. Profile pages are also revalidated instead of coming from the browser cache, and a post whose author arrives as an id only is matched to the profile.
+- Each platform's result line says the newest post it stored, so a missing one shows at a glance.
+- Settings: "Later runs read again" sets how many recent days each run reads again (7 by default), under Count from, which the first read goes back to. Read everything again does a full read once.
+- Sidebar, as in T3 Code: a button checks for updates and shows the download, then a Restart to update pill once it is ready. Search (Ctrl K) jumps to any page or runs an action: collect, search listening, read everything again, ask for proposals, new chat, theme.
+- Errors and "collection finished" show as notes in the corner instead of a bar over the page.
+
 ## 0.1.5 (2026-11-21)
 
 - Threads and Facebook: a first read now keeps every post since the start date. It used to keep only the newest 40; the rest are stored with the list's numbers and get their own page read over the next runs.

@@ -16,6 +16,9 @@ const put = <K extends keyof Row>(row: Row, key: K, v: Row[K] | null | undefined
 
 // ---- Threads ----
 
+/** Ids come as strings or numbers depending on the answer. */
+const idText = (v: unknown) => (typeof v === "string" ? v : typeof v === "number" ? String(v) : "");
+
 export interface ThreadsProfile {
   readonly posts: Array<Row>;
   readonly followers: number | null;
@@ -26,6 +29,7 @@ const threadsPost = (p: Record<string, unknown>, tz: string) => {
   return {
     code: text(p.code),
     user: text(get(p, "user", "username")),
+    userId: idText(get(p, "user", "pk")) || idText(get(p, "user", "id")),
     posted: num(p.taken_at) !== null ? stampFromUnix(num(p.taken_at)!, tz) : "",
     text: text(get(p, "caption", "text")).slice(0, 600),
     likes: num(p.like_count),
@@ -42,13 +46,22 @@ export function threadsProfile(
   handle: string,
   tz: string,
 ): ThreadsProfile {
+  const u = walk(
+    objs,
+    (o) =>
+      text(o.username).toLowerCase() === handle.toLowerCase() && num(o.follower_count) !== null,
+  )[0];
+  const ownerId = u ? idText(u.pk) || idText(u.id) : "";
+  // A post's user can arrive as an id only; it is the handle's when that id is the profile's.
+  const mine = (r: ReturnType<typeof threadsPost>) =>
+    r.user ? r.user.toLowerCase() === handle.toLowerCase() : ownerId !== "" && r.userId === ownerId;
   const posts = new Map<string, Row>();
   for (const t of walk(objs, (o) => Array.isArray(o.thread_items))) {
     const first = (t.thread_items as Array<unknown>)[0];
     const p = get(first, "post");
     if (!isObj(p)) continue;
     const r = threadsPost(p, tz);
-    if (!r.code || r.user.toLowerCase() !== handle.toLowerCase() || posts.has(r.code)) continue;
+    if (!r.code || !mine(r) || posts.has(r.code)) continue;
     const row: Row = {
       id: r.code,
       url: `https://www.threads.com/@${handle}/post/${r.code}`,
@@ -63,11 +76,6 @@ export function threadsProfile(
     put(row, "quotes", r.quotes);
     posts.set(r.code, row);
   }
-  const u = walk(
-    objs,
-    (o) =>
-      text(o.username).toLowerCase() === handle.toLowerCase() && num(o.follower_count) !== null,
-  )[0];
   return { posts: [...posts.values()], followers: u ? num(u.follower_count) : null };
 }
 

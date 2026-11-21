@@ -41,6 +41,8 @@ export interface Page {
 }
 
 const POLL_MS = 300;
+/** Revalidate each page itself: a cached profile would hide the newest posts. */
+const NO_CACHE = ["Cache-Control: no-cache", "Pragma: no-cache", ""].join("\n");
 
 export class PageReader {
   private win: Electron.BrowserWindow | null = null;
@@ -142,7 +144,7 @@ export class PageReader {
     this.capture = opts.capture;
     this.captured = [];
     this.pending.clear();
-    await w.loadURL(url).catch((e: unknown) => {
+    await w.loadURL(url, { extraHeaders: NO_CACHE }).catch((e: unknown) => {
       // A client-side redirect aborts the first load; the page still arrives.
       if (!String(e).includes("ERR_ABORTED")) throw e;
     });
