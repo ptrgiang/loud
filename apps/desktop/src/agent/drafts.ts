@@ -140,29 +140,19 @@ export function readDraftImage(data: string, id: string, name: string) {
   return { mime: MIME[name.split(".").pop() as ImageType], bytes };
 }
 
-/**
- * The agent names images by path. Only files under `roots` (where its image tool saves) are taken, so a prompt cannot
- * get it to copy any other file of the user's into a draft.
- */
-export function readAllowedImage(file: string, roots: ReadonlyArray<string>): Uint8Array | string {
+/** An image file the agent names by path, checked by its bytes; a string says why it was refused. */
+export function readImageFile(file: string): Uint8Array | string {
   if (!NodePath.isAbsolute(file)) return `${file}: not an absolute path`;
-  let real: string;
+  let size: number;
   try {
-    real = NodeFS.realpathSync.native(file);
+    const st = NodeFS.statSync(file);
+    if (!st.isFile()) return `${file}: not a file`;
+    size = st.size;
   } catch {
     return `${file}: no such file`;
   }
-  const inside = roots.some((root) => {
-    try {
-      const rel = NodePath.relative(NodeFS.realpathSync.native(root), real);
-      return rel !== "" && !rel.startsWith("..") && !NodePath.isAbsolute(rel);
-    } catch {
-      return false;
-    }
-  });
-  if (!inside) return `${file}: only images made by your image tool can be attached`;
-  if (NodeFS.statSync(real).size > IMAGE_BYTES_MAX) return `${file}: larger than 20 MB`;
-  const bytes = NodeFS.readFileSync(real);
+  if (size > IMAGE_BYTES_MAX) return `${file}: larger than 20 MB`;
+  const bytes = NodeFS.readFileSync(file);
   const c = checkImage(bytes);
   return "error" in c ? `${file}: ${c.error}` : bytes;
 }

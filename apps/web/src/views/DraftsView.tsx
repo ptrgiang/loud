@@ -61,12 +61,6 @@ const ASKS: ReadonlyArray<{ label: string; ask: (d: EditorDraft) => string }> = 
   },
 ];
 
-/** Only Codex has an image tool; Claude Code is asked for a description instead. */
-const imageAsk = (d: EditorDraft, canMake: boolean) =>
-  canMake
-    ? `Make one image for this ${CHANNEL_NAMES[d.channel]} post, in the style of my best posts. Attach it with save_draft${d.id ? ` using id ${d.id} and the same text` : ""}.\n\n${d.text}`
-    : `Describe the image this ${CHANNEL_NAMES[d.channel]} post should carry (what it shows, any text on it, the format), so I can make it. Do not save.\n\n${d.text}`;
-
 const readBase64 = (file: File) =>
   new Promise<string>((resolve, reject) => {
     const r = new FileReader();
@@ -202,7 +196,6 @@ function Editor({ start, onSaved }: { start: EditorDraft; onSaved: (d: Draft) =>
   const saveDraft = useWork((s) => s.saveDraft);
   const ask = useWork((s) => s.ask);
   const agentOn = useWork((s) => s.agentSettings?.enabled ?? false);
-  const canMake = useWork((s) => s.agentSettings?.provider === "codex");
   const [d, setD] = useState(start);
   const [copied, setCopied] = useState(false);
   const length = postLength(d.text, d.channel);
@@ -307,19 +300,6 @@ function Editor({ start, onSaved }: { start: EditorDraft; onSaved: (d: Draft) =>
             {a.label}
           </Button>
         ))}
-        <Button
-          size="xs"
-          variant="outline"
-          disabled={!d.text.trim()}
-          title={
-            canMake
-              ? "Codex makes the image and adds it to this draft"
-              : "Claude Code cannot make images; it describes one"
-          }
-          onClick={() => void ask(imageAsk(d, canMake))}
-        >
-          {canMake ? "Make an image" : "Describe an image"}
-        </Button>
         {!agentOn && (
           <span className="text-2xs text-muted-foreground">(turn the agent on in Settings)</span>
         )}

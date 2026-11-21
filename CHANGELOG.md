@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.9 (2026-11-21)
+
+- The agent makes images for drafts its own way: an image tool if it has one, or code it runs (an SVG, an HTML page, a script drawn to PNG). It then attaches the files to the draft. The Drafts page only holds and shows them; its "Make an image" button is gone.
+- Each chat has its own workspace folder, where the agent runs commands and writes files. It may read files elsewhere that you point it to, as references. Codex runs commands in its sandbox: writes only in the workspace, no network. Claude Code has no sandbox on Windows, so its commands run as you; Settings says so. Deleting a chat deletes its workspace.
+- A draft takes any PNG, JPEG, WebP or GIF file the agent names, checked by its contents.
+- Chats from before this version start a new CLI session on their next message, carrying the conversation so far.
+
 ## 0.1.8 (2026-11-21)
 
 - Drafts carry images. With Codex, the agent can make an image for a post and attach it to the draft ("Make an image" in Drafts, or ask in the chat); Claude Code describes the image instead. You can add your own, copy one to paste into the platform's composer, or show it in its folder. Images stay in the data folder next to the draft.

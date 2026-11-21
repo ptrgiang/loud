@@ -74,6 +74,7 @@ export function chatStore(home: string) {
   const root = NodePath.join(home, "agent");
   const chatsDir = NodePath.join(root, "chats");
   const filesDir = NodePath.join(root, "attachments");
+  const workDir = NodePath.join(root, "workspace");
   const chatFile = (id: string) => NodePath.join(chatsDir, `${id}.json`);
 
   const read = (id: string): SavedChat | null =>
@@ -112,7 +113,10 @@ export function chatStore(home: string) {
       if (!ID.test(id)) return;
       NodeFS.rmSync(chatFile(id), { force: true });
       NodeFS.rmSync(NodePath.join(filesDir, id), { recursive: true, force: true });
+      NodeFS.rmSync(NodePath.join(workDir, id), { recursive: true, force: true });
     },
+    /** The chat's own folder: the agent's working directory, the one place it may write. */
+    workspace: (id: string) => NodePath.join(workDir, id),
     /** Saves an upload for a chat; the returned path is what the CLI is given for an image. */
     saveFile: (chatId: string, attachment: AgentAttachment, bytes: Buffer) => {
       const dir = NodePath.join(filesDir, chatId);

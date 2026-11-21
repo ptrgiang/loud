@@ -1,4 +1,4 @@
-// What the agent can do: read the built data, write proposals and drafts. No shell, no files, no network, no posting.
+// Loud's tools for the agent: read the built data, write proposals and drafts. None of them posts or reaches a network.
 // Pure over a data folder so the stdio server and the tests share it; the server runs it in its own process.
 import {
   CHANNEL_IDS,
@@ -34,7 +34,7 @@ import { postLength } from "@loud/shared/text";
 import * as NodePath from "node:path";
 
 import { readJson, writeJson } from "../data/files.ts";
-import { addDraftImages, readAllowedImage, readDrafts, stampNow, upsertDraft } from "./drafts.ts";
+import { addDraftImages, readDrafts, readImageFile, stampNow, upsertDraft } from "./drafts.ts";
 
 export interface ToolContext {
   readonly data: string;
@@ -42,8 +42,6 @@ export interface ToolContext {
   readonly channels: ReadonlyArray<ChannelId>;
   readonly keywords: Keywords;
   readonly playbook: string;
-  /** Folders the agent's own image tool saves into; save_draft takes images from there only. */
-  readonly imageRoots: ReadonlyArray<string>;
   readonly now: () => Date;
 }
 
@@ -492,7 +490,7 @@ export const TOOLS: ReadonlyArray<Tool> = [
           items: { type: "string" },
           maxItems: DRAFT_IMAGES_MAX,
           description:
-            "Absolute paths of images you generated for this post, in posting order. They are added to the draft's images. X takes at most 4.",
+            "Absolute paths of PNG, JPEG, WebP or GIF files for this post, in posting order: made with your image tool, drawn with code in your workspace, or given by the user. They are copied into the draft. X takes at most 4.",
         },
       },
       required: ["channel", "text"],
@@ -509,7 +507,7 @@ export const TOOLS: ReadonlyArray<Tool> = [
           `too long for ${CHANNEL_NAMES[ch]}: ${length} of ${CHANNEL_LIMITS[ch]} characters`,
         );
       const paths = Array.isArray(a.images) ? a.images.filter((p) => typeof p === "string") : [];
-      const read = paths.map((p) => readAllowedImage(p, ctx.imageRoots));
+      const read = paths.map((p) => readImageFile(p));
       const refused = read.filter((r) => typeof r === "string");
       if (refused.length) return fail(`not saved: ${refused.join("; ")}`);
       const d = upsertDraft(

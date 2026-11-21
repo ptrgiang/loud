@@ -8,7 +8,7 @@ if (!data) {
   process.stderr.write("LOUD_DATA is not set\n");
   process.exit(2);
 }
-let context: ServerContext = { channels: [], keywords: {}, playbook: "", imageRoots: [] };
+let context: ServerContext = { channels: [], keywords: {}, playbook: "" };
 try {
   const file = process.env.LOUD_AGENT_CONTEXT_FILE;
   if (file)

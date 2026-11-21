@@ -27,7 +27,6 @@ beforeEach(() => {
     channels: ["threads", "x"],
     keywords: { x: ["form builder"] },
     playbook: "",
-    imageRoots: [],
     now: () => new Date(2026, 10, 20, 12, 0),
   };
 });
@@ -55,10 +54,9 @@ describe("agent tools", () => {
     ]);
   });
 
-  it("attaches only images from the image tool's folder", () => {
+  it("attaches image files, checked by their bytes", () => {
     const made = NodePath.join(dir, "made");
     NodeFS.mkdirSync(made);
-    ctx = { ...ctx, imageRoots: [made] };
     const png = NodePath.join(made, "a.png");
     NodeFS.writeFileSync(
       png,

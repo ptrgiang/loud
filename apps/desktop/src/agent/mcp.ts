@@ -69,7 +69,6 @@ export interface ServerContext {
   readonly channels: ToolContext["channels"];
   readonly keywords: ToolContext["keywords"];
   readonly playbook: string;
-  readonly imageRoots: ToolContext["imageRoots"];
 }
 
 export function serve(data: string, context: ServerContext) {

@@ -282,11 +282,13 @@ function AgentSettingsCard() {
         <div className="flex gap-2 py-3 text-muted-foreground text-xs leading-relaxed">
           <ShieldCheck className="mt-0.5 size-4 shrink-0" />
           <p>
-            The agent gets no shell, no file access and no web: only Loud's tools, which read the
-            built data and write proposals and drafts. Codex may also make images for a draft, on
-            your Codex plan. It cannot post, like or message anyone. Loud keeps the conversation on
-            this computer until you start a new chat; Claude Code and Codex also keep their own
-            session logs.
+            Besides Loud's tools, which read the built data and write proposals and drafts, the
+            agent gets a shell and file tools to make images for drafts. It may read any file you
+            point it to, and is told to write only in its chat's workspace. Codex runs its commands
+            in its sandbox: writes only there, no network. Claude Code has no sandbox on Windows, so
+            its commands could reach anything your account can. It has no web tools and cannot post,
+            like or message anyone. Loud keeps the conversation and workspace on this computer until
+            you delete the chat; Claude Code and Codex also keep their own session logs.
           </p>
         </div>
       </div>

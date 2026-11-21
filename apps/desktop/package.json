@@ -1,6 +1,6 @@
 {
   "name": "@loud/desktop",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "private": true,
   "description": "A desktop app for people who build things and forget to tell anyone.",
   "homepage": "https://loud.trysometh.ing",

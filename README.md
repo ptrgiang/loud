@@ -17,7 +17,7 @@ Part of [Try Something](https://trysometh.ing). Home: [loud.trysometh.ing](https
 - **Your data stays on your computer.** Sessions, posts and numbers live in Loud's profile folder. Loud talks to the platforms you connected and to nothing else, unless you turn on the agent, update checks or usage reports, and Settings says where each goes.
 - **Usage reports only if you say yes.** On first launch Loud asks whether to send one small report a day to loud.trysometh.ing: version, OS, which platforms are connected, and how many collection runs worked or failed. Never a handle, a post or a number from your accounts. Settings shows the exact report; turning it off deletes what was sent. Every field is listed on the [privacy page](https://loud.trysometh.ing/privacy), and the totals are [public](https://loud.trysometh.ing/#numbers).
 - **Gentle on your accounts.** Collection reads at a human pace, with daily caps, pauses for hours after a "too many requests", and stops at the first checkpoint or captcha rather than push through it.
-- **An agent if you want one.** Turn it on in Settings and it reads your numbers through Loud's own tools, proposes posts and writes drafts (through Codex, with images). It runs through Claude Code or Codex, signed in on your computer, so what it reads goes to Anthropic or OpenAI. It cannot post; you do.
+- **An agent if you want one.** Turn it on in Settings and it reads your numbers through Loud's own tools, proposes posts and writes drafts, with images it makes in its own workspace. It runs through Claude Code or Codex, signed in on your computer, so what it reads goes to Anthropic or OpenAI. It cannot post; you do.
 
 ![Connections](docs/assets/connections.png)
 
@@ -53,6 +53,8 @@ LOUD_HOME=/tmp/loud-home LOUD_DEMO=1 pnpm dev
 ### The agent
 
 Install and sign in to Claude Code or Codex the usual way; Loud finds it on your `PATH`. Then turn the agent on in Settings. Loud stores no model key. What the agent reads (posts, numbers, drafts, listening results), what you type and the files you attach are sent to that provider.
+
+Each chat has a workspace folder. The agent runs commands and writes files there, for instance to draw an image for a draft, and may read files elsewhere that you point it to. Codex runs those commands in its sandbox (writes only in the workspace, no network). Claude Code has no sandbox on Windows: its commands run as you, and the workspace rule is an instruction, not a wall.
 
 Chats are saved in the profile and listed beside the conversation. The composer picks the CLI, model and reasoning effort (a chat keeps the CLI it started on), takes images and text files, and shows the plan limits of the signed-in account as each CLI reports them.
 

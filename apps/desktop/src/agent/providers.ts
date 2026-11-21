@@ -1,5 +1,6 @@
 // The agent runs through a CLI the user already signed in to. Claude Code goes through the Agent SDK; Codex through
-// `codex exec --json`. Either way the only tools it gets are Loud's, over the stdio MCP server.
+// `codex exec --json`. Either way it gets Loud's tools over the stdio MCP server, plus a shell and file tools that
+// write only in the chat's workspace (where it draws images with code).
 import {
   type EffortLevel,
   query,
@@ -78,11 +79,6 @@ export function findOnPath(name: string, extra: ReadonlyArray<string> = []): str
 
 const home = process.env.USERPROFILE ?? process.env.HOME ?? "";
 
-/** Where Codex's image tool saves (per thread, below this). Claude Code has no image tool. */
-export const imageRoots = (): Array<string> => [
-  NodePath.join(process.env.CODEX_HOME || NodePath.join(home, ".codex"), "generated_images"),
-];
-
 /** Run `<exe> --version`; null when it does not answer. Never through a shell: arguments stay arguments. */
 export function versionOf(exe: string): string | null {
   if (/\.(cmd|bat)$/i.test(exe)) return null;
@@ -97,6 +93,8 @@ export function versionOf(exe: string): string | null {
     return null;
   }
 }
+
+const CLAUDE_TOOLS = ["Bash", "Read", "Glob", "Grep", "Edit", "Write"] as const;
 
 const claude: Provider = {
   id: "claude",
@@ -143,9 +141,18 @@ const claude: Provider = {
       options: {
         pathToClaudeCodeExecutable: exe,
         systemPrompt: turn.system,
-        // No built-in tools at all: no shell, no file access, no web. Only Loud's tools, all pre-approved.
-        tools: [],
-        allowedTools: TOOLS.map((t) => TOOL_PREFIX + t.name),
+        // A shell and file reads anywhere (the user may point at reference files); edits only in the workspace (cwd).
+        // No web tools. Claude Code has no OS sandbox on Windows, so the shell itself is not confined.
+        tools: [...CLAUDE_TOOLS],
+        allowedTools: [
+          "Bash",
+          "Read",
+          "Glob",
+          "Grep",
+          "Edit(./**)",
+          "Write(./**)",
+          ...TOOLS.map((t) => TOOL_PREFIX + t.name),
+        ],
         permissionMode: "dontAsk",
         mcpServers: {
           [SERVER_NAME]: {
@@ -256,15 +263,15 @@ const codex: Provider = {
         "--skip-git-repo-check",
         "--ignore-user-config",
         "--ignore-rules",
-        // No shell, no browser, no plugins or apps: the Loud tools and image generation are all it has.
-        ...[
-          "shell_tool",
-          "unified_exec",
-          "browser_use",
-          "in_app_browser",
-          "apps",
-          "plugins",
-        ].flatMap((f) => ["--disable", f]),
+        // No browser, plugins or apps. The shell runs in Codex's sandbox: it reads anywhere, writes only in the
+        // workspace (cwd) and has no network.
+        ...["browser_use", "in_app_browser", "apps", "plugins"].flatMap((f) => ["--disable", f]),
+        "-c",
+        `sandbox_mode=${tomlLiteral("workspace-write")}`,
+        // The elevated sandbox needs a one-time setup as administrator; this one works without it.
+        ...(process.platform === "win32"
+          ? ["-c", `windows.sandbox=${tomlLiteral("unelevated")}`]
+          : []),
         "-c",
         `web_search=${tomlLiteral("disabled")}`,
         "-c",
@@ -278,7 +285,7 @@ const codex: Provider = {
         `mcp_servers.${SERVER_NAME}.default_tools_approval_mode=${tomlLiteral("approve")}`,
         "-c",
         `approval_policy=${tomlLiteral("never")}`,
-        ...(turn.resume ? [] : ["-s", "read-only", "-C", turn.cwd]),
+        ...(turn.resume ? [] : ["-C", turn.cwd]),
         ...(turn.model ? ["-m", turn.model] : []),
         ...(turn.effort ? ["-c", `model_reasoning_effort=${tomlLiteral(turn.effort)}`] : []),
         ...turn.images.flatMap((i) => ["-i", i.path]),
