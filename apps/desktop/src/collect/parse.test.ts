@@ -1,7 +1,7 @@
 // Fixtures are fictional and trimmed to the shapes docs/platform-notes.md describes.
 import { describe, expect, it } from "vite-plus/test";
 
-import { fbDate, fbPostCounts, pastWindow, readPlan } from "./collectors.ts";
+import { fbDate, fbPostCounts, pastWindow, readPlan, scrollFor } from "./collectors.ts";
 import { embedded, parseLoose } from "./json.ts";
 import { isCheckpoint } from "./PageReader.ts";
 import {
@@ -298,6 +298,34 @@ describe("read plan", () => {
     const pinned = [{ posted: "2026-09-01 10:00" }, { posted: "2026-09-02 10:00" }];
     expect(pastWindow([...pinned, { posted: day(50) }], "2026-11-10")).toBe(false);
     expect(pastWindow([...pinned, { posted: day(50) }, ...pinned], "2026-11-10")).toBe(true);
+  });
+
+  it("keeps the first page's posts after the page has dropped them", async () => {
+    // The newest posts are only in the first read; each scroll shows older ones and no longer the first page.
+    const pages = [
+      [
+        { id: "p48", posted: day(48) },
+        { id: "p47", posted: day(47) },
+      ],
+      [
+        { id: "p40", posted: day(40) },
+        { id: "p39", posted: day(39) },
+      ],
+    ];
+    let n = 0;
+    const reader = { more: async () => ({ url: "", html: "", objs: pages[n++] ?? [] }) };
+    const rows = await scrollFor(
+      reader,
+      (objs) => objs as Array<{ id: string; posted: string }>,
+      /x/,
+      [
+        { id: "p50", posted: day(50) },
+        { id: "p49", posted: day(49) },
+      ],
+      day(41).slice(0, 10),
+      5,
+    );
+    expect(rows.map((r) => r.id)).toEqual(["p50", "p49", "p48", "p47", "p40", "p39"]);
   });
 
   it("drops stored posts a complete list did not show", () => {

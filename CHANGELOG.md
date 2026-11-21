@@ -2,9 +2,11 @@
 
 ## Unreleased
 
-## 0.1.6 (2026-11-21)
+## 0.1.7 (2026-11-21)
 
-- New posts could be missed on Threads: two old pinned posts at the top made Loud think the list had gone back far enough, so it stopped before scrolling. Only the end of the list counts now. Profile pages are also revalidated instead of coming from the browser cache, and a post whose author arrives as an id only is matched to the profile.
+- Threads missed its newest posts: they are only in the profile page's first, embedded batch, which Threads removes from the page once it has rendered, and Loud kept only what the page held after the last scroll. Every read is now kept. Checked against a real account: the newest posts are read again.
+
+- Old pinned posts at the top no longer stop the scroll early: only the end of the list counts.
 - Each platform's result line says the newest post it stored, so a missing one shows at a glance.
 - Settings: "Later runs read again" sets how many recent days each run reads again (7 by default), under Count from, which the first read goes back to. Read everything again does a full read once.
 - Sidebar, as in T3 Code: a button checks for updates and shows the download, then a Restart to update pill once it is ready. Search (Ctrl K) jumps to any page or runs an action: collect, search listening, read everything again, ask for proposals, new chat, theme.

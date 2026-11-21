@@ -62,27 +62,38 @@ export const pastWindow = (rows: ReadonlyArray<{ posted?: string | undefined }>,
   return tail.length === 2 && tail.every((r) => !!r.posted && r.posted < from);
 };
 
-async function scrollFor<T extends { posted?: string | undefined }>(
-  reader: PageReader,
+/**
+ * Rows from the first page and every scroll, kept together. Each read sees only what the page holds at that moment:
+ * Threads drops the profile's embedded first page (the newest posts) from the document once it has rendered, so
+ * reading only the latest state lost exactly the newest posts.
+ */
+export async function scrollFor<T extends { id: string; posted?: string | undefined }>(
+  reader: Pick<PageReader, "more">,
   read: (objs: ReadonlyArray<unknown>) => Array<T>,
   capture: RegExp,
   first: ReadonlyArray<unknown>,
   from: string,
   maxScrolls: number,
 ): Promise<Array<T>> {
-  let rows = read(first);
+  const seen = new Map<string, T>();
+  // A later read of the same post has fresher numbers; the Map keeps its first position in the list.
+  const add = (rows: ReadonlyArray<T>) => {
+    for (const r of rows) seen.set(r.id, { ...seen.get(r.id), ...r });
+  };
+  const fresh = (rows: ReadonlyArray<T>) => rows.filter((r) => !seen.has(r.id)).length;
+  add(read(first));
   let still = 0;
-  for (let i = 0; i < maxScrolls && !pastWindow(rows, from) && still < 3; i++) {
-    const before = rows.length;
+  for (let i = 0; i < maxScrolls && !pastWindow([...seen.values()], from) && still < 3; i++) {
     const page = await reader.more({
       capture,
       timeoutMs: 6_000,
-      until: (objs) => read(objs).length > before,
+      until: (objs) => fresh(read(objs)) > 0,
     });
-    rows = read(page.objs);
-    still = rows.length === before ? still + 1 : 0;
+    const rows = read(page.objs);
+    still = fresh(rows) === 0 ? still + 1 : 0;
+    add(rows);
   }
-  return rows;
+  return [...seen.values()];
 }
 
 interface ReadPlan {

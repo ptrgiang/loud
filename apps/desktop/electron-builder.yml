@@ -13,6 +13,7 @@ files:
   - dist-electron/**/*
   - "!dist-electron/**/*.map"
   - "!dist-electron/demo.cjs"
+  - "!dist-electron/probe.cjs"
   - "!**/node_modules/**/*"
 extraResources:
   - from: ../web/dist
