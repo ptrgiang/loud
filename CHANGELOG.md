@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.11-beta.6 (2026-11-23)
+
+- Chat images open in a lightbox — click to view, arrow keys or on-screen buttons move through every image in the conversation, Esc or a backdrop click closes.
+- The chat in progress shows a spinning marker on its row in the chat list and on the live reply's tool row; opening or starting another chat no longer waits for the run to finish.
+- Sidebar: Agent above Drafts in the Write group.
+- Drafts editor drops the Copy and open-in-browser buttons next to Post — Post is the single way out to the platform composer.
+
 ## 0.1.11-beta.5 (2026-11-23)
 
 - Fix the posting window never appearing: it waited on `ready-to-show`, which never fires because the window's own page is never loaded — only its two views are. It shows directly now.
