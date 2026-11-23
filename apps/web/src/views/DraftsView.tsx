@@ -1,6 +1,7 @@
 import {
   CHANNEL_IDS,
   CHANNEL_LIMITS,
+  X_PREMIUM_LIMIT,
   CHANNEL_NAMES,
   type ChannelId,
   type Draft,
@@ -53,11 +54,11 @@ import { useLoud } from "~/store";
 import { useWork } from "~/workStore";
 
 // The labels are UI; the asks stay English because they are prompts for the agent, not prose for the user.
-const ASKS: ReadonlyArray<{ label: MsgKey; ask: (d: EditorDraft) => string }> = [
+const ASKS: ReadonlyArray<{ label: MsgKey; ask: (d: EditorDraft, limit: number) => string }> = [
   {
     label: "drafts.ask.tighten",
-    ask: (d) =>
-      `Tighten this ${CHANNEL_NAMES[d.channel]} draft: keep the meaning, cut every word that does not earn its place, stay under ${CHANNEL_LIMITS[d.channel]} characters. Save it with save_draft${d.id ? ` using id ${d.id}` : ""}.\n\n${d.text}`,
+    ask: (d, limit) =>
+      `Tighten this ${CHANNEL_NAMES[d.channel]} draft: keep the meaning, cut every word that does not earn its place, stay under ${limit} characters. Save it with save_draft${d.id ? ` using id ${d.id}` : ""}.\n\n${d.text}`,
   },
   {
     label: "drafts.ask.hooks",
@@ -384,8 +385,10 @@ function Editor({
   const ask = useWork((s) => s.ask);
   const agentOn = useWork((s) => s.agentSettings?.enabled ?? false);
   const [d, setD] = useState(start);
+  const hub = useLoud((s) => s.hub);
   const length = postLength(d.text, d.channel);
-  const limit = CHANNEL_LIMITS[d.channel];
+  const xPremium = d.channel === "x" && hub?.channels.find((c) => c.id === "x")?.premium === true;
+  const limit = xPremium ? X_PREMIUM_LIMIT : CHANNEL_LIMITS[d.channel];
   const over = length > limit;
   const dirty =
     d.text !== start.text ||
@@ -510,7 +513,7 @@ function Editor({
               size="xs"
               variant="outline"
               disabled={!d.text.trim()}
-              onClick={() => void ask(a.ask(d))}
+              onClick={() => void ask(a.ask(d, limit))}
             >
               {t(a.label)}
             </Button>

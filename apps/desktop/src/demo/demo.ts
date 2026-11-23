@@ -303,6 +303,8 @@ function channel(r: Rng, id: ChannelId, now: number): ChannelFile {
     posts,
     scheduled: [],
     scheduled_known: id !== "threads",
+    // Fictional data still shows the wider X limit.
+    ...(id === "x" ? { premium: true } : {}),
   };
 }
 

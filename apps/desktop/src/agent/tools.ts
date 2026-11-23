@@ -4,6 +4,7 @@ import {
   type AgentAttachment,
   CHANNEL_IDS,
   CHANNEL_LIMITS,
+  X_PREMIUM_LIMIT,
   CHANNEL_NAMES,
   type ChannelId,
   DRAFT_IMAGES_MAX,
@@ -129,6 +130,7 @@ function overview(hub: Hub) {
       last_post: c.last_post,
       scheduled: c.scheduled_known ? c.scheduled : "unknown (queue not readable)",
       best_7d: c.best_7d ? slim(c.best_7d) : null,
+      ...(c.premium === true ? { premium: true } : {}),
     })),
     flags: hub.flags.map((f) => `${f.level}: ${f.text}`),
     patterns: callouts(hub),
@@ -489,7 +491,7 @@ export const TOOLS: ReadonlyArray<Tool> = [
   },
   {
     name: "save_draft",
-    description: `Save a post draft to the Drafts page for the user to edit and post themselves. Give an id to replace an existing draft. Character limits: ${CHANNEL_IDS.map((id) => `${CHANNEL_NAMES[id]} ${CHANNEL_LIMITS[id]}`).join(", ")}.`,
+    description: `Save a post draft to the Drafts page for the user to edit and post themselves. Give an id to replace an existing draft. Character limits: ${CHANNEL_IDS.map((id) => `${CHANNEL_NAMES[id]} ${id === "x" ? `${CHANNEL_LIMITS.x} (25,000 when the connected account is Premium)` : CHANNEL_LIMITS[id]}`).join(", ")}.`,
     writes: true,
     inputSchema: {
       type: "object",
@@ -520,10 +522,13 @@ export const TOOLS: ReadonlyArray<Tool> = [
         return fail(`channel must be one of the enabled channels: ${ctx.channels.join(", ")}`);
       if (!text) return fail("text is empty");
       const length = postLength(text, ch);
-      if (length > CHANNEL_LIMITS[ch])
-        return fail(
-          `too long for ${CHANNEL_NAMES[ch]}: ${length} of ${CHANNEL_LIMITS[ch]} characters`,
-        );
+      // A Premium account on X may run to 25,000; the hub says so. No claim, no wider limit.
+      const limit =
+        ch === "x" && hubOf(ctx)?.channels.find((c) => c.id === "x")?.premium === true
+          ? X_PREMIUM_LIMIT
+          : CHANNEL_LIMITS[ch];
+      if (length > limit)
+        return fail(`too long for ${CHANNEL_NAMES[ch]}: ${length} of ${limit} characters`);
       const paths = Array.isArray(a.images) ? a.images.filter((p) => typeof p === "string") : [];
       const read = paths.map((p) => readImageFile(p));
       const refused = read.filter((r) => typeof r === "string");

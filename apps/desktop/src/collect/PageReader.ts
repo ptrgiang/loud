@@ -23,9 +23,10 @@ export const isCheckpoint = (requested: string, landed: string) => {
   return CHECKPOINT_URL.test(path(landed)) && !CHECKPOINT_URL.test(path(requested));
 };
 
-/** A check that lands without a redirect shows itself in the markup, not the address. */
+/** A check that lands without a redirect shows itself in the markup, not the address. Post text says things like
+ * "account suspended" — only challenge wording counts. */
 const CHECKPOINT_HTML =
-  /(challenge_required|captcha_challenge|confirm your identity|verify your identity|prove your identity|account has been (locked|restricted|suspended)|we need to confirm it'?s you)/i;
+  /(challenge_required|captcha_challenge|confirm your identity|verify your identity|prove your identity|we need to confirm it'?s you)/i;
 
 export interface OpenOptions {
   /** Answers worth keeping: their URL matches this. */

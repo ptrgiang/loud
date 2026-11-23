@@ -47,10 +47,25 @@ describe("agent tools", () => {
 
   it("saves drafts only for enabled channels and within the limit", () => {
     expect(run("save_draft", { channel: "ig", text: "hi" }).isError).toBe(true);
+    // The demo X account is Premium: 300 characters is fine. Claim the flag off and 280 stands again.
+    const hubFile = NodePath.join(dir, "hub.json");
+    const hub = JSON.parse(NodeFS.readFileSync(hubFile, "utf8")) as {
+      channels: Array<{ id: string; premium?: boolean }>;
+    };
+    expect(hub.channels.find((c) => c.id === "x")?.premium).toBe(true);
+    expect(run("save_draft", { channel: "x", text: "x".repeat(300) }).isError).toBeFalsy();
+    NodeFS.writeFileSync(
+      hubFile,
+      JSON.stringify({
+        ...hub,
+        channels: hub.channels.map((c) => (c.id === "x" ? { ...c, premium: false } : c)),
+      }),
+    );
     expect(run("save_draft", { channel: "x", text: "x".repeat(281) }).isError).toBe(true);
     expect(run("save_draft", { channel: "x", text: "Short and sharp." }).isError).toBeFalsy();
-    expect(readDrafts(dir)).toMatchObject([
+    expect(readDrafts(dir).map((d) => ({ channel: d.channel, by: d.by, text: d.text }))).toEqual([
       { channel: "x", by: "agent", text: "Short and sharp." },
+      { channel: "x", by: "agent", text: "x".repeat(300) },
     ]);
   });
 

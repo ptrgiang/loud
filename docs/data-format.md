@@ -53,6 +53,7 @@ Times are strings `"YYYY-MM-DD HH:MM"` in the configured time zone.
 | `format`                                                        | Free text, for your own grouping                                                              |
 | `scheduled`                                                     | Queued posts. An empty list means "nothing scheduled"                                         |
 | `scheduled_known`                                               | `false` when the collector could not read the queue (the app then does not claim it is empty) |
+| `premium`                                                       | Paid tier when the platform exposes it (X Premium widens the post limit to 25,000)            |
 
 ## `listen.json`
 
@@ -78,12 +79,16 @@ Times are strings `"YYYY-MM-DD HH:MM"` in the configured time zone.
 }
 ```
 
-`channel` is one of `threads`, `ig`, `fb`, `x`. The same post found by several keywords is merged by `url`.
+`channel` is one of `threads`, `ig`, `fb`, `x`. The same post found by several keywords is merged by `url`, or by
+channel + author + text when there is no `url`. `found` is the day the collector first saw an item; undated results
+(`posted` missing) expire by `found`, fourteen days back.
 
 ## What `build` adds
 
 `hub.json` holds `built`, `since`, `timezone`, `channels` (summaries), `posts` (every post with `channel`, `age_h` and
 `eng`), `scheduled`, `flags` and `listen`. `history/<day>.json` holds one summary per channel per day.
+`history/posts/<channel>-<id>.json` holds each post's counts keyed by day (`views`, `likes`, `replies`, `reposts`,
+`quotes`, `shares`, `saves`, `eng`) — its trend.
 
 ## `proposals.json`
 

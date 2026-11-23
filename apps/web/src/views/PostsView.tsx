@@ -27,6 +27,35 @@ const LABEL: Record<(typeof COUNTS)[number], MsgKey> = {
 
 type T = ReturnType<typeof useT>;
 
+/** Views per day over 30 days as a 64×14 stroke; a null day is a gap. One point or none: nothing to draw. */
+function Sparkline({ points, label }: { points: Post["trend"]; label: string }) {
+  const vals = (points ?? []).filter((v): v is number => v !== null);
+  if (vals.length < 2) return null;
+  const min = Math.min(...vals);
+  const span = Math.max(...vals) - min || 1;
+  const n = (points ?? []).length;
+  const d = (points ?? [])
+    .map((v, i) =>
+      v === null
+        ? null
+        : `${((i / Math.max(n - 1, 1)) * 62 + 1).toFixed(1)} ${(13 - ((v - min) / span) * 11).toFixed(1)}`,
+    )
+    .filter((s): s is string => s !== null)
+    .join(" ");
+  return (
+    <svg width="64" height="14" className="text-primary" role="img" aria-label={label}>
+      <polyline
+        points={d}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 /** Built outside the view: cells are render functions, not components. */
 function postColumns(t: T, medians: Readonly<Record<string, number | null>>): Array<Column<Post>> {
   return [
@@ -93,6 +122,11 @@ function postColumns(t: T, medians: Readonly<Record<string, number | null>>): Ar
       cell: (p) => fmt(p[k]),
     })),
     {
+      key: "trend",
+      label: t("posts.col.trend"),
+      cell: (p) => <Sparkline points={p.trend} label={t("posts.col.trend")} />,
+    },
+    {
       key: "eng",
       label: t("metric.eng"),
       numeric: true,
@@ -127,9 +161,15 @@ export function PostsView() {
 
   const columns = useMemo<ReadonlyArray<Column<Post>>>(() => {
     const all = postColumns(t, medians);
-    // A count no platform reports for these rows is a column of dashes: leave it out.
+    // A count no platform reports for these rows is a column of dashes: leave it out. A trend needs two days.
     return all.filter(
-      (c) => !c.numeric || c.key === "views" || rows.some((p) => isNum(p[c.key as keyof Post])),
+      (c) =>
+        (!c.numeric && c.key !== "trend") ||
+        (c.numeric
+          ? c.key === "views" || rows.some((p) => isNum(p[c.key as keyof Post]))
+          : false) ||
+        (c.key === "trend" &&
+          rows.some((p) => (p.trend ?? []).filter((v) => v !== null).length >= 2)),
     );
   }, [t, rows, medians]);
 

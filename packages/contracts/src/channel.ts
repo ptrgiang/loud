@@ -28,6 +28,9 @@ export const CHANNEL_LIMITS: Record<ChannelId, number> = {
   x: 280,
 };
 
+/** X Premium (blue check, Business or Government verified) posts run to 25,000. */
+export const X_PREMIUM_LIMIT = 25_000;
+
 /** Where the user posts it themselves. X and Threads take the text in their share intent; Instagram and Facebook open the composer. */
 export const composerUrl = (id: ChannelId, text: string): string =>
   ({

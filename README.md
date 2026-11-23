@@ -9,7 +9,7 @@ Part of [Try Something](https://trysometh.ing). Home: [loud.trysometh.ing](https
 <sub>Demo data: "Acme Forms" is fictional.</sub>
 
 > [!NOTE]
-> Loud is early. The dashboard, drafts and the agent work and are checked with the fictional demo data. The collectors are written but have not yet been run against the real platforms; expect them to need fixes. See [Status](#status).
+> Loud is early. The dashboard, drafts and the agent work and are checked with the fictional demo data. Threads and X collectors have been checked against real accounts; Instagram and Facebook have not yet been run against the real platforms. See [Status](#status).
 
 ## How it works
 

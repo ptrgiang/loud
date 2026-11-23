@@ -188,6 +188,7 @@ export const layer = Layer.effect(
 
       if (step === "listen") {
         const old = readJson<ListenFile>(NodePath.join(paths.data, "listen.json"));
+        const collectedDay = wallClock(new Date(), tz).slice(0, 10);
         // Two posts sharing text but from different authors are different posts.
         const keyOf = (i: ListenItem) => i.url ?? `${i.channel}${i.author}${i.text}`;
         const kept = new Map((old?.items ?? []).map((i) => [keyOf(i), i]));
@@ -207,12 +208,26 @@ export const layer = Layer.effect(
               progress: (detail, n) =>
                 setStep(step, { detail: `${id}: ${detail}`, count: count + n }),
             });
-            for (const r of rows) kept.set(keyOf(r), r);
+            for (const r of rows) {
+              // Undated results expire by first-seen day, not by a date the parser never found.
+              kept.set(keyOf(r), r.posted ? r : { ...r, found: collectedDay });
+            }
             count += rows.length;
           } catch (e) {
             if (e instanceof Blocked || signal.aborted)
               notes.push(`${id}: ${e instanceof Error ? e.message : e}`);
             else notes.push(`${id} failed: ${e instanceof Error ? e.message : String(e)}`);
+            // The same pause a platform step raises: an OS notice so it is not missed.
+            if (e instanceof Blocked) {
+              try {
+                new Electron.Notification({
+                  title: `Loud paused ${id}`,
+                  body: e.message,
+                }).show();
+              } catch {
+                // No display server: the pause still shows in the app.
+              }
+            }
           } finally {
             reader.close();
           }
@@ -220,8 +235,12 @@ export const layer = Layer.effect(
         }
         writeJson(NodePath.join(paths.data, "listen.json"), {
           collected: wallClock(new Date(), tz),
-          // A date the parser can't read shouldn't cost the result — keep it rather than drop it.
-          items: [...kept.values()].filter((i) => !i.posted || i.posted >= s.since),
+          // A date the parser can't read shouldn't cost the result — keep it for two weeks, not forever.
+          items: [...kept.values()].filter((i) =>
+            i.posted
+              ? i.posted >= s.since
+              : (i.found ?? collectedDay) >= daysBefore(collectedDay, 14),
+          ),
         } satisfies ListenFile);
         return setStep(step, {
           status: signal.aborted ? "stopped" : notes.length && !count ? "failed" : "done",

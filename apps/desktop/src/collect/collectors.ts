@@ -23,6 +23,7 @@ import {
   threadsProfile,
   threadsScheduled,
   threadsSearch,
+  xAccount,
   xFollowers,
   xListen,
   xRow,
@@ -137,12 +138,17 @@ const file = (
   fresh: ReadonlyArray<CollectedPost>,
   followers: number | null,
   scheduled: ReadonlyArray<Queued> | null,
+  premium?: boolean | null,
 ): ChannelFile => ({
   collected: nowStamp(input.timezone),
   followers: followers ?? input.old?.followers ?? null,
   posts: mergePosts(plan.old, [...plan.listedOnly, ...fresh], input.since),
   scheduled: scheduled ?? [],
   scheduled_known: scheduled !== null,
+  // A null detection must not wipe a tier already known.
+  ...((premium ?? input.old?.premium) !== undefined
+    ? { premium: premium ?? input.old!.premium }
+    : {}),
 });
 
 // ---- Threads ----
@@ -186,12 +192,12 @@ export async function collectThreads(input: CollectInput): Promise<ChannelFile> 
   const queue = await (async (): Promise<Array<Queued> | null> => {
     await reader.open(`${THREADS}/`, { capture: META_GQL, timeoutMs: 8_000 });
     const opened = await reader.evaluate<number>(
-      `(()=>{const b=[...document.querySelectorAll('a,button')].find(x=>/new\\s*thread|create/i.test((x.getAttribute('aria-label')||'')+' '+(x.innerText||'')));if(!b)return 0;b.click();return 1})()`,
+      `(()=>{const b=[...document.querySelectorAll('a,button')].find(x=>/new\\s*thread|create|compose|viết|đăng/i.test((x.getAttribute('aria-label')||'')+' '+(x.innerText||'')));if(!b)return 0;b.click();return 1})()`,
     );
     if (!opened) return null;
     await new Promise((r) => setTimeout(r, 700));
     await reader.evaluate<number>(
-      `(()=>{const b=[...document.querySelectorAll('button,[role="tab"]')].find(x=>/^drafts$/i.test((x.innerText||'').trim()));if(!b)return 0;b.click();return 1})()`,
+      `(()=>{const b=[...document.querySelectorAll('button,[role="tab"]')].find(x=>/^(drafts|bản nháp|brouillons|borradores|rascunhos|entwürfe)$/i.test((x.innerText||'').trim()));if(!b)return 0;b.click();return 1})()`,
     );
     const page = await reader.more({
       capture: META_GQL,
@@ -363,6 +369,8 @@ export async function collectX(input: CollectInput): Promise<ChannelFile> {
   const posts = await tab(`${X}/${handle}`, input.full ? 15 : 3);
   const followers = xFollowers(posts.first.objs, handle);
   const replies = await tab(`${X}/${handle}/with_replies`, input.full ? 25 : 4);
+  // Premium on the account itself — never a wider limit on guesswork.
+  const premium = xAccount(posts.first.objs, handle) ?? xAccount(replies.first.objs, handle);
   const seen = new Map([...posts.tweets, ...replies.tweets].map((t) => [t.id, t]));
   const fresh = [...seen.values()]
     .filter((t) => t.posted && t.posted >= input.scanFrom)
@@ -378,7 +386,7 @@ export async function collectX(input: CollectInput): Promise<ChannelFile> {
     input,
     [...seen.values()].map((t) => xRow(t, handle)),
   );
-  return file(input, plan, fresh, followers, xScheduled(queue.objs, tz));
+  return file(input, plan, fresh, followers, xScheduled(queue.objs, tz), premium);
 }
 
 export const COLLECTORS: Record<ChannelId, (input: CollectInput) => Promise<ChannelFile>> = {
@@ -481,6 +489,8 @@ export function fbDate(s: string, now: Date, tz: string): string {
         monate: 30 * 864e5,
         month: 30 * 864e5,
         months: 30 * 864e5,
+        sem: 7 * 864e5,
+        sems: 7 * 864e5,
       }[rel[2]!] ?? 0;
     if (ms) {
       const at = base - Number(rel[1]) * ms;

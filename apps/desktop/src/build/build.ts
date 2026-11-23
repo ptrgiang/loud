@@ -75,6 +75,7 @@ export function summarize(
     scheduled: file.scheduled?.length ?? 0,
     scheduled_known: file.scheduled_known ?? true,
     best_7d: best,
+    ...(file.premium !== undefined ? { premium: file.premium } : {}),
   };
 }
 

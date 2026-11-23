@@ -175,6 +175,7 @@ export const en = {
 
   "posts.col.posted": "Posted",
   "posts.col.post": "Post",
+  "posts.col.trend": "Trend",
   "posts.replyBadge": "reply",
   "posts.noText": "(no text)",
   "posts.medianTitle": "{x}× the channel median",

@@ -445,6 +445,30 @@ export function xFollowers(objs: ReadonlyArray<unknown>, handle: string): number
   return u ? count(u) : null;
 }
 
+/**
+ * The account's verification state: blue check (Premium) or a Business/Government verified_type widens the post
+ * limit to 25,000. Null when no user object for the handle arrived — the previous answer stands.
+ */
+export function xAccount(objs: ReadonlyArray<unknown>, handle: string): boolean | null {
+  const u = walk(
+    objs,
+    (o) =>
+      (
+        text(get(o, "core", "screen_name")) || text(get(o, "legacy", "screen_name"))
+      ).toLowerCase() === handle.toLowerCase(),
+  )[0];
+  if (!u) return null;
+  const blue =
+    get(u, "core", "is_blue_verified") === true ||
+    get(u, "is_blue_verified") === true ||
+    get(u, "legacy", "is_blue_verified") === true;
+  const tier =
+    text(get(u, "verification", "verified_type")) ||
+    text(u.verified_type) ||
+    text(get(u, "legacy", "verified_type"));
+  return blue || tier === "Business" || tier === "Government";
+}
+
 export function xScheduled(objs: ReadonlyArray<unknown>, tz: string): Array<Queued> | null {
   const list = walk(objs, (o) => Array.isArray(o.scheduled_tweet_list))[0];
   if (!list) return null;

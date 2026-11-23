@@ -178,6 +178,7 @@ export const vi: Record<MsgKey, string> = {
 
   "posts.col.posted": "Đăng lúc",
   "posts.col.post": "Bài",
+  "posts.col.trend": "Xu hướng",
   "posts.replyBadge": "trả lời",
   "posts.noText": "(không có chữ)",
   "posts.medianTitle": "gấp {x} lần trung vị của kênh",

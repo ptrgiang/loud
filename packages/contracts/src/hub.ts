@@ -31,6 +31,8 @@ export interface Post {
   readonly age_h?: number | null;
   /** Engagement as a % of views. */
   readonly eng?: number | null;
+  /** Views per day over the last 30 days, oldest first. */
+  readonly trend?: ReadonlyArray<number | null>;
 }
 
 export interface ChannelSummary {
@@ -46,6 +48,8 @@ export interface ChannelSummary {
   readonly scheduled: number;
   readonly scheduled_known: boolean;
   readonly best_7d: Post | null;
+  /** The account has a paid tier — X Premium widens the post limit. */
+  readonly premium?: boolean;
 }
 
 export interface Scheduled {
@@ -75,6 +79,8 @@ export interface ListenItem {
   readonly shares?: number | null;
   readonly score?: number;
   readonly question?: boolean;
+  /** Day the collector first saw it — undated results expire by this, not `posted`. */
+  readonly found?: Stamp;
 }
 
 export interface Hub {
@@ -125,6 +131,8 @@ export interface ChannelFile {
   readonly scheduled?: ReadonlyArray<{ readonly when: Stamp; readonly text?: string }>;
   /** False when the queue could not be read: "nothing scheduled" is then not claimed. */
   readonly scheduled_known?: boolean;
+  /** Paid tier, when the platform exposes it (X Premium widens the post limit). */
+  readonly premium?: boolean;
 }
 
 export type CollectedListenItem = Omit<ListenItem, "score" | "question">;

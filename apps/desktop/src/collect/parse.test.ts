@@ -15,6 +15,7 @@ import {
   threadsPostNumbers,
   threadsProfile,
   threadsScheduled,
+  xAccount,
   xFollowers,
   xScheduled,
   xTime,
@@ -436,5 +437,26 @@ describe("Threads scheduled queue", () => {
     expect(out?.[0]?.when).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
     expect(threadsScheduled([{ unrelated: true }], TZ)).toBeNull();
     expect(threadsScheduled([], TZ)).toBeNull();
+  });
+});
+
+describe("xAccount", () => {
+  const user = (extra: Record<string, unknown>) => ({
+    core: { screen_name: "Acme" },
+    ...extra,
+  });
+
+  it("reads the verification state of the handle's own user object", () => {
+    expect(
+      xAccount([{ u: user({ core: { screen_name: "acme", is_blue_verified: true } }) }], "acme"),
+    ).toBe(true);
+    expect(xAccount([{ u: user({ verification: { verified_type: "Business" } }) }], "acme")).toBe(
+      true,
+    );
+    expect(xAccount([{ u: user({ legacy: { verified_type: "Government" } }) }], "acme")).toBe(true);
+    expect(xAccount([{ u: user({}) }], "acme")).toBe(false);
+    // A user object for another handle, or none at all: nothing is decided.
+    expect(xAccount([{ u: user({}) }], "someone-else")).toBeNull();
+    expect(xAccount([], "acme")).toBeNull();
   });
 });

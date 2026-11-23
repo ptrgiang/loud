@@ -122,7 +122,7 @@ export const IpcMethods = {
   "drafts.list": { input: None, output: Schema.Array(Draft) },
   "drafts.save": { input: DraftInput, output: Draft },
   "drafts.delete": { input: Schema.Struct({ id: Schema.String }), output: Schema.Struct({}) },
-  /** One image of a draft, as base64, to show it. */
+  /** One image of a draft, as base64, to show it. Nothing calls it — media goes through /media/ — kept as internal API. */
   "drafts.image": {
     input: DraftImageRef,
     output: Schema.Struct({ mime: Schema.String, data: Schema.String }),

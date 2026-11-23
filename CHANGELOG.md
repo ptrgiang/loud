@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 0.1.11-beta.9 (2026-11-23)
+
+- Loud now notices a Premium (blue check) or Verified Organization account on X and lets its drafts run to 25,000 characters; everyone else keeps 280.
+- Each post shows a small view trend on the Posts page, drawn from the per-day numbers beta.8 started keeping.
+- The agent keeps its API keys and provider settings: ANTHROPIC_*, OPENAI_*, CODEX_*, AWS_* and friends pass through to the CLI again.
+- A pause inside listening (checkpoint, captcha) now raises the same OS notification a platform pause does.
+- Listening results whose date can't be parsed now expire after two weeks instead of piling up forever.
+- Threads' scheduled-post queue is tried in more languages, and Facebook dates understand Portuguese "sem".
+- A post whose text mentions "account suspended" can no longer trigger a checkpoint pause.
+- Building the dashboard data no longer rewrites every post's history file when nothing changed.
+- README and the data-format doc match what beta.8 actually stores.
+
 ## 0.1.11-beta.8 (2026-11-23)
 
 - Collection can't get stuck "running" anymore: a crash inside a run now always ends the run and re-arms the timer.

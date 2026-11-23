@@ -72,31 +72,36 @@ export function buildFolder(src: BuildSource, now = new Date()): Hub | null {
     files,
     listen: listen && Array.isArray(listen.items) ? listen : null,
   });
-  writeJson(NodePath.join(src.data, "hub.json"), hub);
   const day = stamp.slice(0, 10);
   writeJson(NodePath.join(src.data, "history", `${day}.json`), history);
   pruneHistory(NodePath.join(src.data, "history"), day);
-  // Per-post numbers keyed by day, so each post's trend can be drawn later. Re-writes of the same day overwrite.
-  for (const p of hub.posts) {
+  // Per-post numbers keyed by day, so each post's trend can be drawn. Re-writes of the same day overwrite.
+  const days30 = Array.from({ length: 30 }, (_, i) =>
+    new Date(Date.parse(`${day}T00:00:00Z`) - (29 - i) * 864e5).toISOString().slice(0, 10),
+  );
+  const posts = hub.posts.map((p) => {
     const safe = p.id.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
-    if (!safe) continue;
+    if (!safe) return p;
     const file = NodePath.join(src.data, "history", "posts", `${p.channel}-${safe}.json`);
     const prev = readJson<Record<string, Record<string, number | null>>>(file) ?? {};
-    writeJson(file, {
-      ...prev,
-      [day]: {
-        views: p.views ?? null,
-        likes: p.likes ?? null,
-        replies: p.replies ?? null,
-        reposts: p.reposts ?? null,
-        quotes: p.quotes ?? null,
-        shares: p.shares ?? null,
-        saves: p.saves ?? null,
-        eng: p.eng ?? null,
-      },
-    });
-  }
-  return hub;
+    const rec = {
+      views: p.views ?? null,
+      likes: p.likes ?? null,
+      replies: p.replies ?? null,
+      reposts: p.reposts ?? null,
+      quotes: p.quotes ?? null,
+      shares: p.shares ?? null,
+      saves: p.saves ?? null,
+      eng: p.eng ?? null,
+    };
+    // Builds run on every reload; don't touch the file when the day's numbers stand.
+    const all = JSON.stringify(prev[day]) === JSON.stringify(rec) ? prev : { ...prev, [day]: rec };
+    if (all !== prev) writeJson(file, all);
+    const trend = days30.map((d) => all[d]?.views ?? null);
+    return trend.every((v) => v === null) ? p : { ...p, trend };
+  });
+  writeJson(NodePath.join(src.data, "hub.json"), { ...hub, posts });
+  return { ...hub, posts };
 }
 
 export const layer = Layer.effect(
