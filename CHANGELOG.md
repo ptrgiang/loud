@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.10-beta.0 (2026-11-23)
+
 - Settings → Data can export the whole data folder, export a diagnostics file for a bug report (handles, keywords and the playbook are redacted), and delete all collected data. Drafts and settings stay.
 - Loud writes a small rotating log in the profile folder: collection results, failed calls and update events. The diagnostics export includes the recent lines.
 - Connections warns when a platform read no posts several runs in a row: the account may be quiet, or the platform changed and Loud needs an update.
