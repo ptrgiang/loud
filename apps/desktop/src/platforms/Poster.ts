@@ -129,7 +129,9 @@ export const layer = (ipcFrames: Set<Electron.WebFrameMain>) =>
             if (/^https?:\/\//.test(target)) void Electron.shell.openExternal(target);
             return { action: "deny" };
           });
-          w.once("ready-to-show", () => w.show());
+          // This window's own page is never loaded — only its two views are — so ready-to-show would never
+          // fire. Show it now; each pane paints when its page lands.
+          w.show();
           w.on("closed", () => {
             win = null;
             pane = null;

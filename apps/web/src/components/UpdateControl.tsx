@@ -97,12 +97,25 @@ export function UpdateButton() {
 }
 
 /** Replaces the status line once an update is downloaded: one click installs it and reopens Loud. */
-export function RestartToUpdate() {
+export function RestartToUpdate({ compact }: { compact?: boolean }) {
   const t = useT();
   const status = useWork((s) => s.updates);
   const install = useWork((s) => s.installUpdate);
   if (status?.state !== "ready") return null;
-  return (
+  const label = status.version
+    ? t("updates.restartVersion", { version: status.version })
+    : t("updates.restart");
+  return compact ? (
+    <button
+      type="button"
+      onClick={() => void install()}
+      title={label}
+      aria-label={label}
+      className="flex h-8 w-full cursor-pointer items-center justify-center rounded-[var(--control-radius)] bg-primary text-primary-foreground hover:bg-primary/90 [&>svg]:size-4"
+    >
+      <RotateCcw />
+    </button>
+  ) : (
     <button
       type="button"
       onClick={() => void install()}
@@ -110,9 +123,7 @@ export function RestartToUpdate() {
       className="flex h-7 w-full cursor-pointer items-center justify-center gap-1.5 rounded-full bg-primary px-3 font-medium text-primary-foreground text-xs hover:bg-primary/90 [&>svg]:size-3.5"
     >
       <RotateCcw />
-      {status.version
-        ? t("updates.restartVersion", { version: status.version })
-        : t("updates.restart")}
+      {label}
     </button>
   );
 }

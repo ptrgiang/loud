@@ -588,4 +588,11 @@ export const vi: Record<MsgKey, string> = {
   "collect.failedSteps": "Thu thập xong; {n} bước lỗi. Xem Connections.",
   "collect.done": "Thu thập xong.",
   "ag.demoNote": "Đây là bản demo hư cấu (Acme Forms): agent sẽ trả lời từ số liệu bịa.",
+  "ag.starter.1": "Gần đây hai tuần nào đăng gì hiệu quả nhất, vì sao?",
+  "ag.starter.2": "Nên đăng lúc nào trên từng kênh?",
+  "ag.starter.3": "Người ta đang hỏi gì trong kết quả lắng nghe?",
+  "ag.starter.4": "Đề xuất năm bài cho tuần tới và lưu vào Proposals.",
+  "ag.starter.5": "Viết lại bài Threads tốt nhất thành bài X và lưu thành nháp.",
+  "sidebar.collapse": "Thu gọn sidebar",
+  "sidebar.expand": "Mở rộng sidebar",
 };

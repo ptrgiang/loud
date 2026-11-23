@@ -592,6 +592,13 @@ export const en = {
   "collect.done": "Collection finished.",
   "ag.demoNote":
     "This is the fictional demo (Acme Forms): the agent will answer from made-up numbers.",
+  "ag.starter.1": "What worked best in the last two weeks, and why?",
+  "ag.starter.2": "When should I post on each channel?",
+  "ag.starter.3": "What are people asking about in the listening results?",
+  "ag.starter.4": "Propose five posts for next week and save them to Proposals.",
+  "ag.starter.5": "Turn my best Threads post into an X post and save it as a draft.",
+  "sidebar.collapse": "Collapse sidebar",
+  "sidebar.expand": "Expand sidebar",
 } as const;
 
 export type MsgKey = keyof typeof en;

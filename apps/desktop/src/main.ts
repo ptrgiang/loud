@@ -60,9 +60,20 @@ const screenshot = (w: Electron.BrowserWindow, file: string) => {
           if (result !== undefined) console.log("[loud] script:", JSON.stringify(result));
         }
         await new Promise((r) => setTimeout(r, 600));
+        // Extra windows (e.g. the posting window) get numbered shots next to the main one.
+        const extra = Electron.BrowserWindow.getAllWindows().filter((x) => x !== w);
         const image = await w.webContents.capturePage();
         NodeFS.writeFileSync(file, image.toPNG());
         console.log(`[loud] screenshot saved: ${file}`);
+        for (const [i, x] of extra.entries()) {
+          // A view-only window's own page never loads — capture each child view instead.
+          const views = x.contentView.children;
+          for (const [v, view] of views.entries()) {
+            const out = file.replace(/\.png$/, `-${i + 1}.${v + 1}.png`);
+            NodeFS.writeFileSync(out, (await view.webContents.capturePage()).toPNG());
+            console.log(`[loud] screenshot saved: ${out}`);
+          }
+        }
       } catch (error) {
         console.error("[loud] screenshot failed:", error);
         process.exitCode = 1;

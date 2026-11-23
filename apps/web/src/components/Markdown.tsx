@@ -1,7 +1,9 @@
 // A parsed answer never reorders, so position is each node's identity.
 // oxlint-disable react/no-array-index-key
-import { useMemo } from "react";
+import { Check, Copy } from "lucide-react";
+import { useMemo, useState } from "react";
 
+import { useT } from "~/i18n";
 import { call } from "~/lib/loud";
 import { type Block, blocks, type Inline } from "~/lib/markdown";
 import { cn } from "~/lib/utils";
@@ -48,6 +50,33 @@ function Spans({ c }: { c: ReadonlyArray<Inline> }) {
   });
 }
 
+/** A fenced block — often the post itself — wrapped in a frame with a copy button. */
+function Pre({ text }: { text: string }) {
+  const t = useT();
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="group relative">
+      <pre className="whitespace-pre-wrap break-words rounded-lg bg-muted px-3 py-2 pr-9 font-mono text-xs leading-relaxed">
+        {text}
+      </pre>
+      <button
+        type="button"
+        aria-label={t("common.copy")}
+        title={t("common.copy")}
+        className="absolute top-1.5 right-1.5 flex size-6 cursor-pointer items-center justify-center rounded-md bg-background/80 text-muted-foreground opacity-0 shadow-xs transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 [&>svg]:size-3.5"
+        onClick={() =>
+          void navigator.clipboard.writeText(text).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1400);
+          })
+        }
+      >
+        {copied ? <Check /> : <Copy />}
+      </button>
+    </div>
+  );
+}
+
 function Blocks({ b }: { b: ReadonlyArray<Block> }) {
   return b.map((n, i) => {
     switch (n.t) {
@@ -86,11 +115,7 @@ function Blocks({ b }: { b: ReadonlyArray<Block> }) {
           </blockquote>
         );
       case "pre":
-        return (
-          <pre key={i} className="overflow-x-auto rounded-lg bg-muted px-3 py-2 font-mono text-xs">
-            {n.v}
-          </pre>
-        );
+        return <Pre key={i} text={n.v} />;
     }
   });
 }

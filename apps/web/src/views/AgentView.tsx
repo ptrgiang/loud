@@ -13,12 +13,12 @@ import { cn } from "~/lib/utils";
 import { useLoud } from "~/store";
 import { useWork } from "~/workStore";
 
-const STARTERS = [
-  "What worked best in the last two weeks, and why?",
-  "When should I post on each channel?",
-  "What are people asking about in the listening results?",
-  "Propose five posts for next week and save them to Proposals.",
-  "Turn my best Threads post into an X post and save it as a draft.",
+const STARTERS: ReadonlyArray<MsgKey> = [
+  "ag.starter.1",
+  "ag.starter.2",
+  "ag.starter.3",
+  "ag.starter.4",
+  "ag.starter.5",
 ];
 
 /** The tool names, said the way a person would. */
@@ -233,7 +233,9 @@ export function AgentView() {
   const send = useWork((s) => s.send);
   const go = useLoud((s) => s.go);
   const demo = useLoud((s) => s.info?.demo ?? false);
+  const scroll = useRef<HTMLDivElement>(null);
   const bottom = useRef<HTMLDivElement>(null);
+  const chatRef = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
     void loadAgent();
@@ -241,10 +243,14 @@ export function AgentView() {
   }, [loadAgent, loadProviders]);
   const count = agent?.messages.length ?? 0;
   const last = agent?.messages.at(-1)?.text.length ?? 0;
-  // Follow the conversation as messages arrive and the answer streams in.
+  // Follow the stream only while the reader is already near the bottom — scrolling up pins the view.
   useEffect(() => {
-    const chat = agent?.chatId;
-    if (count + last > 0 || chat !== undefined) bottom.current?.scrollIntoView({ block: "end" });
+    const el = scroll.current;
+    if (!el) return;
+    const switched = agent?.chatId !== chatRef.current;
+    chatRef.current = agent?.chatId;
+    const near = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    if (switched || near || count === 1) bottom.current?.scrollIntoView({ block: "end" });
   }, [count, last, agent?.chatId]);
 
   if (!settings || !agent) return null;
@@ -288,21 +294,21 @@ export function AgentView() {
       <div className="flex min-h-0 flex-1">
         <ChatList />
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex-1 overflow-y-auto">
+          <div ref={scroll} className="flex-1 overflow-y-auto">
             <div className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-6">
               {count === 0 ? (
                 <div className="flex flex-col gap-3 pt-6">
                   <div className="font-medium text-sm">{t("ag.askAbout")}</div>
                   <div className="flex flex-col items-start gap-1.5">
-                    {STARTERS.map((s) => (
+                    {STARTERS.map((k) => (
                       <Button
-                        key={s}
+                        key={k}
                         size="sm"
                         variant="outline"
                         disabled={busy}
-                        onClick={() => void send(s)}
+                        onClick={() => void send(t(k))}
                       >
-                        {s}
+                        {t(k)}
                       </Button>
                     ))}
                   </div>
