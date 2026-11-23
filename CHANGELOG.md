@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.1.11-beta.0 (2026-11-23)
+
+- Switching the update channel or check settings checks for an update right away instead of waiting for the next scheduled look.
+- Settings → Updates shows a beta badge while the beta channel is on.
+
 ## 0.1.10 (2026-11-23)
 
 - The dashboard speaks English and Vietnamese, chosen in Settings → Language.

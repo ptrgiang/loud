@@ -463,6 +463,11 @@ function UpdatesCard() {
           )}
         >
           {t("set.versionLine", { version, line: line ?? "" })}
+          {prefs.channel === "beta" && (
+            <Badge variant="warning" size="sm" className="ml-2 align-middle">
+              beta
+            </Badge>
+          )}
         </p>
         <Row label={t("set.checkUpdates")} hint={t("set.checkUpdates.hint")}>
           <Switch

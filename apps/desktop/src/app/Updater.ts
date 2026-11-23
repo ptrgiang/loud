@@ -128,9 +128,12 @@ export const layer = Layer.effect(
         // It is the running version that decides this, so the update into this build still shows the wizard once.
         if (supported && status.state === "ready") autoUpdater.quitAndInstall(true, true);
       }),
+      // Check right away on a settings change — after flipping the beta channel nobody wants to wait for the timer.
+      // The re-armed timer uses the normal interval so it does not fire a second check moments later.
       reschedule: Effect.map(settings.get, (s) => {
         applyChannel(s.updates);
-        arm(s.updates, true);
+        arm(s.updates, false);
+        if (s.updates.check) runCheck();
       }),
     });
   }),
