@@ -98,7 +98,7 @@ const program = Effect.gen(function* () {
   log.info(
     `start ${BRAND.name} ${Electron.app.getVersion()} ${process.platform}/${process.arch}${Electron.app.isPackaged ? "" : " (dev)"}`,
   );
-  yield* AppProtocol.handle(paths.web);
+  yield* AppProtocol.handle(paths.web, paths.data);
 
   // LOUD_DEMO=1 fills an empty data folder with the fictional demo; a folder with collected data is left alone.
   if (

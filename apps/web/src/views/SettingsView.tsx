@@ -15,11 +15,13 @@ import { useEffect, useState } from "react";
 
 import { Card } from "~/components/Card";
 import { PageHeader } from "~/components/PageHeader";
+import { useSaveFlash } from "~/components/SavedHint";
 import { openUsagePage, ReportPreview } from "~/components/UsageReports";
 import { toast } from "~/lib/toast";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { Select } from "~/components/ui/select";
 import { Switch } from "~/components/ui/switch";
 import { Textarea } from "~/components/ui/textarea";
 import { LOCALES, useLocale, useT, type Locale } from "~/i18n";
@@ -55,8 +57,8 @@ function LocaleSelect() {
   const setLocale = useLocale((s) => s.setLocale);
   return (
     <Row label={t("set.locale")} hint={t("set.locale.hint")}>
-      <select
-        className="h-8 w-40 rounded-md border border-input bg-background px-2 text-sm sm:h-7"
+      <Select
+        className="w-40"
         value={locale}
         aria-label={t("set.locale")}
         onChange={(e) => setLocale(e.target.value as Locale)}
@@ -66,7 +68,7 @@ function LocaleSelect() {
             {name}
           </option>
         ))}
-      </select>
+      </Select>
     </Row>
   );
 }
@@ -78,10 +80,14 @@ function General() {
   const rescan = useWork((s) => s.collection?.rescanDays);
   const [tz, setTz] = useState(info?.timezone ?? "");
   const [since, setSince] = useState(info?.since ?? "");
+  const [flashTz, markTz] = useSaveFlash();
+  const [flashSince, markSince] = useSaveFlash();
   if (!info) return null;
   const save = async (patch: { timezone?: string; since?: string }) => {
     try {
       useLoud.setState({ info: await call("settings.updateGeneral", patch) });
+      if (patch.timezone !== undefined) markTz();
+      if (patch.since !== undefined) markSince();
     } catch (e) {
       useLoud.setState({ error: e instanceof Error ? e.message : String(e) });
     }
@@ -99,6 +105,7 @@ function General() {
             onValueChange={setTz}
             onBlur={() => tz !== info.timezone && void save({ timezone: tz })}
           />
+          {flashTz}
         </Row>
         <Row label={t("set.countFrom")} hint={t("set.countFrom.hint")}>
           <Input
@@ -110,6 +117,7 @@ function General() {
             onValueChange={setSince}
             onBlur={() => since !== info.since && void save({ since })}
           />
+          {flashSince}
         </Row>
         <Rescan key={rescan ?? "loading"} />
       </div>
@@ -126,6 +134,7 @@ function Rescan() {
   const running = useWork((s) => s.collect?.running ?? false);
   const demo = useLoud((s) => s.info?.demo ?? false);
   const [days, setDays] = useState(String(collection?.rescanDays ?? 7));
+  const [flash, mark] = useSaveFlash();
   if (!collection) return null;
   return (
     <Row label={t("set.rescan")} hint={t("set.rescan.hint", { n: collection.rescanDays })}>
@@ -138,9 +147,14 @@ function Rescan() {
         value={days}
         aria-label={t("set.daysAria")}
         onValueChange={setDays}
-        onBlur={() => void configure({ rescanDays: Number(days) || 7 })}
+        onBlur={() => {
+          const next = Number(days) || 7;
+          if (next === collection.rescanDays) return;
+          void configure({ rescanDays: next }).then(mark);
+        }}
       />
       <span className="text-muted-foreground text-xs">{t("set.days")}</span>
+      {flash}
       <Button
         size="sm"
         variant="outline"
@@ -161,6 +175,7 @@ function Collection() {
   const configure = useWork((s) => s.configureCollection);
   const demo = useLoud((s) => s.info?.demo ?? false);
   const [every, setEvery] = useState(String(collection?.everyHours ?? 12));
+  const [flash, mark] = useSaveFlash();
   if (!collection) return null;
 
   return (
@@ -193,9 +208,14 @@ function Collection() {
             value={every}
             aria-label={t("set.everyAria")}
             onValueChange={setEvery}
-            onBlur={() => void configure({ everyHours: Number(every) || 12 })}
+            onBlur={() => {
+              const next = Number(every) || 12;
+              if (next === collection.everyHours) return;
+              void configure({ everyHours: next }).then(mark);
+            }}
           />
           <span className="text-muted-foreground text-xs">{t("set.hours")}</span>
+          {flash}
         </Row>
         <Row label={t("set.tray")} hint={t("set.tray.hint")}>
           <Switch
@@ -262,6 +282,7 @@ function AgentSettingsCard() {
   const configure = useWork((s) => s.configureAgent);
   const os = useLoud((s) => s.info?.os);
   const [playbook, setPlaybook] = useState(settings?.playbook ?? "");
+  const [flash, mark] = useSaveFlash();
   if (!settings) return null;
   const current = providers.find((p) => p.id === settings.provider);
   const vendor = AGENT_VENDORS[settings.provider];
@@ -306,8 +327,11 @@ function AgentSettingsCard() {
             aria-label={t("set.playbook")}
             placeholder={t("set.playbook.placeholder")}
             onChange={(e) => setPlaybook(e.target.value)}
-            onBlur={() => playbook !== settings.playbook && void configure({ playbook })}
+            onBlur={() =>
+              playbook !== settings.playbook && void configure({ playbook }).then(mark)
+            }
           />
+          {flash}
         </div>
         <div className="flex gap-2 py-3 text-muted-foreground text-xs leading-relaxed">
           <ShieldCheck className="mt-0.5 size-4 shrink-0" />

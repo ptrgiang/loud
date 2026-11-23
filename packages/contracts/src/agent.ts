@@ -163,6 +163,8 @@ export const Draft = Schema.Struct({
   by: Schema.Literals(["you", "agent"]),
   /** File names in the draft's own folder, in posting order. */
   images: Schema.optionalKey(Schema.Array(Schema.String)),
+  /** Video file names in the draft's own folder — mp4, mov or webm. */
+  videos: Schema.optionalKey(Schema.Array(Schema.String)),
   created: Schema.String,
   updated: Schema.String,
 });
@@ -179,6 +181,8 @@ export type DraftInput = typeof DraftInput.Type;
 
 /** Per draft. X takes 4 images a post; Threads and Instagram take 10 (Instagram as a carousel). */
 export const DRAFT_IMAGES_MAX = 10;
+/** Per draft. A video takes the slot of the whole media set on X; four covers the carousel channels. */
+export const DRAFT_VIDEOS_MAX = 4;
 
 export interface DraftsFile {
   readonly drafts: ReadonlyArray<Draft>;

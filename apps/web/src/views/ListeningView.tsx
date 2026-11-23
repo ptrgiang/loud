@@ -321,9 +321,18 @@ export function ListeningView() {
                       {keywords.map((k) => (
                         <tr
                           key={k.query}
+                          tabIndex={0}
+                          role="button"
+                          aria-pressed={f.keyword === k.query}
                           onClick={() => setKeyword(f.keyword === k.query ? null : k.query)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              setKeyword(f.keyword === k.query ? null : k.query);
+                            }
+                          }}
                           className={cn(
-                            "cursor-pointer hover:bg-muted/50",
+                            "cursor-pointer outline-none hover:bg-muted/50 focus-visible:bg-muted/70",
                             f.keyword === k.query && "bg-muted",
                           )}
                         >

@@ -6,6 +6,7 @@ import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
 import * as NodeUrl from "node:url";
 
+import { draftMediaMime, draftMediaPath } from "../agent/drafts.ts";
 import { BRAND } from "../brand.ts";
 
 const MIME: Record<string, string> = {
@@ -20,6 +21,7 @@ const MIME: Record<string, string> = {
 };
 
 // Everything comes from the app itself; no remote scripts, frames or connections. Tailwind writes inline styles.
+// media-src has no rule of its own: it inherits default-src 'self', so draft videos may play from this origin.
 const CSP = [
   "default-src 'self'",
   "script-src 'self'",
@@ -33,6 +35,10 @@ const CSP = [
   "form-action 'none'",
 ].join("; ");
 
+// A draft's media, read from the data folder: /media/<draft id>/<name>. The renderer needs a URL for a <video>;
+// megabytes of base64 through IPC would stall. draftMediaPath refuses anything that is not our own file name.
+const MEDIA = /^\/media\/([a-z0-9]{4,40})\/([a-f0-9]{16}\.(?:png|jpg|webp|gif|mp4|mov|webm))$/;
+
 /** Must run before the app is ready. */
 export const registerScheme = () =>
   Electron.protocol.registerSchemesAsPrivileged([
@@ -42,12 +48,29 @@ export const registerScheme = () =>
     },
   ]);
 
-export const handle = (webRoot: string) =>
+export const handle = (webRoot: string, dataDir: string) =>
   Effect.sync(() => {
     const root = NodePath.resolve(webRoot);
     Electron.protocol.handle(BRAND.scheme, async (request) => {
       const url = new URL(request.url);
       if (url.host !== BRAND.host) return new Response("not found", { status: 404 });
+      const media = MEDIA.exec(decodeURIComponent(url.pathname));
+      if (media) {
+        try {
+          const file = draftMediaPath(dataDir, media[1]!, media[2]!);
+          const response = await Electron.net.fetch(NodeUrl.pathToFileURL(file).toString());
+          return new Response(response.body, {
+            status: response.status,
+            headers: new Headers({
+              "Content-Type": draftMediaMime(media[2]!),
+              "Cache-Control": "no-store",
+              "X-Content-Type-Options": "nosniff",
+            }),
+          });
+        } catch {
+          return new Response("not found", { status: 404 });
+        }
+      }
       const rel = decodeURIComponent(url.pathname).replace(/^\/+/, "") || "index.html";
       let file = NodePath.resolve(root, rel);
       if (file !== root && !file.startsWith(root + NodePath.sep)) {

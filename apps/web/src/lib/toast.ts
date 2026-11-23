@@ -19,5 +19,5 @@ export function toast(kind: Toast["kind"], text: string) {
   useToasts.setState((s) => ({
     list: [...s.list.filter((t) => t.text !== text), { id, kind, text }].slice(-4),
   }));
-  if (kind === "done") setTimeout(() => dismiss(id), 4000);
+  // Auto-dismiss lives in <Toasts>, where hovering can pause it.
 }

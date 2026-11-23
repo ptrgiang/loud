@@ -59,6 +59,7 @@ export interface AgentShape {
   readonly chats: Effect.Effect<ReadonlyArray<AgentChatSummary>>;
   readonly open: (id: string) => Effect.Effect<AgentState, Error>;
   readonly remove: (id: string) => Effect.Effect<AgentState, Error>;
+  readonly rename: (id: string, title: string) => Effect.Effect<AgentState, Error>;
   readonly attachment: (
     chatId: string,
     id: string,
@@ -519,6 +520,16 @@ export const layer = Layer.effect(
             return yield* fail("Stop the agent before you delete this chat.");
           store.remove(id);
           if (chat?.id === id) chat = null;
+          publishNow();
+          publishChats();
+          return snapshot();
+        }),
+      rename: (id, title) =>
+        Effect.gen(function* () {
+          const clean = title.replace(/\s+/g, " ").trim().slice(0, 120);
+          if (!clean) return yield* fail("A chat needs a title.");
+          if (!store.read(id)) return yield* fail("That chat is gone.");
+          updateChat(id, (c) => ({ ...c, title: clean }));
           publishNow();
           publishChats();
           return snapshot();

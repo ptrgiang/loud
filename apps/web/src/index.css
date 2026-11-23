@@ -1,4 +1,5 @@
-/* Tokens follow T3 Code's: a quiet zinc canvas, white raised surfaces, one blue primary; true black in dark mode. */
+/* Tokens follow T3 Code's: a quiet zinc canvas, white raised surfaces, one primary; true black in dark mode.
+   Loud's primary is a violet-indigo — distinct from every channel colour so a Loud action never reads as a platform. */
 @layer theme, base, components, utilities;
 @import "tailwindcss";
 
@@ -94,7 +95,7 @@
   --card-foreground: var(--color-zinc-900);
   --popover: var(--color-white);
   --popover-foreground: var(--color-zinc-900);
-  --primary: oklch(0.488 0.217 264);
+  --primary: oklch(0.520 0.240 278);
   --primary-foreground: var(--color-white);
   --secondary: var(--color-zinc-50);
   --secondary-foreground: var(--color-zinc-800);
@@ -135,7 +136,7 @@
     --card-foreground: var(--color-neutral-100);
     --popover: var(--card);
     --popover-foreground: var(--color-neutral-100);
-    --primary: oklch(0.571 0.21 264);
+    --primary: oklch(0.690 0.185 278);
     --secondary: --alpha(var(--color-white) / 3%);
     --secondary-foreground: var(--color-neutral-100);
     --muted: --alpha(var(--color-white) / 3%);

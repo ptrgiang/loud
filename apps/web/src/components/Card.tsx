@@ -7,6 +7,7 @@ export function Card({
   title,
   hint,
   actions,
+  tone,
   className,
   bodyClassName,
   children,
@@ -14,13 +15,19 @@ export function Card({
   title?: React.ReactNode;
   hint?: React.ReactNode;
   actions?: React.ReactNode;
+  /** "flat" marks supporting content — notes and disclosures — so primary surfaces keep their lift. */
+  tone?: "card" | "flat";
   className?: string;
   bodyClassName?: string;
   children: React.ReactNode;
 }) {
   return (
     <section
-      className={cn("flex min-w-0 flex-col rounded-xl border bg-card shadow-xs/5", className)}
+      className={cn(
+        "flex min-w-0 flex-col rounded-xl border bg-card",
+        tone === "flat" ? "bg-card/60 shadow-none" : "shadow-xs/5",
+        className,
+      )}
     >
       {(title || actions) && (
         <header className="flex items-start justify-between gap-3 px-4 pt-3.5 pb-2">

@@ -1,8 +1,11 @@
 import { AGENT_VENDORS, type AgentAttachment, type AgentMessage } from "@loud/contracts";
 import {
   Bot,
+  Check,
+  Copy,
   FileText,
   Loader,
+  Pencil,
   Plus,
   Settings2,
   Trash2,
@@ -18,7 +21,9 @@ import { Empty, PageHeader } from "~/components/PageHeader";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { useT, type MsgKey } from "~/i18n";
+import { hm } from "~/lib/format";
 import { call } from "~/lib/loud";
+import { toast } from "~/lib/toast";
 import { cn } from "~/lib/utils";
 import { useLoud } from "~/store";
 import { useWork } from "~/workStore";
@@ -105,9 +110,18 @@ function Message({
   onImage: (a: AgentAttachment) => void;
 }) {
   const t = useT();
+  const [copied, setCopied] = useState(false);
+  const stamp = (
+    <span
+      className="text-2xs text-muted-foreground opacity-0 transition-opacity group-hover/msg:opacity-100"
+      title={m.at}
+    >
+      {hm(m.at)}
+    </span>
+  );
   if (m.role === "user")
     return (
-      <div className="flex flex-col items-end gap-1.5">
+      <div className="group/msg flex flex-col items-end gap-1.5">
         {m.attachments?.length ? (
           <div className="flex max-w-[80%] flex-wrap justify-end gap-1.5">
             {m.attachments.map((a) => (
@@ -120,11 +134,12 @@ function Message({
             {m.text}
           </div>
         )}
+        {stamp}
       </div>
     );
   const tools = [...new Set(m.tools)];
   return (
-    <div className="flex flex-col gap-2">
+    <div className="group/msg flex flex-col gap-2">
       {tools.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 text-muted-foreground text-xs">
           <Wrench className="size-3.5" />
@@ -157,6 +172,25 @@ function Message({
           {m.error === "stopped" ? t("ag.stopped") : m.error}
         </div>
       )}
+      <div className="flex items-center gap-2">
+        {stamp}
+        {m.text && !live && (
+          <button
+            type="button"
+            aria-label={t("ag.copyAnswer")}
+            title={t("ag.copyAnswer")}
+            onClick={() =>
+              void navigator.clipboard.writeText(m.text).then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1400);
+              })
+            }
+            className="cursor-pointer text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/msg:opacity-100 [&>svg]:size-3"
+          >
+            {copied ? <Check /> : <Copy />}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -179,12 +213,26 @@ function ChatList() {
   const remove = useWork((s) => s.deleteChat);
   const reset = useWork((s) => s.reset);
   const [confirm, setConfirm] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
   useEffect(() => void load(), [load]);
   useEffect(() => {
     if (!confirm) return;
     const timer = setTimeout(() => setConfirm(null), 3000);
     return () => clearTimeout(timer);
   }, [confirm]);
+
+  const rename = async (id: string) => {
+    const clean = title.trim();
+    setRenaming(null);
+    if (!clean) return;
+    try {
+      await call("agent.rename", { id, title: clean });
+      void load();
+    } catch (e) {
+      toast("error", e instanceof Error ? e.message : String(e));
+    }
+  };
 
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r">
@@ -210,45 +258,82 @@ function ChatList() {
               const running = c.id === agent?.runningChatId;
               return (
                 <li key={c.id} className="group relative">
-                  <button
-                    type="button"
-                    className={cn(
-                      "flex w-full cursor-pointer flex-col gap-0.5 rounded-lg px-2.5 py-2 pr-8 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-64",
-                      on ? "bg-accent" : "hover:bg-accent/60",
-                    )}
-                    onClick={() => !on && void open(c.id)}
-                  >
-                    <span className="flex items-center gap-1.5 truncate text-sm">
-                      {running && <Loader className="size-3 shrink-0 animate-spin" />}
-                      <span className="truncate">{c.title}</span>
-                    </span>
-                    <span className="text-2xs text-muted-foreground">
-                      {AGENT_VENDORS[c.provider].name} · {when(c.updated)}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={
-                      confirm === c.id
-                        ? t("ag.confirmDelete", { title: c.title })
-                        : `${t("common.delete")} ${c.title}`
-                    }
-                    title={confirm === c.id ? t("ag.confirmDeleteTitle") : t("ag.deleteChat")}
-                    disabled={running}
-                    className={cn(
-                      "absolute top-2 right-1.5 flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none hover:bg-background hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100",
-                      confirm === c.id &&
-                        "bg-destructive/12 text-destructive-foreground opacity-100 hover:bg-destructive/16 hover:text-destructive-foreground",
-                    )}
-                    onClick={() => {
-                      if (confirm === c.id) {
-                        setConfirm(null);
-                        void remove(c.id);
-                      } else setConfirm(c.id);
-                    }}
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
+                  {renaming === c.id ? (
+                    <input
+                      autoFocus
+                      value={title}
+                      aria-label={t("ag.renameChat")}
+                      className="w-full rounded-lg border border-ring bg-background px-2.5 py-2 text-sm outline-none ring-ring/24 focus-visible:ring-2"
+                      onChange={(e) => setTitle(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") void rename(c.id);
+                        if (e.key === "Escape") setRenaming(null);
+                      }}
+                      onBlur={() => void rename(c.id)}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      className={cn(
+                        "flex w-full cursor-pointer flex-col gap-0.5 rounded-lg px-2.5 py-2 pr-14 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-64",
+                        on ? "bg-accent" : "hover:bg-accent/60",
+                      )}
+                      onClick={() => !on && void open(c.id)}
+                      onDoubleClick={() => {
+                        setTitle(c.title);
+                        setRenaming(c.id);
+                      }}
+                    >
+                      <span className="flex items-center gap-1.5 truncate text-sm">
+                        {running && <Loader className="size-3 shrink-0 animate-spin" />}
+                        <span className="truncate">{c.title}</span>
+                      </span>
+                      <span className="text-2xs text-muted-foreground">
+                        {AGENT_VENDORS[c.provider].name} · {when(c.updated)}
+                      </span>
+                    </button>
+                  )}
+                  {renaming !== c.id && (
+                    <>
+                      <button
+                        type="button"
+                        aria-label={`${t("ag.renameChat")} ${c.title}`}
+                        title={t("ag.renameChat")}
+                        className="absolute top-2 right-8 flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none hover:bg-background hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+                        onClick={() => {
+                          setTitle(c.title);
+                          setRenaming(c.id);
+                        }}
+                      >
+                        <Pencil className="size-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={
+                          confirm === c.id
+                            ? t("ag.confirmDelete", { title: c.title })
+                            : `${t("common.delete")} ${c.title}`
+                        }
+                        title={
+                          confirm === c.id ? t("ag.confirmDeleteTitle") : t("ag.deleteChat")
+                        }
+                        disabled={running}
+                        className={cn(
+                          "absolute top-2 right-1.5 flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none hover:bg-background hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100",
+                          confirm === c.id &&
+                            "bg-destructive/12 text-destructive-foreground opacity-100 hover:bg-destructive/16 hover:text-destructive-foreground",
+                        )}
+                        onClick={() => {
+                          if (confirm === c.id) {
+                            setConfirm(null);
+                            void remove(c.id);
+                          } else setConfirm(c.id);
+                        }}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </>
+                  )}
                 </li>
               );
             })}

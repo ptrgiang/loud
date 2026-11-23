@@ -95,6 +95,11 @@ export const IpcMethods = {
   "agent.chats": { input: None, output: Schema.Array(AgentChatSummary) },
   "agent.open": { input: Schema.Struct({ id: Schema.String }), output: AgentState },
   "agent.delete": { input: Schema.Struct({ id: Schema.String }), output: AgentState },
+  /** Renames a saved chat; the list refreshes through its event. */
+  "agent.rename": {
+    input: Schema.Struct({ id: Schema.String, title: Schema.String }),
+    output: AgentState,
+  },
   /** An attachment of a saved message, as base64, to show it again. */
   "agent.attachment": {
     input: Schema.Struct({ chatId: Schema.String, id: Schema.String }),
@@ -119,11 +124,22 @@ export const IpcMethods = {
     output: Draft,
   },
   "drafts.removeImage": { input: DraftImageRef, output: Draft },
+  /** Adds a video the user picked (base64 of the file). */
+  "drafts.addVideo": {
+    input: Schema.Struct({ id: Schema.String, data: Schema.String }),
+    output: Draft,
+  },
+  "drafts.removeVideo": { input: DraftImageRef, output: Draft },
   /** Puts the image on the clipboard, to paste into the platform's composer. */
   "drafts.copyImage": { input: DraftImageRef, output: Schema.Struct({}) },
   "drafts.showImage": { input: DraftImageRef, output: Schema.Struct({}) },
   /** Opens the posting window: the draft's contents on the left, the channel's composer on the right. */
   "post.open": { input: Schema.Struct({ id: Schema.String }), output: Schema.Struct({}) },
+  /** The pane drag handle reports its width; the poster clamps and applies it. */
+  "post.paneWidth": {
+    input: Schema.Struct({ width: Schema.Number }),
+    output: Schema.Struct({}),
+  },
   "updates.settings": { input: None, output: UpdateSettings },
   "updates.configure": { input: UpdateSettings, output: UpdateSettings },
   "updates.status": { input: None, output: UpdateStatus },

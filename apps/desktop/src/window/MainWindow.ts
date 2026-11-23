@@ -18,6 +18,8 @@ interface SavedWindow {
   readonly width?: number;
   readonly height?: number;
   readonly maximized?: boolean;
+  /** The posting window's pane width, kept here too — merge on write so neither side clobbers the other. */
+  readonly paneWidth?: number;
 }
 
 const stateFile = (home: string) => NodePath.join(home, "window.json");
@@ -75,6 +77,7 @@ export const create = (options: MainWindowOptions) =>
     // size even when the window leaves maximized — that is what the next open should restore.
     w.on("close", () => {
       writeJson(stateFile(options.home), {
+        ...readJson<SavedWindow>(stateFile(options.home)),
         ...w.getNormalBounds(),
         maximized: w.isMaximized() || w.isFullScreen(),
       });

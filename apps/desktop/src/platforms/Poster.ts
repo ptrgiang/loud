@@ -13,11 +13,14 @@ import { readDrafts } from "../agent/drafts.ts";
 import { windowIcon } from "../app/appIcon.ts";
 import { AppPaths } from "../app/AppPaths.ts";
 import { EventBus } from "../app/EventBus.ts";
+import { readJson, writeJson } from "../data/files.ts";
 import { PLATFORMS, platformForUrl } from "./PlatformCatalog.ts";
 import { Platforms } from "./Platforms.ts";
 
 export interface PosterShape {
   readonly open: (id: string) => Effect.Effect<void, Error>;
+  /** The pane's drag handle reports a width; clamped and kept in window.json for next time. */
+  readonly setPane: (width: number) => void;
 }
 
 export class Poster extends Context.Service<Poster, PosterShape>()(
@@ -25,6 +28,14 @@ export class Poster extends Context.Service<Poster, PosterShape>()(
 ) {}
 
 const PANE_WIDTH = 380;
+const PANE_MIN = 280;
+const PANE_MAX = 640;
+
+interface WindowState {
+  readonly paneWidth?: number;
+}
+
+const stateFile = (home: string) => NodePath.join(home, "window.json");
 
 /** ipcFrames is the IPC door's guest list: only frames we created ourselves (main window, this pane) may call. */
 export const layer = (ipcFrames: Set<Electron.WebFrameMain>) =>
@@ -37,6 +48,30 @@ export const layer = (ipcFrames: Set<Electron.WebFrameMain>) =>
       let win: Electron.BrowserWindow | null = null;
       let pane: Electron.WebContentsView | null = null;
       let web: Electron.WebContentsView | null = null;
+      let paneWidth =
+        readJson<WindowState>(stateFile(paths.home))?.paneWidth ?? PANE_WIDTH;
+
+      const layout = () => {
+        if (!win || win.isDestroyed() || !pane || !web) return;
+        const b = win.getContentBounds();
+        pane.setBounds({ x: 0, y: 0, width: paneWidth, height: b.height });
+        web.setBounds({
+          x: paneWidth,
+          y: 0,
+          width: Math.max(0, b.width - paneWidth),
+          height: b.height,
+        });
+      };
+
+      const setPane = (width: number) => {
+        if (!Number.isFinite(width)) return;
+        paneWidth = Math.round(Math.min(PANE_MAX, Math.max(PANE_MIN, width)));
+        layout();
+        writeJson(stateFile(paths.home), {
+          ...readJson<WindowState>(stateFile(paths.home)),
+          paneWidth,
+        });
+      };
 
       const open = (id: string) =>
         Effect.gen(function* () {
@@ -85,18 +120,7 @@ export const layer = (ipcFrames: Set<Electron.WebFrameMain>) =>
           });
           w.contentView.addChildView(paneView);
           w.contentView.addChildView(webView);
-          const layout = () => {
-            const b = w.getContentBounds();
-            paneView.setBounds({ x: 0, y: 0, width: PANE_WIDTH, height: b.height });
-            webView.setBounds({
-              x: PANE_WIDTH,
-              y: 0,
-              width: Math.max(0, b.width - PANE_WIDTH),
-              height: b.height,
-            });
-          };
           w.on("resize", layout);
-          layout();
 
           // Grab these before "closed" fires: after destroy, .webContents throws.
           const paneWc = paneView.webContents;
@@ -142,10 +166,11 @@ export const layer = (ipcFrames: Set<Electron.WebFrameMain>) =>
           win = w;
           pane = paneView;
           web = webView;
+          layout();
           void paneView.webContents.loadURL(paneUrl);
           void webView.webContents.loadURL(target);
         });
 
-      return Poster.of({ open });
+      return Poster.of({ open, setPane });
     }),
   );

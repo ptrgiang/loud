@@ -137,7 +137,18 @@ export function AppSidebar() {
           collapsed ? "justify-center px-2" : "px-4",
         )}
       >
-        <LoudMark />
+        <span
+          className="relative"
+          title={demo && collapsed ? t("common.demo") : undefined}
+        >
+          <LoudMark />
+          {demo && collapsed && (
+            <span
+              aria-hidden
+              className="absolute -right-1 -bottom-0.5 size-2 rounded-full bg-warning-foreground"
+            />
+          )}
+        </span>
         {!collapsed && (
           <>
             <span className="font-semibold text-sm tracking-tight">Loud</span>
@@ -263,7 +274,7 @@ export function AppSidebar() {
               </button>
             )}
             <RestartToUpdate compact />
-            <UpdateButton />
+            <UpdateButton rail />
             <button
               type="button"
               onClick={toggleTheme}

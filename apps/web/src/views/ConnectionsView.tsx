@@ -13,10 +13,12 @@ import {
 import { useState } from "react";
 
 import { ChannelDot, PageHeader } from "~/components/PageHeader";
+import { useSaveFlash } from "~/components/SavedHint";
 import { StepIcon } from "~/components/StepIcon";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { Select } from "~/components/ui/select";
 import { Switch } from "~/components/ui/switch";
 import { useT, type MsgKey } from "~/i18n";
 import { cn } from "~/lib/utils";
@@ -60,6 +62,7 @@ function PagePicker({ p }: { p: PlatformView }) {
   const busy = useLoud((s) => s.busy.has(p.id));
   const updatePlatform = useLoud((s) => s.updatePlatform);
   const [assetId, setAssetId] = useState(p.assetId ?? "");
+  const [flash, mark] = useSaveFlash();
   const pages = p.pages ?? [];
 
   if (!pages.length)
@@ -72,24 +75,24 @@ function PagePicker({ p }: { p: PlatformView }) {
           onValueChange={setAssetId}
           onBlur={() => {
             if (assetId.trim() !== (p.assetId ?? ""))
-              void updatePlatform({ id: p.id, assetId, handle: assetId });
+              void updatePlatform({ id: p.id, assetId, handle: assetId }).then(mark);
           }}
           aria-label={t("conn.pageAria")}
         />
         <ReloadButton p={p} label={t("conn.findPages")} />
+        {flash}
       </div>
     );
 
   return (
     <div className="flex items-center gap-1">
-      <select
-        className="h-8 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-sm sm:h-7"
+      <Select
         value={p.assetId ?? ""}
         aria-label={t("conn.pageSelectAria")}
         disabled={busy}
         onChange={(e) => {
           const id = e.target.value;
-          if (id) void updatePlatform({ id: p.id, assetId: id, handle: id });
+          if (id) void updatePlatform({ id: p.id, assetId: id, handle: id }).then(mark);
         }}
       >
         {!p.assetId && <option value="">{t("conn.choosePage", { n: pages.length })}</option>}
@@ -101,8 +104,9 @@ function PagePicker({ p }: { p: PlatformView }) {
             {x.name}
           </option>
         ))}
-      </select>
+      </Select>
       <ReloadButton p={p} label={t("conn.findPages")} />
+      {flash}
     </div>
   );
 }
@@ -111,6 +115,7 @@ function HandleField({ p }: { p: PlatformView }) {
   const t = useT();
   const updatePlatform = useLoud((s) => s.updatePlatform);
   const [handle, setHandle] = useState(p.handle);
+  const [flash, mark] = useSaveFlash();
   return (
     <div className="flex items-center gap-1">
       <Input
@@ -119,11 +124,13 @@ function HandleField({ p }: { p: PlatformView }) {
         placeholder={t("conn.handlePlaceholder")}
         onValueChange={setHandle}
         onBlur={() => {
-          if (handle.trim() !== p.handle) void updatePlatform({ id: p.id, handle });
+          if (handle.trim() !== p.handle)
+            void updatePlatform({ id: p.id, handle }).then(mark);
         }}
         aria-label={t("conn.handleAria", { name: p.name })}
       />
       {!p.handle && <ReloadButton p={p} label={t("conn.detectHandle")} />}
+      {flash}
     </div>
   );
 }

@@ -5,12 +5,14 @@ import {
   type ChannelId,
   type Draft,
   DRAFT_IMAGES_MAX,
+  DRAFT_VIDEOS_MAX,
 } from "@loud/contracts";
 import { postLength } from "@loud/shared/text";
 import {
   Check,
   Copy,
   ExternalLink,
+  Film,
   FolderOpen,
   ImagePlus,
   Images,
@@ -22,7 +24,7 @@ import {
   TrendingUp,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 
 import { Segmented } from "~/components/Filters";
 import { ChannelDot, ChannelTag, Empty, PageHeader } from "~/components/PageHeader";
@@ -43,7 +45,7 @@ import {
   settled,
 } from "~/lib/analytics";
 import { FEATURE_LABEL } from "~/lib/features";
-import { dec } from "~/lib/format";
+import { dec, relative } from "~/lib/format";
 import { call } from "~/lib/loud";
 import { toast } from "~/lib/toast";
 import { cn } from "~/lib/utils";
@@ -147,48 +149,151 @@ function Thumb({ id, name, index }: { id: string; name: string; index: number })
   );
 }
 
-function DraftImages({ id }: { id: string | undefined }) {
+const IMAGE_EXT = /\.(png|jpe?g|webp|gif)$/i;
+const VIDEO_EXT = /\.(mp4|mov|webm)$/i;
+
+function Video({ id, name }: { id: string; name: string }) {
   const t = useT();
-  const images = useWork((s) => s.drafts.find((x) => x.id === id)?.images) ?? [];
   const changeDraft = useWork((s) => s.changeDraft);
-  const input = useRef<HTMLInputElement>(null);
+  const act = "bg-popover/90 text-popover-foreground shadow-sm hover:bg-popover";
+  return (
+    <figure className="group relative w-56 shrink-0 overflow-hidden rounded-lg border bg-muted">
+      <video
+        controls
+        preload="metadata"
+        src={`${location.origin}/media/${id}/${name}`}
+        className="h-28 w-full object-contain"
+      />
+      <div className="absolute right-1 bottom-1 flex gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+        <Button
+          size="icon-xs"
+          variant="ghost"
+          className={act}
+          aria-label={t("drafts.showFolder")}
+          title={t("drafts.showFolder")}
+          onClick={() => void call("drafts.showImage", { id, name }).catch(say)}
+        >
+          <FolderOpen />
+        </Button>
+        <Button
+          size="icon-xs"
+          variant="ghost"
+          className={act}
+          aria-label={t("drafts.removeVideo")}
+          title={t("drafts.removeVideo")}
+          onClick={() => void changeDraft(() => call("drafts.removeVideo", { id, name }))}
+        >
+          <X />
+        </Button>
+      </div>
+    </figure>
+  );
+}
+
+function DraftMedia({ id }: { id: string | undefined }) {
+  const t = useT();
+  const draft = useWork((s) => s.drafts.find((x) => x.id === id));
+  const images = draft?.images ?? [];
+  const videos = draft?.videos ?? [];
+  const changeDraft = useWork((s) => s.changeDraft);
+  const imageInput = useRef<HTMLInputElement>(null);
+  const videoInput = useRef<HTMLInputElement>(null);
+  const [over, setOver] = useState(false);
+
   const add = async (files: ReadonlyArray<File>) => {
     if (!id) return;
     for (const f of files) {
+      const video = f.type.startsWith("video/") || VIDEO_EXT.test(f.name);
+      if (!video && !f.type.startsWith("image/") && !IMAGE_EXT.test(f.name)) {
+        toast("error", t("drafts.mediaRefused", { name: f.name }));
+        continue;
+      }
       const data = await readBase64(f);
-      if (!(await changeDraft(() => call("drafts.addImage", { id, data })))) break;
+      const ok = await changeDraft(() =>
+        call(video ? "drafts.addVideo" : "drafts.addImage", { id, data }),
+      );
+      if (!ok) break;
     }
   };
+
+  const drop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setOver(false);
+    void add([...e.dataTransfer.files]);
+  };
+
+  const addClass =
+    "flex size-28 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed text-muted-foreground text-xs hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60 [&>svg]:size-4";
+
   return (
-    <div className="flex flex-col gap-2">
+    <div
+      className="flex flex-col gap-2"
+      onDragOver={(e) => {
+        e.preventDefault();
+        setOver(true);
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={drop}
+    >
       <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
         <Images className="size-3.5" />
-        {t("drafts.images")}
+        {t("drafts.media")}
         <span className="tabular-nums">
           {images.length} / {DRAFT_IMAGES_MAX}
+          {videos.length ? ` · ${videos.length} / ${DRAFT_VIDEOS_MAX}` : ""}
         </span>
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div
+        className={cn(
+          "flex flex-wrap gap-2 rounded-lg",
+          over && "outline-2 outline-ring/50 outline-dashed",
+        )}
+      >
         {id && images.map((name, i) => <Thumb key={name} id={id} name={name} index={i} />)}
+        {id && videos.map((name) => <Video key={name} id={id} name={name} />)}
         {images.length < DRAFT_IMAGES_MAX && (
           <button
             type="button"
             disabled={!id}
             title={id ? t("drafts.addFromComputer") : t("drafts.saveFirstTitle")}
-            onClick={() => input.current?.click()}
-            className="flex size-28 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed text-muted-foreground text-xs hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60 [&>svg]:size-4"
+            onClick={() => imageInput.current?.click()}
+            className={addClass}
           >
             <ImagePlus />
             {id ? t("drafts.addImage") : t("drafts.saveFirst")}
           </button>
         )}
+        {videos.length < DRAFT_VIDEOS_MAX && (
+          <button
+            type="button"
+            disabled={!id}
+            title={id ? t("drafts.addFromComputer") : t("drafts.saveFirstTitle")}
+            onClick={() => videoInput.current?.click()}
+            className={addClass}
+          >
+            <Film />
+            {id ? t("drafts.addVideo") : t("drafts.saveFirst")}
+          </button>
+        )}
       </div>
       <input
-        ref={input}
+        ref={imageInput}
         type="file"
         multiple
         hidden
         accept="image/png,image/jpeg,image/webp,image/gif"
+        onChange={(e) => {
+          const files = [...(e.target.files ?? [])];
+          e.target.value = "";
+          void add(files);
+        }}
+      />
+      <input
+        ref={videoInput}
+        type="file"
+        multiple
+        hidden
+        accept="video/mp4,video/quicktime,video/webm"
         onChange={(e) => {
           const files = [...(e.target.files ?? [])];
           e.target.value = "";
@@ -272,7 +377,20 @@ const blank = (channel: ChannelId): EditorDraft => ({
   comment: "",
 });
 
-function Editor({ start, onSaved }: { start: EditorDraft; onSaved: (d: Draft) => void }) {
+/** Lets the parent persist unsaved edits before switching drafts — nothing typed is dropped silently. */
+export interface EditorHandle {
+  readonly flush: () => Promise<void>;
+}
+
+function Editor({
+  start,
+  onSaved,
+  ref,
+}: {
+  start: EditorDraft;
+  onSaved: (d: Draft) => void;
+  ref: React.Ref<EditorHandle>;
+}) {
   const t = useT();
   const saveDraft = useWork((s) => s.saveDraft);
   const ask = useWork((s) => s.ask);
@@ -308,6 +426,17 @@ function Editor({ start, onSaved }: { start: EditorDraft; onSaved: (d: Draft) =>
     }
     return saved;
   };
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      // Only a post with real text is worth keeping; an empty shell has nothing to lose.
+      flush: async () => {
+        if (dirty && d.text.trim()) await save();
+      },
+    }),
+    [dirty, d, save],
+  );
 
   /** Posting needs the draft on disk first: the window reads it by id. */
   const post = async () => {
@@ -350,47 +479,60 @@ function Editor({ start, onSaved }: { start: EditorDraft; onSaved: (d: Draft) =>
         aria-invalid={over || undefined}
         onChange={(e) => setD({ ...d, text: e.target.value })}
       />
-      <Input
-        size="sm"
-        value={d.note}
-        placeholder={t("drafts.notePlaceholder")}
-        aria-label={t("drafts.noteAria")}
-        onValueChange={(note) => setD({ ...d, note })}
-      />
-      <Textarea
-        value={d.comment}
-        rows={2}
-        placeholder={t("drafts.commentPlaceholder")}
-        aria-label={t("drafts.commentAria")}
-        onChange={(e) => setD({ ...d, comment: e.target.value })}
-      />
-      <DraftImages id={d.id} />
-      <div className="flex flex-wrap items-center gap-1.5">
-        <Button size="sm" disabled={!d.text.trim() || !dirty} onClick={() => void save()}>
-          {t("drafts.save")}
-        </Button>
-        <Button size="sm" disabled={!d.text.trim() || over} onClick={() => void post()}>
-          <ExternalLink />
-          {t("drafts.post", { name: CHANNEL_NAMES[d.channel] })}
-        </Button>
-      </div>
-      <div className="flex flex-wrap items-center gap-1.5 border-t pt-3">
-        <Sparkles className="size-3.5 text-muted-foreground" />
-        <span className="mr-1 text-muted-foreground text-xs">{t("drafts.askAgent")}</span>
-        {ASKS.map((a) => (
-          <Button
-            key={a.label}
-            size="xs"
-            variant="outline"
-            disabled={!d.text.trim()}
-            onClick={() => void ask(a.ask(d))}
-          >
-            {t(a.label)}
+      <details className="group/extras rounded-lg">
+        <summary className="flex cursor-pointer items-center gap-1.5 text-muted-foreground text-xs hover:text-foreground [&::-webkit-details-marker]:hidden">
+          <NotebookPen className="size-3.5" />
+          {t("drafts.extras")}
+          <span className="ml-auto group-open/extras:rotate-180 transition-transform">▾</span>
+        </summary>
+        <div className="flex flex-col gap-2 pt-2">
+          <Input
+            size="sm"
+            value={d.note}
+            placeholder={t("drafts.notePlaceholder")}
+            aria-label={t("drafts.noteAria")}
+            onValueChange={(note) => setD({ ...d, note })}
+          />
+          <Textarea
+            value={d.comment}
+            rows={2}
+            placeholder={t("drafts.commentPlaceholder")}
+            aria-label={t("drafts.commentAria")}
+            onChange={(e) => setD({ ...d, comment: e.target.value })}
+          />
+        </div>
+      </details>
+      <DraftMedia id={d.id} />
+      <div className="sticky bottom-0 -mx-6 flex flex-col gap-3 border-t bg-background px-6 pt-3 pb-4">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Button size="sm" disabled={!d.text.trim() || !dirty} onClick={() => void save()}>
+            {t("drafts.save")}
           </Button>
-        ))}
-        {!agentOn && <span className="text-2xs text-muted-foreground">{t("drafts.agentOff")}</span>}
+          <Button size="sm" disabled={!d.text.trim() || over} onClick={() => void post()}>
+            <ExternalLink />
+            {t("drafts.post", { name: CHANNEL_NAMES[d.channel] })}
+          </Button>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Sparkles className="size-3.5 text-muted-foreground" />
+          <span className="mr-1 text-muted-foreground text-xs">{t("drafts.askAgent")}</span>
+          {ASKS.map((a) => (
+            <Button
+              key={a.label}
+              size="xs"
+              variant="outline"
+              disabled={!d.text.trim()}
+              onClick={() => void ask(a.ask(d))}
+            >
+              {t(a.label)}
+            </Button>
+          ))}
+          {!agentOn && (
+            <span className="text-2xs text-muted-foreground">{t("drafts.agentOff")}</span>
+          )}
+        </div>
+        <p className="text-2xs text-muted-foreground">{t("drafts.footer")}</p>
       </div>
-      <p className="text-2xs text-muted-foreground">{t("drafts.footer")}</p>
     </div>
   );
 }
@@ -403,20 +545,33 @@ export function DraftsView() {
   const deleteDraft = useWork((s) => s.deleteDraft);
   const first = useLoud((s) => s.info?.channels[0]?.id) ?? "threads";
   const [selected, setSelected] = useState<EditorDraft | null>(null);
+  const [sure, setSure] = useState(false);
+  const editor = useRef<EditorHandle>(null);
 
   useEffect(() => {
     void loadDrafts();
     void loadAgent();
   }, [loadDrafts, loadAgent]);
+  useEffect(() => {
+    if (!sure) return;
+    const id = setTimeout(() => setSure(false), 4000);
+    return () => clearTimeout(id);
+  }, [sure]);
 
   const asEditor = (d: Draft): EditorDraft => ({ ...d, comment: d.comment ?? "" });
   const current = selected ?? (drafts[0] ? asEditor(drafts[0]) : null);
+  // Swapping the editor drops its state; save first so typing is never silently lost.
+  const choose = async (next: EditorDraft) => {
+    await editor.current?.flush();
+    setSelected(next);
+    setSure(false);
+  };
 
   return (
     <>
       <PageHeader title={t("nav.drafts")} description={t("drafts.description")}>
         {current && (
-          <Button size="sm" variant="outline" onClick={() => setSelected(blank(first))}>
+          <Button size="sm" variant="outline" onClick={() => void choose(blank(first))}>
             <Plus />
             {t("drafts.new")}
           </Button>
@@ -425,9 +580,10 @@ export function DraftsView() {
       {!current ? (
         <Empty
           icon={<NotebookPen />}
+          accent="primary"
           title={t("drafts.empty")}
           action={
-            <Button size="sm" onClick={() => setSelected(blank(first))}>
+            <Button size="sm" onClick={() => void choose(blank(first))}>
               <Plus />
               {t("drafts.new")}
             </Button>
@@ -443,7 +599,7 @@ export function DraftsView() {
                 <button
                   type="button"
                   data-active={current.id === d.id}
-                  onClick={() => setSelected(asEditor(d))}
+                  onClick={() => current.id !== d.id && void choose(asEditor(d))}
                   className="flex w-full cursor-pointer flex-col gap-1 px-4 py-3 text-left hover:bg-accent data-[active=true]:bg-accent"
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -452,11 +608,17 @@ export function DraftsView() {
                   </div>
                   <div className="line-clamp-2 text-sm">{d.text || t("drafts.emptyText")}</div>
                   <div className="flex items-center gap-2 text-2xs text-muted-foreground">
-                    {d.updated}
+                    {relative(d.updated)}
                     {d.images?.length ? (
                       <span className="inline-flex items-center gap-0.5">
                         <Images className="size-3" />
                         {d.images.length}
+                      </span>
+                    ) : null}
+                    {d.videos?.length ? (
+                      <span className="inline-flex items-center gap-0.5">
+                        <Film className="size-3" />
+                        {d.videos.length}
                       </span>
                     ) : null}
                   </div>
@@ -470,19 +632,25 @@ export function DraftsView() {
                 <div className="flex justify-end">
                   <Button
                     size="xs"
-                    variant="ghost-muted"
-                    onClick={() => {
-                      void deleteDraft(current.id!);
+                    variant={sure ? "destructive" : "ghost-muted"}
+                    onClick={async () => {
+                      if (!sure) {
+                        setSure(true);
+                        return;
+                      }
+                      setSure(false);
+                      await deleteDraft(current.id!);
                       setSelected(null);
                     }}
                   >
                     <Trash2 />
-                    {t("common.delete")}
+                    {sure ? t("drafts.deleteSure") : t("common.delete")}
                   </Button>
                 </div>
               )}
               <Editor
                 key={`${current.id ?? "new"}:${drafts.find((x) => x.id === current.id)?.updated ?? ""}`}
+                ref={editor}
                 start={current}
                 onSaved={(d) => setSelected(asEditor(d))}
               />

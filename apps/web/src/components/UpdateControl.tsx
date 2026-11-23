@@ -34,7 +34,7 @@ function Progress({ percent }: { percent: number }) {
  * As in T3 Code's sidebar: one small button checks for an update, shows the download, and turns into "Restart to
  * update" once it is ready. The full controls stay in Settings → Updates.
  */
-export function UpdateButton() {
+export function UpdateButton({ rail }: { rail?: boolean }) {
   const t = useT();
   const status = useWork((s) => s.updates);
   const check = useWork((s) => s.checkUpdates);
@@ -81,7 +81,8 @@ export function UpdateButton() {
       aria-label={title}
       title={title}
       className={cn(
-        "flex size-6 cursor-pointer items-center justify-center rounded-md text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground disabled:cursor-default disabled:hover:bg-transparent [&>svg]:size-3.5",
+        "flex cursor-pointer items-center justify-center rounded-md text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground disabled:cursor-default disabled:hover:bg-transparent [&>svg]:size-3.5",
+        rail ? "h-8 w-full rounded-[var(--control-radius)] [&>svg]:size-4" : "size-6",
         state === "error" && "text-warning-foreground",
       )}
     >

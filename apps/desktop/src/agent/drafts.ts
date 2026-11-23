@@ -1,6 +1,12 @@
 // Drafts and their images, kept in the data folder: drafts.json, plus drafts/<id>/ for each draft's images. Shared by
 // the agent's tools (in the MCP server's process) and the desktop's drafts handlers.
-import { type ChannelId, type Draft, DRAFT_IMAGES_MAX, type DraftsFile } from "@loud/contracts";
+import {
+  type ChannelId,
+  type Draft,
+  DRAFT_IMAGES_MAX,
+  DRAFT_VIDEOS_MAX,
+  type DraftsFile,
+} from "@loud/contracts";
 import { ymd } from "@loud/shared/stamp";
 import * as NodeCrypto from "node:crypto";
 import * as NodeFS from "node:fs";
@@ -48,6 +54,7 @@ export function upsertDraft(
     ...(comment ? { comment } : {}),
     by: prev?.by ?? by,
     ...(prev?.images?.length ? { images: prev.images } : {}),
+    ...(prev?.videos?.length ? { videos: prev.videos } : {}),
     created: prev?.created ?? at,
     updated: at,
   };
@@ -57,7 +64,7 @@ export function upsertDraft(
 
 // Ids and names come back from the dashboard and end up in paths: only our own shapes pass.
 const SAFE_ID = /^[a-z0-9]{4,40}$/;
-const SAFE_NAME = /^[a-f0-9]{16}\.(png|jpg|webp|gif)$/;
+const SAFE_NAME = /^[a-f0-9]{16}\.(png|jpg|webp|gif|mp4|mov|webm)$/;
 
 const imageDir = (data: string, id: string) => {
   if (!SAFE_ID.test(id)) throw new Error("Not a draft id.");
@@ -99,13 +106,42 @@ export function checkImage(bytes: Uint8Array): { type: ImageType } | { error: st
   return type ? { type } : { error: "not a PNG, JPEG, WebP or GIF image" };
 }
 
-function update(data: string, id: string, f: (images: Array<string>) => Array<string>): Draft {
+export const VIDEO_BYTES_MAX = 256 * 1024 * 1024;
+
+export const VIDEO_MIME = {
+  mp4: "video/mp4",
+  mov: "video/quicktime",
+  webm: "video/webm",
+} as const;
+type VideoType = keyof typeof VIDEO_MIME;
+
+/** By the first bytes: webm/mkv's EBML header, or the ISOBMFF `ftyp` box mp4 and mov share. */
+export function sniffVideo(b: Uint8Array): VideoType | null {
+  const at = (i: number, ...xs: Array<number>) => xs.every((x, j) => b[i + j] === x);
+  if (at(0, 0x1a, 0x45, 0xdf, 0xa3)) return "webm";
+  const ftyp = at(4, 0x66, 0x74, 0x79, 0x70); // "ftyp"
+  if (ftyp) return at(8, 0x71, 0x74) ? "mov" : "mp4"; // "qt" is QuickTime
+  return null;
+}
+
+export function checkVideo(bytes: Uint8Array): { type: VideoType } | { error: string } {
+  if (bytes.length > VIDEO_BYTES_MAX) return { error: "larger than 256 MB" };
+  const type = sniffVideo(bytes);
+  return type ? { type } : { error: "not an MP4, MOV or WebM video" };
+}
+
+function update(
+  data: string,
+  id: string,
+  field: "images" | "videos",
+  f: (names: Array<string>) => Array<string>,
+): Draft {
   const all = readDrafts(data);
   const d = all.find((x) => x.id === id);
   if (!d) throw new Error("That draft is gone.");
-  const images = f([...(d.images ?? [])]);
-  const { images: _old, ...rest } = d;
-  const next: Draft = { ...rest, ...(images.length ? { images } : {}) };
+  const names = f([...(d[field] ?? [])]);
+  const { [field]: _old, ...rest } = d;
+  const next: Draft = { ...rest, ...(names.length ? { [field]: names } : {}) };
   writeDrafts(
     data,
     all.map((x) => (x.id === id ? next : x)),
@@ -119,7 +155,7 @@ export function addDraftImages(data: string, id: string, list: ReadonlyArray<Uin
   const bad = checked.find((x) => "error" in x.c);
   if (bad && "error" in bad.c) throw new Error(`Image refused: ${bad.c.error}.`);
   const dir = imageDir(data, id);
-  return update(data, id, (images) => {
+  return update(data, id, "images", (images) => {
     const added = new Map<string, Uint8Array>();
     for (const { bytes, c } of checked) {
       if (!("type" in c)) continue;
@@ -136,21 +172,56 @@ export function addDraftImages(data: string, id: string, list: ReadonlyArray<Uin
   });
 }
 
+/** Same pattern as images: content-named, checked before writing. */
+export function addDraftVideos(data: string, id: string, list: ReadonlyArray<Uint8Array>): Draft {
+  const checked = list.map((bytes) => ({ bytes, c: checkVideo(bytes) }));
+  const bad = checked.find((x) => "error" in x.c);
+  if (bad && "error" in bad.c) throw new Error(`Video refused: ${bad.c.error}.`);
+  const dir = imageDir(data, id);
+  return update(data, id, "videos", (videos) => {
+    const added = new Map<string, Uint8Array>();
+    for (const { bytes, c } of checked) {
+      if (!("type" in c)) continue;
+      const hash = NodeCrypto.createHash("sha256").update(bytes).digest("hex").slice(0, 16);
+      const name = `${hash}.${c.type}`;
+      if (!videos.includes(name)) added.set(name, bytes);
+    }
+    if (videos.length + added.size > DRAFT_VIDEOS_MAX)
+      throw new Error(`A draft holds at most ${DRAFT_VIDEOS_MAX} videos.`);
+    if (added.size) NodeFS.mkdirSync(dir, { recursive: true });
+    for (const [name, bytes] of added) NodeFS.writeFileSync(NodePath.join(dir, name), bytes);
+    return [...videos, ...added.keys()];
+  });
+}
+
 export function removeDraftImage(data: string, id: string, name: string): Draft {
-  const file = draftImagePath(data, id, name);
-  const d = update(data, id, (images) => images.filter((n) => n !== name));
+  const file = draftMediaPath(data, id, name);
+  const d = update(data, id, "images", (images) => images.filter((n) => n !== name));
   NodeFS.rmSync(file, { force: true });
   return d;
 }
 
-export function draftImagePath(data: string, id: string, name: string): string {
-  if (!SAFE_NAME.test(name)) throw new Error("Not a draft image.");
+export function removeDraftVideo(data: string, id: string, name: string): Draft {
+  const file = draftMediaPath(data, id, name);
+  const d = update(data, id, "videos", (videos) => videos.filter((n) => n !== name));
+  NodeFS.rmSync(file, { force: true });
+  return d;
+}
+
+export function draftMediaPath(data: string, id: string, name: string): string {
+  if (!SAFE_NAME.test(name)) throw new Error("Not a draft media file.");
   return NodePath.join(imageDir(data, id), name);
 }
 
 export function readDraftImage(data: string, id: string, name: string) {
-  const bytes = NodeFS.readFileSync(draftImagePath(data, id, name));
+  const bytes = NodeFS.readFileSync(draftMediaPath(data, id, name));
   return { mime: IMAGE_MIME[name.split(".").pop() as ImageType], bytes };
+}
+
+/** The mime of a draft media file by its extension — images and videos live side by side. */
+export function draftMediaMime(name: string): string {
+  const ext = name.split(".").pop() ?? "";
+  return IMAGE_MIME[ext as ImageType] ?? VIDEO_MIME[ext as VideoType] ?? "application/octet-stream";
 }
 
 /** An image file the agent names by path, checked by its bytes; a string says why it was refused. */

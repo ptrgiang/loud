@@ -699,16 +699,7 @@ export function InsightsView() {
         <Callouts hub={hub} />
         <Notes hub={hub} />
         <div className="grid grid-cols-1 gap-4 @6xl:grid-cols-12">
-          <Card
-            className="@6xl:col-span-7"
-            title={t("ins.viewsPerPost")}
-            hint={t("ins.viewsPerPost.hint")}
-          >
-            <ViewsPerPost rows={rows} />
-          </Card>
-          <Card className="@6xl:col-span-5" title={t("ins.engRates")} hint={t("ins.engRates.hint")}>
-            <Rates rows={rows} />
-          </Card>
+          {/* When to post answers the question readers most act on — it leads the charts. */}
           <Card
             className="@6xl:col-span-7"
             title={t("ins.hourHeat")}
@@ -722,6 +713,16 @@ export function InsightsView() {
             hint={t("ins.dayOfWeek.hint")}
           >
             <Heat rows={rows} cols={WEEK_ORDER} colLabel={(d) => WEEKDAYS[d]} keyOf={weekdayOf} />
+          </Card>
+          <Card
+            className="@6xl:col-span-7"
+            title={t("ins.viewsPerPost")}
+            hint={t("ins.viewsPerPost.hint")}
+          >
+            <ViewsPerPost rows={rows} />
+          </Card>
+          <Card className="@6xl:col-span-5" title={t("ins.engRates")} hint={t("ins.engRates.hint")}>
+            <Rates rows={rows} />
           </Card>
           <Card className="@6xl:col-span-7" title={t("ins.features")} hint={t("ins.features.hint")}>
             <Features rows={rows} />

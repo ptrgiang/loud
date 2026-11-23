@@ -87,7 +87,7 @@ describe("agent tools", () => {
     ).toEqual([name]);
     expect(removeDraftImage(dir, d!.id, name).images).toBeUndefined();
     expect(() => readDraftImage(dir, d!.id, name)).toThrow();
-    expect(() => readDraftImage(dir, d!.id, "../../hub.json")).toThrow("Not a draft image.");
+    expect(() => readDraftImage(dir, d!.id, "../../hub.json")).toThrow("Not a draft media file.");
     deleteDraft(dir, d!.id);
     expect(NodeFS.existsSync(NodePath.join(dir, "drafts", d!.id))).toBe(false);
   });

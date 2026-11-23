@@ -22,11 +22,13 @@ import * as NodePath from "node:path";
 import { Agent } from "../agent/Agent.ts";
 import {
   addDraftImages,
+  addDraftVideos,
   deleteDraft,
-  draftImagePath,
+  draftMediaPath,
   readDraftImage,
   readDrafts,
   removeDraftImage,
+  removeDraftVideo,
   upsertDraft,
 } from "../agent/drafts.ts";
 import { AppPaths } from "../app/AppPaths.ts";
@@ -272,6 +274,7 @@ export const install = (isMainFrame: (frame: Electron.WebFrameMain | null) => bo
       "agent.chats": () => agent.chats,
       "agent.open": ({ id }) => Effect.orDie(agent.open(id)),
       "agent.delete": ({ id }) => Effect.orDie(agent.remove(id)),
+      "agent.rename": ({ id, title }) => Effect.orDie(agent.rename(id, title)),
       "agent.attachment": ({ chatId, id }) => Effect.orDie(agent.attachment(chatId, id)),
       "agent.usage": ({ refresh }) => agent.usage(refresh),
       "drafts.list": () => Effect.sync(() => readDrafts(paths.data)),
@@ -297,11 +300,14 @@ export const install = (isMainFrame: (frame: Electron.WebFrameMain | null) => bo
       "drafts.addImage": ({ id, data }) =>
         attempt(() => addDraftImages(paths.data, id, [Buffer.from(data, "base64")])),
       "drafts.removeImage": ({ id, name }) => attempt(() => removeDraftImage(paths.data, id, name)),
+      "drafts.addVideo": ({ id, data }) =>
+        attempt(() => addDraftVideos(paths.data, id, [Buffer.from(data, "base64")])),
+      "drafts.removeVideo": ({ id, name }) => attempt(() => removeDraftVideo(paths.data, id, name)),
       "drafts.copyImage": ({ id, name }) =>
         Effect.tryPromise({
           try: async () => {
             // Through nativeImage so a JPEG goes on the clipboard as PNG, the type every composer pastes.
-            const image = Electron.nativeImage.createFromPath(draftImagePath(paths.data, id, name));
+            const image = Electron.nativeImage.createFromPath(draftMediaPath(paths.data, id, name));
             if (image.isEmpty()) throw new Error("This image can't be copied; use Show in folder.");
             const png = new Blob([new Uint8Array(image.toPNG())], { type: "image/png" });
             await Electron.clipboard.write([new Electron.ClipboardItem({ "image/png": png })]);
@@ -311,10 +317,15 @@ export const install = (isMainFrame: (frame: Electron.WebFrameMain | null) => bo
         }).pipe(Effect.orDie),
       "drafts.showImage": ({ id, name }) =>
         attempt(() => {
-          Electron.shell.showItemInFolder(draftImagePath(paths.data, id, name));
+          Electron.shell.showItemInFolder(draftMediaPath(paths.data, id, name));
           return {};
         }),
       "post.open": ({ id }) => Effect.as(Effect.orDie(poster.open(id)), {}),
+      "post.paneWidth": ({ width }) =>
+        Effect.as(
+          Effect.sync(() => poster.setPane(width)),
+          {},
+        ),
       "updates.settings": () => Effect.map(settings.get, (s) => s.updates),
       "updates.configure": (input) =>
         Effect.gen(function* () {

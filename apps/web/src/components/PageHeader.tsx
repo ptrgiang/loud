@@ -1,6 +1,8 @@
 import { CHANNEL_NAMES, type ChannelId } from "@loud/contracts";
 import type * as React from "react";
 
+import { cn } from "~/lib/utils";
+
 export function PageHeader({
   title,
   description,
@@ -23,12 +25,15 @@ export function PageHeader({
 
 export function Empty({
   icon,
+  accent,
   title,
   children,
   action,
   steps,
 }: {
   icon?: React.ReactNode;
+  /** Tints the icon so an empty state reads as its view, not a generic placeholder. */
+  accent?: "muted" | "primary";
   title: string;
   children?: React.ReactNode;
   action?: React.ReactNode;
@@ -39,7 +44,12 @@ export function Empty({
     <div className="flex flex-1 items-center justify-center p-10">
       <div className="flex max-w-sm flex-col items-center gap-3 text-center">
         {icon && (
-          <div className="flex size-10 items-center justify-center rounded-lg border bg-card text-muted-foreground shadow-xs/5 [&>svg]:size-5">
+          <div
+            className={cn(
+              "flex size-10 items-center justify-center rounded-lg border bg-card text-muted-foreground shadow-xs/5 [&>svg]:size-5",
+              accent === "primary" && "border-primary/25 bg-primary/8 text-primary",
+            )}
+          >
             {icon}
           </div>
         )}
