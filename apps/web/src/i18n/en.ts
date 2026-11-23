@@ -281,7 +281,7 @@ export const en = {
   "set.posting": "Posting",
   "set.posting.auto": "Loud may submit the composer",
   "set.posting.hint":
-    "After you confirm in the posting window, Loud attaches the media and clicks Post or Schedule in the logged-in composer. Nothing is ever submitted without your confirm.",
+    "After you confirm in the posting window, Loud attaches the media and clicks Post in the logged-in composer. Scheduled posts are Loud's own clock — the window opens and posts when due. Nothing is ever submitted without your confirm.",
   "set.autoCollect": "Collect on a timer",
   "set.autoCollect.next": "Next run {at}",
   "set.autoCollect.off": "Off: Loud collects only when you press Collect in Connections.",
@@ -622,6 +622,8 @@ export const en = {
   "post.confirmSchedule": "Schedule this draft?",
   "post.confirmBody":
     "Loud will attach the media{media} and click Post in the {name} window on the right.",
+  "post.confirmScheduleBody":
+    "Loud keeps the time itself: at {at} the posting window opens and Loud clicks Post on {name}. Keep Loud running.",
   "post.confirmMedia": " ({n} file(s))",
   "post.confirmAt": "Scheduled for {at}.",
   "post.postedDone": "Posted.",

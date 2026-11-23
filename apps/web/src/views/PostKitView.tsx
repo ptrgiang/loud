@@ -222,13 +222,15 @@ function AutoPost({ id, draft }: { id: string; draft: Draft }) {
                   {draft.text}
                 </p>
                 <p>
-                  {t("post.confirmBody", {
-                    name: CHANNEL_NAMES[draft.channel],
-                    media: mediaCount ? t("post.confirmMedia", { n: mediaCount }) : "",
-                  })}
-                  {confirming === "schedule" && when
-                    ? ` ${t("post.confirmAt", { at: new Date(when).toLocaleString() })}`
-                    : ""}
+                  {confirming === "schedule"
+                    ? t("post.confirmScheduleBody", {
+                        at: when ? new Date(when).toLocaleString() : "",
+                        name: CHANNEL_NAMES[draft.channel],
+                      })
+                    : t("post.confirmBody", {
+                        name: CHANNEL_NAMES[draft.channel],
+                        media: mediaCount ? t("post.confirmMedia", { n: mediaCount }) : "",
+                      })}
                 </p>
                 {(draft.topic || draft.reply || draft.community) && (
                   <p className="text-2xs">

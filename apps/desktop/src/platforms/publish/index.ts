@@ -10,13 +10,10 @@ import { publish as x } from "./x.ts";
 export interface Driver {
   /** Composer's file input — the slot `DOM.setFileInputFiles` fills. */
   readonly fileSelector: string;
-  /** Selector of the schedule control, if the composer has one. */
-  readonly scheduleSelector?: string;
   readonly publish: (
     wc: Electron.WebContents,
     draft: Draft,
     mediaPaths: ReadonlyArray<string>,
-    schedule?: string,
   ) => Promise<PublishResult>;
 }
 
@@ -27,7 +24,6 @@ export const DRIVERS: Partial<Record<ChannelId, Driver>> = {
   },
   x: {
     fileSelector: 'input[data-testid="fileInput"]',
-    scheduleSelector: '[data-testid="scheduler"]',
     publish: x,
   },
 };

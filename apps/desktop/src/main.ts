@@ -21,6 +21,7 @@ import { generateDemo, holdsRealData } from "./demo/demo.ts";
 import * as IpcHandlers from "./ipc/IpcHandlers.ts";
 import * as Platforms from "./platforms/Platforms.ts";
 import * as Poster from "./platforms/Poster.ts";
+import * as Scheduler from "./platforms/Scheduler.ts";
 import * as SettingsStore from "./settings/SettingsStore.ts";
 import * as MainWindow from "./window/MainWindow.ts";
 
@@ -95,6 +96,7 @@ const program = Effect.gen(function* () {
   const builder = yield* Builder.Builder;
   const settings = yield* SettingsStore.SettingsStore;
   const collector = yield* Collector.Collector;
+  const poster = yield* Poster.Poster;
 
   log.info(
     `start ${BRAND.name} ${Electron.app.getVersion()} ${process.platform}/${process.arch}${Electron.app.isPackaged ? "" : " (dev)"}`,
@@ -111,6 +113,8 @@ const program = Effect.gen(function* () {
   }
   // Settings or the clock may have moved since the last build: ages and windows are relative to now.
   yield* Effect.forkDetach(builder.build);
+  // Drafts with a scheduledAt fire in their own visible posting window when the time comes.
+  yield* Effect.sync(() => Scheduler.loop(paths, poster, platforms, settings, log));
 
   let main: Electron.BrowserWindow | null = null;
   const openLink = (url: string) => Effect.runFork(platforms.openLink(url));

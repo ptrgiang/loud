@@ -25,15 +25,7 @@ export const publish = async (
   wc: Electron.WebContents,
   draft: Draft,
   mediaPaths: ReadonlyArray<string>,
-  schedule?: string,
 ) => {
-  if (schedule)
-    return {
-      ok: false,
-      stage: "schedule",
-      message: "X's quick composer cannot schedule.",
-    } as const;
-
   const blocked = await checkpointCheck(wc);
   if (blocked) return blocked;
 

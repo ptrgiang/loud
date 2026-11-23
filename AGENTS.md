@@ -41,6 +41,8 @@ Write for a colleague who already knows the codebase: the non-obvious why, order
 - Fabricate numbers: demo data is clearly fictional (Acme Forms) and labelled as demo.
 - Submit a post or schedule without the confirm click in the posting pane — the
   draft is always read back from disk and the composer text verified before any click.
+  A scheduled post is the one timed exception: the schedule confirm already says
+  Loud opens the window and clicks Post at that time, and that is the consent.
 - Retry a publish through a checkpoint or captcha — abort and leave the window for the user.
 - Send a post anywhere the session isn't logged into already, or fabricate a post
   in the data: the collector reads what the platform reports on the next run.

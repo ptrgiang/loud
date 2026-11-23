@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.1.12-beta.3 (2026-11-24)
+
+- Scheduling is Loud's own clock now: a confirm in the posting window sets the
+  time, and when it comes the window opens itself and posts. Every channel
+  with a driver can schedule — the composer does not need a scheduler.
+- The Schedule confirm says it plainly: keep Loud running, and at the chosen
+  time the posting window opens and clicks Post.
+
 ## 0.1.12-beta.2 (2026-11-24)
 
 - A posted or scheduled draft can be marked as not posted — for a post that

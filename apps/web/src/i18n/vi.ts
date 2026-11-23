@@ -282,7 +282,7 @@ export const vi: Record<MsgKey, string> = {
   "set.posting": "Đăng bài",
   "set.posting.auto": "Loud được gửi composer",
   "set.posting.hint":
-    "Sau khi bạn xác nhận trong cửa sổ đăng, Loud đính media và bấm Post hoặc Schedule trong composer đã đăng nhập. Không có xác nhận thì không bao giờ gửi.",
+    "Sau khi bạn xác nhận trong cửa sổ đăng, Loud đính media và bấm Post trong composer đã đăng nhập. Bài hẹn giờ là đồng hồ của Loud — cửa sổ mở và đăng khi đến giờ. Không có xác nhận thì không bao giờ gửi.",
   "set.autoCollect": "Thu thập theo hẹn giờ",
   "set.autoCollect.next": "Lần chạy tiếp {at}",
   "set.autoCollect.off": "Tắt: Loud chỉ thu thập khi bạn bấm Collect trong Connections.",
@@ -617,6 +617,8 @@ export const vi: Record<MsgKey, string> = {
   "post.confirmTitle": "Đăng nháp này?",
   "post.confirmSchedule": "Hẹn giờ nháp này?",
   "post.confirmBody": "Loud sẽ đính media{media} và bấm Post trong cửa sổ {name} bên phải.",
+  "post.confirmScheduleBody":
+    "Loud tự giữ giờ: lúc {at} cửa sổ đăng sẽ mở và Loud bấm Post trên {name}. Giữ Loud chạy.",
   "post.confirmMedia": " ({n} file)",
   "post.confirmAt": "Hẹn vào {at}.",
   "post.postedDone": "Đã đăng.",

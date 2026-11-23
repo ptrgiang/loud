@@ -248,7 +248,8 @@ export const layer = (ipcFrames: Set<Electron.WebFrameMain>) =>
                 false,
             );
           return {
-            schedule: driver.scheduleSelector ? yield* probe(driver.scheduleSelector) : false,
+            // Scheduling is Loud's own clock now — any channel with a driver can schedule.
+            schedule: true,
             media: yield* probe(driver.fileSelector),
           };
         });
@@ -258,22 +259,24 @@ export const layer = (ipcFrames: Set<Electron.WebFrameMain>) =>
           if (publishing)
             return yield* Effect.fail(new Error("A post is already going out — wait for it."));
           const { draft, driver, wc } = yield* preconditions(id);
+          // A schedule request only sets Loud's clock — the Scheduler loop fires it when due.
+          if (schedule) {
+            markDraftPosted(paths.data, id, { scheduledAt: schedule });
+            yield* events.publish({ type: "drafts" });
+            log.info(`scheduled draft ${id} for ${schedule}`);
+            const scheduled: PublishResult = { ok: true, result: "scheduled" };
+            return scheduled;
+          }
           const mediaPaths = [...(draft.images ?? []), ...(draft.videos ?? [])].map((name) =>
             draftMediaPath(paths.data, id, name),
           );
           publishing = true;
           try {
-            const result = yield* Effect.promise(() =>
-              driver.publish(wc, draft, mediaPaths, schedule),
-            );
+            const result = yield* Effect.promise(() => driver.publish(wc, draft, mediaPaths));
             if (!result.ok) return result;
-            const mark =
-              result.result === "scheduled" && schedule
-                ? { scheduledAt: schedule }
-                : { posted: stampNow(new Date()) };
-            markDraftPosted(paths.data, id, mark);
+            markDraftPosted(paths.data, id, { posted: stampNow(new Date()) });
             yield* events.publish({ type: "drafts" });
-            log.info(`posted draft ${id} to ${draft.channel}${schedule ? ` (${schedule})` : ""}`);
+            log.info(`posted draft ${id} to ${draft.channel}`);
             return result;
           } finally {
             publishing = false;
