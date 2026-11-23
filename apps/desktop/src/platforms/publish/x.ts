@@ -8,6 +8,7 @@ import {
   checkpointCheck,
   click,
   evalIn,
+  pace,
   verifyText,
   waitFor,
   waitGone,
@@ -31,6 +32,7 @@ export const publish = async (
 
   if (!(await waitFor(wc, EDITOR, 12_000)))
     return { ok: false, stage: "composer", message: "the composer did not appear" } as const;
+  await pace();
 
   const bad = await verifyText(wc, EDITOR, draft);
   if (bad) return bad;
@@ -43,6 +45,9 @@ export const publish = async (
     await waitFor(wc, POST, 5_000);
   }
 
+  // The intent composer has no reply-chaining slot — a draft comment posts as missing rather than blocking.
+  const missing = draft.comment ? (["comment"] as const) : [];
+  await pace();
   if (!(await click(wc, POST)))
     return { ok: false, stage: "post", message: "the Post button was not found" } as const;
 
@@ -58,7 +63,7 @@ if(!document.querySelector(${JSON.stringify(EDITOR)}))return r(true);
 if(Date.now()>d)return r(false);setTimeout(check,400)};check()}))()`,
   );
   return posted
-    ? ({ ok: true, result: "posted" } as const)
+    ? ({ ok: true, result: "posted", ...(missing.length ? { missing } : {}) } as const)
     : ({
         ok: false,
         stage: "confirm",

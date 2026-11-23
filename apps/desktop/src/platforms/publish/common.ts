@@ -27,7 +27,11 @@ export const evalIn = async <A>(wc: Electron.WebContents, js: string): Promise<A
 
 const POLL_MS = 250;
 
-/** Waits until `selector` matches in the page; `false` on timeout. */
+/** A beat between steps so the driver reads as a person, not a burst of same-tick DOM calls. */
+export const pace = (ms = 0) =>
+  new Promise((r) => setTimeout(r, ms + 300 + Math.floor(Math.random() * 700)));
+
+/** Waits until `selector` has a visible match in the page; `false` on timeout. */
 export const waitFor = async (
   wc: Electron.WebContents,
   selector: string,
@@ -36,14 +40,17 @@ export const waitFor = async (
   const deadline = Date.now() + ms;
   const sel = JSON.stringify(selector);
   for (;;) {
-    const found = await evalIn<boolean>(wc, `!!document.querySelector(${sel})`);
+    const found = await evalIn<boolean>(
+      wc,
+      `[...document.querySelectorAll(${sel})].some(e=>e.offsetParent!==null)`,
+    );
     if (found) return true;
     if (Date.now() > deadline) return false;
     await new Promise((r) => setTimeout(r, POLL_MS));
   }
 };
 
-/** Waits until `selector` stops matching — the composer closed or navigated away. */
+/** Waits until `selector` has no visible match — the composer closed or navigated away. */
 export const waitGone = async (
   wc: Electron.WebContents,
   selector: string,
@@ -52,7 +59,10 @@ export const waitGone = async (
   const deadline = Date.now() + ms;
   const sel = JSON.stringify(selector);
   for (;;) {
-    const found = await evalIn<boolean>(wc, `!!document.querySelector(${sel})`);
+    const found = await evalIn<boolean>(
+      wc,
+      `[...document.querySelectorAll(${sel})].some(e=>e.offsetParent!==null)`,
+    );
     if (!found) return true;
     if (Date.now() > deadline) return false;
     await new Promise((r) => setTimeout(r, POLL_MS));
@@ -112,11 +122,12 @@ export const attachFiles = async (
   }
 };
 
-/** Reads the composer's text — contenteditable reads innerText, a textarea reads value. */
+/** Reads the composer's text — contenteditable reads innerText, a textarea reads value. Hidden dialogs
+ * linger in the DOM, so only the first *visible* match counts. */
 export const composerText = (wc: Electron.WebContents, selector: string) =>
   evalIn<string>(
     wc,
-    `(()=>{const el=document.querySelector(${JSON.stringify(selector)});if(!el)return null;return el.tagName==="TEXTAREA"?el.value:(el.innerText??el.textContent??"")})()`,
+    `(()=>{const el=[...document.querySelectorAll(${JSON.stringify(selector)})].find(e=>e.offsetParent!==null);if(!el)return null;return el.tagName==="TEXTAREA"?el.value:(el.innerText??el.textContent??"")})()`,
   );
 
 /** The guard that must pass before any Post click: the composer's text is the draft's text. */
@@ -124,13 +135,15 @@ export const verifyText = async (
   wc: Electron.WebContents,
   selector: string,
   draft: Draft,
+  expected?: string | ReadonlyArray<string>,
 ): Promise<PublishResult | null> => {
   const text = await composerText(wc, selector);
   if (text === null)
     return fail("text", "the composer is not there; is the composer page still loading?");
   const squash = (s: string) => s.replace(/\s+/g, " ").trim();
-  if (squash(text) !== squash(draft.text))
-    return fail("text", "the composer text does not match the draft — finish it by hand");
+  const want = expected ?? draft.text;
+  const ok = (Array.isArray(want) ? want : [want]).some((w) => squash(text) === squash(w));
+  if (!ok) return fail("text", "the composer text does not match the draft — finish it by hand");
   return null;
 };
 
@@ -150,6 +163,10 @@ export const insertText = async (
   const dbg = wc.debugger;
   try {
     dbg.attach("1.3");
+  } catch {
+    // Already attached — the commands still work.
+  }
+  try {
     const doc = (await dbg.sendCommand("DOM.getDocument", { depth: 1 })) as {
       root: { nodeId: number };
     };
@@ -160,6 +177,50 @@ export const insertText = async (
     if (!node.nodeId) return false;
     await dbg.sendCommand("DOM.focus", { nodeId: node.nodeId });
     await dbg.sendCommand("Input.insertText", { text });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** insertText in chunks with pauses — one giant insert in a single tick is a bot tell. */
+export const typeText = async (
+  wc: Electron.WebContents,
+  selector: string,
+  text: string,
+  pick: "first" | "last" = "first",
+): Promise<boolean> => {
+  const dbg = wc.debugger;
+  try {
+    dbg.attach("1.3");
+  } catch {
+    // Already attached — the commands still work.
+  }
+  try {
+    const doc = (await dbg.sendCommand("DOM.getDocument", { depth: 1 })) as {
+      root: { nodeId: number };
+    };
+    // Hidden dialogs linger in the page's DOM and still match the selector — keep only nodes with a
+    // box (getBoxModel throws/errors on display:none), then take the first or last visible match.
+    const all = (await dbg.sendCommand("DOM.querySelectorAll", {
+      nodeId: doc.root.nodeId,
+      selector,
+    })) as { nodeIds: Array<number> };
+    const visible: Array<number> = [];
+    for (const id of all.nodeIds) {
+      try {
+        await dbg.sendCommand("DOM.getBoxModel", { nodeId: id });
+        visible.push(id);
+      } catch {}
+    }
+    const nodeId = pick === "last" ? (visible[visible.length - 1] ?? 0) : (visible[0] ?? 0);
+    if (!nodeId) return false;
+    await dbg.sendCommand("DOM.focus", { nodeId });
+    const chunk = 24;
+    for (let i = 0; i < text.length; i += chunk) {
+      await dbg.sendCommand("Input.insertText", { text: text.slice(i, i + chunk) });
+      await pace(0);
+    }
     return true;
   } catch {
     return false;

@@ -7,8 +7,9 @@ import {
   attachFiles,
   checkpointCheck,
   evalIn,
-  insertText,
   insertTextFallback,
+  pace,
+  typeText,
   verifyText,
   waitFor,
   waitGone,
@@ -34,27 +35,60 @@ if(!el)return false;el.click();return true})()`,
 const clickPost = (wc: Electron.WebContents) =>
   evalIn<boolean>(
     wc,
-    `(()=>{const d=document.querySelector('[role="dialog"]');if(!d)return false;
+    `(()=>{const d=[...document.querySelectorAll('[role="dialog"]')].filter(x=>x.offsetParent!==null).find(x=>x.querySelector('[contenteditable="true"],textarea'));if(!d)return false;
 const re=/^(post|đăng|publier|publicar|posten|postar|poste)$/i;
 const el=[...d.querySelectorAll('[role="button"],button')].find(b=>re.test((b.innerText||b.textContent||"").trim()));
 if(!el)return false;el.click();return true})()`,
   );
 
-/** "Add topic" opens a small field inside the dialog; typing then Enter sets it. Absent on builds that dropped topics. */
-const addTopic = async (wc: Electron.WebContents, topic: string) => {
+/** The composer's own "Community or topic" search box sits beside the username — type a name, then pick
+ * the suggestion listbox's match so the post carries the real entity, not a caption hashtag. */
+const pickSlot = async (wc: Electron.WebContents, name: string) => {
+  const SLOT = '[role="dialog"] input[type="search"]';
+  if (!(await waitFor(wc, SLOT, 4_000))) return false;
+  const typed = (await typeText(wc, SLOT, name)) || (await insertTextFallback(wc, SLOT, name));
+  if (!typed) return false;
+  await pace();
+  return await evalIn<boolean>(
+    wc,
+    `(()=>{const want=${JSON.stringify(name.toLowerCase())};
+const opts=[...document.querySelectorAll('[role="option"],[role="listbox"] li,[role="menu"] li')]
+  .filter(e=>e.offsetParent!==null);
+const el=opts.find(e=>{const t=(e.innerText||"").trim().toLowerCase();
+return t===want||t.includes(want)})??opts[0];
+if(!el)return false;el.click();return true})()`,
+  );
+};
+
+/** "Add to thread" appends a second editor in the same dialog — the draft's first comment goes there. */
+const addThread = async (wc: Electron.WebContents, comment: string) => {
   const open = await evalIn<boolean>(
     wc,
-    `(()=>{const d=document.querySelector('[role="dialog"]');if(!d)return false;
-const re=/(add topic|thêm chủ đề|ajouter un sujet|agregar tema|thema hinzufügen|^topic)/i;
+    `(()=>{const d=[...document.querySelectorAll('[role="dialog"]')].filter(x=>x.offsetParent!==null).find(x=>x.querySelector('[contenteditable="true"],textarea'));if(!d)return false;
+const re=/(add to thread|thêm vào thread|ajouter au thread|añadir al hilo|thread hinzufügen)/i;
 const el=[...d.querySelectorAll('[role="button"],button,[aria-label]')]
   .find(b=>re.test(b.getAttribute("aria-label")||"")||re.test((b.innerText||"").trim()));
 if(!el)return false;el.click();return true})()`,
   );
   if (!open) return false;
-  if (!(await waitFor(wc, '[role="dialog"] input[type="text"]', 4_000))) return false;
+  await pace();
+  const EDITORS = '[role="dialog"] [contenteditable="true"], [role="dialog"] textarea';
+  // A second editor means the thread slot opened — the comment goes in the last one.
+  const count = await evalIn<number>(
+    wc,
+    `[...document.querySelectorAll(${JSON.stringify(EDITORS)})].filter(e=>e.offsetParent!==null).length`,
+  );
+  if (!count || count < 2) return false;
   return (
-    (await insertText(wc, '[role="dialog"] input[type="text"]', topic)) ||
-    (await insertTextFallback(wc, '[role="dialog"] input[type="text"]', topic))
+    (await typeText(wc, EDITORS, comment, "last")) ||
+    (await evalIn<boolean>(
+      wc,
+      `(()=>{const els=[...document.querySelectorAll(${JSON.stringify(EDITORS)})];const el=els[els.length-1];if(!el)return false;
+el.focus();
+if(el.tagName==="TEXTAREA"){const set=Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,"value").set;set.call(el,${JSON.stringify(comment)})}else{el.textContent=${JSON.stringify(comment)}}
+el.dispatchEvent(new InputEvent("input",{bubbles:true,data:${JSON.stringify(comment)}}));
+return true})()`,
+    ))
   );
 };
 
@@ -69,7 +103,7 @@ const setReply = async (wc: Electron.WebContents, reply: Draft["reply"]) => {
   if (!reply) return true;
   const open = await evalIn<boolean>(
     wc,
-    `(()=>{const d=document.querySelector('[role="dialog"]');if(!d)return false;
+    `(()=>{const d=[...document.querySelectorAll('[role="dialog"]')].filter(x=>x.offsetParent!==null).find(x=>x.querySelector('[contenteditable="true"],textarea'));if(!d)return false;
 const re=/(post options|options|reply|quote|tuỳ chọn|opciones|optionen|options de publication)/i;
 const el=[...d.querySelectorAll('[role="button"],button,[aria-label]')]
   .find(b=>re.test(b.getAttribute("aria-label")||"")||re.test((b.innerText||"").trim()));
@@ -87,27 +121,6 @@ if(!el)return false;el.click();return true})()`,
   );
 };
 
-/** The community picker lists the account's communities by name — only builds with joined communities show it. */
-const pickCommunity = async (wc: Electron.WebContents, name: string) => {
-  const open = await evalIn<boolean>(
-    wc,
-    `(()=>{const d=document.querySelector('[role="dialog"]');if(!d)return false;
-const re=/(community|communities|cộng đồng|communauté|comunidad)/i;
-const el=[...d.querySelectorAll('[role="button"],button,[aria-label]')]
-  .find(b=>re.test(b.getAttribute("aria-label")||"")||re.test((b.innerText||"").trim()));
-if(!el)return false;el.click();return true})()`,
-  );
-  if (!open) return false;
-  await waitFor(wc, '[role="menu"], [role="listbox"], [role="dialog"] [role="dialog"]', 4_000);
-  return await evalIn<boolean>(
-    wc,
-    `(()=>{const want=${JSON.stringify(name.toLowerCase())};
-const el=[...document.querySelectorAll('[role="menuitemradio"],[role="menuitem"],[role="option"],[role="button"],button,li')]
-  .find(b=>(b.innerText||"").trim().toLowerCase()===want||(b.innerText||"").trim().toLowerCase().includes(want));
-if(!el)return false;el.click();return true})()`,
-  );
-};
-
 const TOTAL_MS = 60_000;
 
 export const publish = async (
@@ -118,21 +131,56 @@ export const publish = async (
   const blocked = await checkpointCheck(wc);
   if (blocked) return blocked;
 
-  // No pre-fill on the home page: the driver opens the dialog and types the text itself.
-  if (!(await evalIn<boolean>(wc, `!!document.querySelector(${JSON.stringify(DIALOG)})`)))
+  // No pre-fill on the home page: the driver opens the dialog and types the text itself. Hidden dialogs
+  // linger in the DOM and a cancelled composer keeps its text — count only visible ones, and clear any
+  // stale composer before typing so the caption lands in a clean editor.
+  const staleCount = await evalIn<number>(
+    wc,
+    `(()=>{const dlgs=[...document.querySelectorAll(${JSON.stringify(DIALOG)})].filter(d=>d.offsetParent!==null);
+return dlgs.filter(d=>d.querySelector('[contenteditable="true"],textarea')).length})()`,
+  );
+  for (let i = 0; i < (staleCount ?? 0); i++) {
+    await evalIn<boolean>(
+      wc,
+      `(()=>{const dlgs=[...document.querySelectorAll(${JSON.stringify(DIALOG)})].filter(d=>d.offsetParent!==null);
+for(const d of dlgs){const ed=d.querySelector('[contenteditable="true"],textarea');
+if(!ed)continue;
+const b=[...d.querySelectorAll('[role="button"],button')].find(x=>/(cancel|hủy|annuler|cancelar)/i.test((x.innerText||"").trim()));
+if(b)b.click();return true}
+return false})()`,
+    );
+    await pace();
+    // Cancel can raise a "Discard post?" confirm — take it, otherwise the stale editor stays.
+    await evalIn<boolean>(
+      wc,
+      `(()=>{const dlgs=[...document.querySelectorAll(${JSON.stringify(DIALOG)})].filter(d=>d.offsetParent!==null);
+for(const d of dlgs){if(d.querySelector('[contenteditable="true"],textarea'))continue;
+const b=[...d.querySelectorAll('[role="button"],button')].find(x=>/(discard|delete|leave|xoá|xóa|bỏ)/i.test((x.innerText||"").trim()));
+if(b)b.click();return true}
+return false})()`,
+    );
+    await pace();
+  }
+  const dialogOpen = await evalIn<boolean>(
+    wc,
+    `(()=>{const dlgs=[...document.querySelectorAll(${JSON.stringify(DIALOG)})].filter(d=>d.offsetParent!==null);
+return dlgs.some(d=>d.querySelector('[contenteditable="true"],textarea'))})()`,
+  );
+  if (!dialogOpen) {
     if (!(await clickCompose(wc)))
       return {
         ok: false,
         stage: "composer",
         message: "the compose control was not found",
       } as const;
+  }
 
   if (!(await waitFor(wc, EDITOR, 12_000)))
     return { ok: false, stage: "composer", message: "the composer dialog did not appear" } as const;
+  await pace();
 
   const inserted =
-    (await insertText(wc, EDITOR, draft.text)) ||
-    (await insertTextFallback(wc, EDITOR, draft.text));
+    (await typeText(wc, EDITOR, draft.text)) || (await insertTextFallback(wc, EDITOR, draft.text));
   if (!inserted)
     return { ok: false, stage: "text", message: "the caption field would not take text" } as const;
 
@@ -140,6 +188,7 @@ export const publish = async (
   if (bad) return bad;
 
   if (mediaPaths.length) {
+    await pace();
     if (!(await attachFiles(wc, FILE, mediaPaths)))
       return { ok: false, stage: "media", message: "the media input was not found" } as const;
     await waitGone(wc, UPLOADING, TOTAL_MS);
@@ -148,15 +197,19 @@ export const publish = async (
   // Extras the composer has no control for are reported, not blocking: the post still goes out and the pane
   // names what it could not set.
   const missing: Array<string> = [];
-  if (draft.topic && !(await addTopic(wc, draft.topic))) missing.push("topic");
+  await pace();
+  if (draft.comment && !(await addThread(wc, draft.comment))) missing.push("comment");
+  if (draft.topic && !(await pickSlot(wc, draft.topic.replace(/^#/, "").trim())))
+    missing.push("topic");
+  if (draft.community && !(await pickSlot(wc, draft.community))) missing.push("community");
   if (draft.reply && !(await setReply(wc, draft.reply)))
     return {
       ok: false,
       stage: "reply",
       message: "the reply-audience menu was not found",
     } as const;
-  if (draft.community && !(await pickCommunity(wc, draft.community))) missing.push("community");
 
+  await pace();
   if (!(await clickPost(wc)))
     return {
       ok: false,
@@ -171,7 +224,8 @@ export const publish = async (
     `(async()=>{const deadline=Date.now()+${TOTAL_MS};
 const toast=/post|shared|published|đã đăng|publi/i;
 for(;;){
-  if(!document.querySelector(${JSON.stringify(EDITOR)}))return true;
+  const ed=[...document.querySelectorAll(${JSON.stringify(EDITOR)})].some(e=>e.offsetParent!==null);
+  if(!ed)return true;
   const t=[...document.querySelectorAll('[role="alert"],[data-testid="toast"]')]
     .some(e=>toast.test(e.innerText||""));
   if(t)return true;
