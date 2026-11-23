@@ -13,7 +13,11 @@ const electron = join(
   "node_modules",
   "electron",
   "dist",
-  process.platform === "win32" ? "electron.exe" : "electron",
+  process.platform === "win32"
+    ? "electron.exe"
+    : process.platform === "darwin"
+      ? join("Electron.app", "Contents", "MacOS", "Electron")
+      : "electron",
 );
 if (!existsSync(electron)) {
   console.error(
@@ -35,7 +39,9 @@ const env = {
 // Inherited CI or tool environments may set this; it would run the app as plain Node.
 delete env.ELECTRON_RUN_AS_NODE;
 
-const run = spawnSync(electron, [".", "--disable-gpu"], {
+// --no-sandbox: CI containers can't set the chrome-sandbox SUID bit; the smoke
+// boot doesn't need Chromium's sandbox to prove the bundle loads.
+const run = spawnSync(electron, [".", "--disable-gpu", "--no-sandbox"], {
   cwd: app,
   env,
   encoding: "utf8",
