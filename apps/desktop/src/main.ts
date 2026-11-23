@@ -68,8 +68,7 @@ const screenshot = (w: Electron.BrowserWindow, file: string) => {
         for (const [i, x] of extra.entries()) {
           // A view-only window's own page never loads — capture each child view instead.
           const views = x.contentView.children.filter(
-            (view): view is Electron.WebContentsView =>
-              view instanceof Electron.WebContentsView,
+            (view): view is Electron.WebContentsView => view instanceof Electron.WebContentsView,
           );
           for (const [v, view] of views.entries()) {
             const out = file.replace(/\.png$/, `-${i + 1}.${v + 1}.png`);
