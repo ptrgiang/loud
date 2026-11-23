@@ -12,6 +12,7 @@ import * as NodePath from "node:path";
 import { stampNow } from "../agent/drafts.ts";
 import { SettingsStore } from "../settings/SettingsStore.ts";
 import { EventBus } from "./EventBus.ts";
+import { Log } from "./Log.ts";
 
 export interface UpdaterShape {
   readonly status: Effect.Effect<UpdateStatus>;
@@ -33,6 +34,7 @@ export const layer = Layer.effect(
   Effect.gen(function* () {
     const settings = yield* SettingsStore;
     const events = yield* EventBus;
+    const log = yield* Log;
     // electron-builder writes app-update.yml only when the build has somewhere to publish to.
     const unsupported = !Electron.app.isPackaged
       ? "Running from source: updates work in the installed app only."
@@ -71,11 +73,23 @@ export const layer = Layer.effect(
         }),
       );
       autoUpdater.on("download-progress", (p) => set({ progress: Math.round(p.percent) }));
-      autoUpdater.on("update-downloaded", (info) =>
-        set({ state: "ready", version: info.version, progress: 100 }),
-      );
-      autoUpdater.on("error", (e) => set({ state: "error", error: e.message.split("\n")[0]! }));
+      autoUpdater.on("update-downloaded", (info) => {
+        log.info(`update ${info.version} downloaded`);
+        set({ state: "ready", version: info.version, progress: 100 });
+      });
+      autoUpdater.on("error", (e) => {
+        const msg = e.message.split("\n")[0]!;
+        log.warn(`update check failed: ${msg}`);
+        set({ state: "error", error: msg });
+      });
     }
+
+    // The channel picks which latest*.yml the release feed is read from; a beta tag publishes beta.yml.
+    const applyChannel = (u: { readonly channel: "latest" | "beta" }) => {
+      if (!supported) return;
+      autoUpdater.channel = u.channel;
+      autoUpdater.allowPrerelease = u.channel === "beta";
+    };
 
     const runCheck = () => {
       if (!supported || status.state === "checking" || status.state === "downloading") return;
@@ -97,7 +111,11 @@ export const layer = Layer.effect(
       );
       timer.unref();
     };
-    arm((yield* settings.get).updates, true);
+    {
+      const u = (yield* settings.get).updates;
+      applyChannel(u);
+      arm(u, true);
+    }
 
     return Updater.of({
       status: Effect.sync(() => status),
@@ -110,7 +128,10 @@ export const layer = Layer.effect(
         // It is the running version that decides this, so the update into this build still shows the wizard once.
         if (supported && status.state === "ready") autoUpdater.quitAndInstall(true, true);
       }),
-      reschedule: Effect.map(settings.get, (s) => arm(s.updates, true)),
+      reschedule: Effect.map(settings.get, (s) => {
+        applyChannel(s.updates);
+        arm(s.updates, true);
+      }),
     });
   }),
 );

@@ -24,8 +24,14 @@ export const defaults = (): Settings => ({
   ) as Settings["platforms"],
   keywords: Object.fromEntries(Object.values(LISTEN_KEYS).map((k) => [k, []])),
   agent: { enabled: false, provider: "claude", model: "", effort: "", playbook: "" },
-  collection: { auto: false, everyHours: 12, keepInTray: false, rescanDays: 7 },
-  updates: { check: false },
+  collection: {
+    auto: false,
+    everyHours: 12,
+    keepInTray: false,
+    launchAtLogin: false,
+    rescanDays: 7,
+  },
+  updates: { check: false, channel: "latest" },
   usage: { share: null },
 });
 

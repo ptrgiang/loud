@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Settings → Data can export the whole data folder, export a diagnostics file for a bug report (handles, keywords and the playbook are redacted), and delete all collected data. Drafts and settings stay.
+- Loud writes a small rotating log in the profile folder: collection results, failed calls and update events. The diagnostics export includes the recent lines.
+- Connections warns when a platform read no posts several runs in a row: the account may be quiet, or the platform changed and Loud needs an update.
+- Updates can follow the beta channel, for trying a fix before a full release. Loud can also start at login so the collection timer is running before the window is opened.
+- A Windows note in Settings says plainly that Claude Code runs its commands unsandboxed there; Codex is the sandboxed choice.
+- CI now checks formatting and lint and runs on Windows and macOS, not only Linux.
+- The dashboard no longer goes white on a render error, shows a loading skeleton first, and honours reduced motion.
+
 ## 0.1.9 (2026-11-21)
 
 - The agent makes images for drafts its own way: an image tool if it has one, or code it runs (an SVG, an HTML page, a script drawn to PNG). It then attaches the files to the draft. The Drafts page only holds and shows them; its "Make an image" button is gone.

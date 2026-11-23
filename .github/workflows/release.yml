@@ -33,6 +33,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # Make sure Electron's binary is in place before tests load it; on Windows the install can leave it unfinished.
       - run: pnpm --filter @loud/desktop exec install-electron
+      - run: pnpm fmt:check
+      - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build

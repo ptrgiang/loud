@@ -6,6 +6,7 @@ import * as NodePath from "node:path";
 
 import * as Agent from "./agent/Agent.ts";
 import * as AppPaths from "./app/AppPaths.ts";
+import * as Log from "./app/Log.ts";
 import * as AppProtocol from "./app/AppProtocol.ts";
 import { createTray } from "./app/AppTray.ts";
 import * as EventBus from "./app/EventBus.ts";
@@ -22,7 +23,12 @@ import * as Platforms from "./platforms/Platforms.ts";
 import * as SettingsStore from "./settings/SettingsStore.ts";
 import * as MainWindow from "./window/MainWindow.ts";
 
-const BaseLayer = Layer.mergeAll(AppPaths.layer, EventBus.layer);
+// Siblings in a merge do not see each other's services, so Log gets its own copy of AppPaths.
+const BaseLayer = Layer.mergeAll(
+  AppPaths.layer,
+  EventBus.layer,
+  Log.layer.pipe(Layer.provide(AppPaths.layer)),
+);
 const StoresLayer = Layer.mergeAll(SettingsStore.layer, DataStore.layer).pipe(
   Layer.provideMerge(BaseLayer),
 );
@@ -62,12 +68,16 @@ const screenshot = (w: Electron.BrowserWindow, file: string) => {
 
 const program = Effect.gen(function* () {
   const paths = yield* AppPaths.AppPaths;
+  const log = yield* Log.Log;
   const events = yield* EventBus.EventBus;
   const platforms = yield* Platforms.Platforms;
   const builder = yield* Builder.Builder;
   const settings = yield* SettingsStore.SettingsStore;
   const collector = yield* Collector.Collector;
 
+  log.info(
+    `start ${BRAND.name} ${Electron.app.getVersion()} ${process.platform}/${process.arch}${Electron.app.isPackaged ? "" : " (dev)"}`,
+  );
   yield* AppProtocol.handle(paths.web);
 
   // LOUD_DEMO=1 fills an empty data folder with the fictional demo; a folder with collected data is left alone.

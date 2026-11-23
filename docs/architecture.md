@@ -13,17 +13,18 @@ apps/web  ──window.loud.invoke──▶  preload  ──ipc "loud:invoke"─
 
 The Electron main process, written as Effect services. Each service is a `Context.Service` with a `layer` beside it; `src/main.ts` composes the layers and runs the program once Electron is ready.
 
-| Service         | Job                                                                                                                                       |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `AppPaths`      | Where things live: the profile (`userData`, or `LOUD_HOME`), the data folder (`LOUD_DATA`), the built dashboard.                          |
-| `SettingsStore` | `settings.json`: time zone, start date, platforms, keywords, collection, agent and update settings. Decoded against the contract; atomic. |
-| `Platforms`     | One persistent session per platform. Login windows, auth-cookie watch, account id, handle detection, profile cleared on disconnect.       |
-| `DataStore`     | Reads `hub.json`, `proposals.json`, `history/`; tells the dashboard when they or `drafts.json` change.                                    |
-| `Builder`       | Turns the collected files into `hub.json` (the analytics in `packages/shared`).                                                           |
-| `Collector`     | Runs the collectors one platform at a time behind the rate limiter, writes `<channel>.json`, `listen.json`, `state.json`, then builds.    |
-| `Agent`         | One conversation through Claude Code or Codex, with Loud's tools served over MCP. Off by default.                                         |
-| `Updater`       | electron-updater against GitHub Releases. Checks only when the user turned it on or pressed Check now; installs only when asked.          |
-| `EventBus`      | Pushes events to the dashboard window.                                                                                                    |
+| Service         | Job                                                                                                                                          |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AppPaths`      | Where things live: the profile (`userData`, or `LOUD_HOME`), the data folder (`LOUD_DATA`), the built dashboard.                             |
+| `SettingsStore` | `settings.json`: time zone, start date, platforms, keywords, collection, agent and update settings. Decoded against the contract; atomic.    |
+| `Platforms`     | One persistent session per platform. Login windows, auth-cookie watch, account id, handle detection, profile cleared on disconnect.          |
+| `DataStore`     | Reads `hub.json`, `proposals.json`, `history/`; tells the dashboard when they or `drafts.json` change.                                       |
+| `Builder`       | Turns the collected files into `hub.json` (the analytics in `packages/shared`).                                                              |
+| `Collector`     | Runs the collectors one platform at a time behind the rate limiter, writes `<channel>.json`, `listen.json`, `state.json`, then builds.       |
+| `Agent`         | One conversation through Claude Code or Codex, with Loud's tools served over MCP. Off by default.                                            |
+| `Updater`       | electron-updater against GitHub Releases. Checks only when the user turned it on or pressed Check now; installs only when asked.             |
+| `EventBus`      | Pushes events to the dashboard window.                                                                                                       |
+| `Log`           | One rotating `logs/loud.log` in the profile: collection results, IPC and update failures. No post text or handles. Feeds Export diagnostics. |
 
 `AppProtocol` serves `apps/web/dist` at `loud://app` with a strict CSP. `IpcHandlers` is the only entry from the dashboard: it checks that the caller is the main window's own frame, decodes the input against the method's schema, and runs the handler.
 

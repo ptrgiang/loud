@@ -9,6 +9,8 @@ export const CollectionSettings = Schema.Struct({
   everyHours: Schema.Number,
   /** Closing the window leaves Loud in the tray so the timer keeps running. */
   keepInTray: Schema.Boolean,
+  /** The installed app starts at login, so the timer is running before the window is opened. */
+  launchAtLogin: Schema.Boolean,
   /** After the first read from the start date, each run reads again only the posts of the last this many days. */
   rescanDays: Schema.Number,
 });
@@ -18,6 +20,7 @@ export const CollectionSettingsUpdate = Schema.Struct({
   auto: Schema.optionalKey(Schema.Boolean),
   everyHours: Schema.optionalKey(Schema.Number),
   keepInTray: Schema.optionalKey(Schema.Boolean),
+  launchAtLogin: Schema.optionalKey(Schema.Boolean),
   rescanDays: Schema.optionalKey(Schema.Number),
 });
 export type CollectionSettingsUpdate = typeof CollectionSettingsUpdate.Type;
@@ -62,5 +65,7 @@ export const BudgetView = Schema.Struct({
   pausedUntil: Schema.NullOr(Schema.String),
   /** Why it is paused, in words. */
   reason: Schema.NullOr(Schema.String),
+  /** Consecutive runs that stored no posts at all; a high count can mean the platform changed. */
+  emptyRuns: Schema.Number,
 });
 export type BudgetView = typeof BudgetView.Type;

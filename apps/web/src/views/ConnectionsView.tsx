@@ -261,6 +261,16 @@ function PlatformRow({ p }: { p: PlatformView }) {
           </Button>
         </div>
       )}
+
+      {connected && !paused && (budget?.emptyRuns ?? 0) >= 2 && (
+        <div className="mt-3 ml-5.5 flex items-start gap-2.5 rounded-lg bg-warning/8 px-3 py-2.5 text-xs dark:bg-warning/16">
+          <TriangleAlert className="mt-px size-3.5 shrink-0 text-warning-foreground" />
+          <p className="min-w-0 flex-1 leading-relaxed">
+            No posts were read in the last {budget!.emptyRuns} runs. The account may just be quiet —
+            or {p.name} changed and Loud needs an update (Settings → Updates).
+          </p>
+        </div>
+      )}
     </li>
   );
 }

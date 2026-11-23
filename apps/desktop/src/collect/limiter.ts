@@ -138,7 +138,8 @@ export class Limiter {
     this.write(id, { ...this.current(id), pausedUntil: null, reason: null });
   }
 
-  views(): Array<BudgetView> {
+  /** `emptyRuns` is not the limiter's to know: the collector merges it in from the state file. */
+  views(): Array<Omit<BudgetView, "emptyRuns">> {
     return CHANNEL_IDS.map((id) => {
       const s = this.current(id);
       return {

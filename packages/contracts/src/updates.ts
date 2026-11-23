@@ -4,6 +4,8 @@ import * as Schema from "effect/Schema";
 export const UpdateSettings = Schema.Struct({
   /** Check at start and every few hours, and download in the background. Installs only when the user says so. */
   check: Schema.Boolean,
+  /** "latest" follows released versions; "beta" also sees prerelease builds. */
+  channel: Schema.Literals(["latest", "beta"]),
 });
 export type UpdateSettings = typeof UpdateSettings.Type;
 

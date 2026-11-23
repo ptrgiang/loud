@@ -25,6 +25,8 @@ const STATS_TTL = 3600;
 /** Rows older than this are deleted by the daily cron. */
 const KEEP_DAYS = 400;
 const TALLY_KEYS = ["runs", "done", "failed", "blocked"] as const;
+/** A real install reports once a day; retries and sharing toggles fit under this. */
+const MAX_PER_IP_DAY = 6;
 
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), {
@@ -37,12 +39,27 @@ const json = (body: unknown, status = 200, headers: Record<string, string> = {})
     },
   });
 
+/** The sender's address as a hash: enough to cap a day, never stored in clear. */
+async function ipHash(request: Request): Promise<string> {
+  const ip = request.headers.get("cf-connecting-ip") ?? "unknown";
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(ip));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 async function receive(request: Request, env: Env): Promise<Response> {
   const length = Number(request.headers.get("Content-Length") ?? 0);
   if (length > MAX_BODY) return json({ error: "too large" }, 413);
   const report = parseReport(await request.text());
   if (!report) return json({ error: "not a usage report" }, 400);
   const day = new Date().toISOString().slice(0, 10);
+
+  const seen = await env.DB.prepare(
+    `INSERT INTO posters (iphash, day, n) VALUES (?1, ?2, 1)
+     ON CONFLICT (iphash, day) DO UPDATE SET n = n + 1 RETURNING n`,
+  )
+    .bind(await ipHash(request), day)
+    .first<{ n: number }>();
+  if ((seen?.n ?? 0) > MAX_PER_IP_DAY) return json({ error: "too many reports today" }, 429);
 
   // A second report on the same day (sharing turned off and on, or a retry) adds its counts to the first.
   const prior = await env.DB.prepare("SELECT collect FROM reports WHERE install = ?1 AND day = ?2")
@@ -201,5 +218,7 @@ export default {
     await env.DB.prepare("DELETE FROM reports WHERE day < ?1")
       .bind(dayBefore(new Date(), KEEP_DAYS))
       .run();
+    // Poster hashes are only interesting for the day they counted.
+    await env.DB.prepare("DELETE FROM posters WHERE day < ?1").bind(dayBefore(new Date(), 2)).run();
   },
 };

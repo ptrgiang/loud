@@ -5,7 +5,7 @@ import {
   type HistoryDay,
   type Hub,
 } from "@loud/contracts";
-import { ArrowDown, ArrowUp, LayoutDashboard, Plug, Table2, ChartColumn } from "lucide-react";
+import { ArrowDown, ArrowUp, LayoutDashboard, Play, Plug, Table2, ChartColumn } from "lucide-react";
 import type * as React from "react";
 import { useMemo, useState } from "react";
 
@@ -43,6 +43,7 @@ import {
 } from "~/lib/format";
 import { cn } from "~/lib/utils";
 import { useLoud } from "~/store";
+import { useWork } from "~/workStore";
 import { ProposalActions } from "~/views/PlanView";
 
 // ---- KPI tiles ----
@@ -565,6 +566,9 @@ export function OverviewView() {
   const proposals = useLoud((s) => s.proposals);
   const go = useLoud((s) => s.go);
   const connected = useLoud((s) => s.platforms.some((p) => p.status === "connected"));
+  const demo = useLoud((s) => s.info?.demo ?? false);
+  const collect = useWork((s) => s.collect);
+  const startCollect = useWork((s) => s.startCollect);
   const days = useMemo(() => (hub ? viewsByPublishDay(hub.posts, builtAt(hub)) : []), [hub]);
 
   if (!hub) {
@@ -575,7 +579,16 @@ export function OverviewView() {
           icon={<LayoutDashboard />}
           title={connected ? "No data yet" : "Connect a platform to start"}
           action={
-            !connected && (
+            connected ? (
+              <Button
+                size="sm"
+                disabled={demo || (collect?.running ?? false)}
+                onClick={() => void startCollect()}
+              >
+                <Play />
+                Collect now
+              </Button>
+            ) : (
               <Button size="sm" onClick={() => go("connections")}>
                 <Plug />
                 Open Connections

@@ -105,8 +105,8 @@
       <ul>
         <li>Reports are stored in a Cloudflare D1 database, one row per install id and UTC day.</li>
         <li>
-          Your IP address reaches Cloudflare, as with any website, but the server does not read or
-          store it, and request logging is off.
+          Your IP address reaches Cloudflare, as with any website; it is kept only as a hash, for at
+          most a few days, so one address cannot post unlimited reports. Request logging is off.
         </li>
         <li>Rows are deleted after 400 days.</li>
         <li>

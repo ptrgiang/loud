@@ -31,7 +31,7 @@ export const PlatformUse = Schema.Struct({
 });
 export type PlatformUse = typeof PlatformUse.Type;
 
-/** Exactly what is sent. The server stores it per install and UTC day, without the sender's IP address. */
+/** Exactly what is sent. The server stores it per install and UTC day; the sender's IP is kept only hashed, for a few days, to cap abuse. */
 export const UsageReport = Schema.Struct({
   v: Schema.Literal(1),
   /** Random, made on this computer when sharing is first turned on; tied to nothing else. */

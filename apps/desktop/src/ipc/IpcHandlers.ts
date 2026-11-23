@@ -30,7 +30,9 @@ import {
   upsertDraft,
 } from "../agent/drafts.ts";
 import { AppPaths } from "../app/AppPaths.ts";
+import { buildDiagnostics } from "../app/diagnostics.ts";
 import { EventBus } from "../app/EventBus.ts";
+import { Log } from "../app/Log.ts";
 import { Updater } from "../app/Updater.ts";
 import { Usage } from "../app/Usage.ts";
 import { Builder } from "../build/Builder.ts";
@@ -39,6 +41,7 @@ import { APP_ORIGIN, BRAND } from "../brand.ts";
 import { DataStore } from "../data/DataStore.ts";
 import { postsCsv } from "../data/exportCsv.ts";
 import { DEMO_MARKER } from "../data/files.ts";
+import { deleteCollected, exportAll } from "../data/lifecycle.ts";
 import { assetIdFrom } from "../platforms/PlatformCatalog.ts";
 import { Platforms } from "../platforms/Platforms.ts";
 import { cleanKeywords, SettingsStore } from "../settings/SettingsStore.ts";
@@ -70,6 +73,7 @@ export const install = (isMainFrame: (frame: Electron.WebFrameMain | null) => bo
     const collector = yield* Collector;
     const updater = yield* Updater;
     const usage = yield* Usage;
+    const log = yield* Log;
 
     // The time zone, start date and enabled platforms shape the hub: rebuild in the background after they change.
     const rebuild = Effect.asVoid(Effect.forkDetach(builder.build));
@@ -81,6 +85,7 @@ export const install = (isMainFrame: (frame: Electron.WebFrameMain | null) => bo
         tagline: BRAND.tagline,
         version: Electron.app.getVersion(),
         demo: NodeFS.existsSync(NodePath.join(paths.data, DEMO_MARKER)),
+        os: process.platform as "win32" | "darwin" | "linux",
         timezone: s.timezone,
         since: s.since,
         channels: CHANNEL_IDS.filter((id) => s.platforms[id].enabled).map((id) => ({
@@ -150,6 +155,49 @@ export const install = (isMainFrame: (frame: Electron.WebFrameMain | null) => bo
           yield* Effect.sync(() => {
             NodeFS.mkdirSync(NodePath.dirname(file), { recursive: true });
             NodeFS.writeFileSync(file, postsCsv(hub), "utf8");
+            Electron.shell.showItemInFolder(file);
+          });
+          return { file };
+        }),
+      "data.exportAll": () =>
+        Effect.sync(() => {
+          const dir = exportAll(paths.data);
+          void Electron.shell.openPath(dir);
+          return { dir };
+        }),
+      "data.deleteAll": () =>
+        Effect.gen(function* () {
+          // A run in flight would write its files again after the delete.
+          yield* collector.cancel;
+          yield* Effect.sync(() => deleteCollected(paths.data));
+          yield* events.publish({ type: "data" });
+          log.info("collected data deleted from Settings");
+          return {};
+        }),
+      "app.diagnostics": () =>
+        Effect.gen(function* () {
+          const file = NodePath.join(
+            paths.data,
+            "exports",
+            `diagnostics-${new Date().toISOString().replace(/\D/g, "").slice(0, 14)}.txt`,
+          );
+          yield* Effect.sync(() => {
+            NodeFS.mkdirSync(NodePath.dirname(file), { recursive: true });
+            NodeFS.writeFileSync(
+              file,
+              buildDiagnostics({
+                version: Electron.app.getVersion(),
+                os: process.platform,
+                arch: process.arch,
+                packaged: Electron.app.isPackaged,
+                demo: NodeFS.existsSync(NodePath.join(paths.data, DEMO_MARKER)),
+                settings: Effect.runSync(settings.get),
+                collect: Effect.runSync(collector.status),
+                budgets: Effect.runSync(collector.budgets),
+                log: Effect.runSync(log.tail(200)),
+              }),
+              "utf8",
+            );
             Electron.shell.showItemInFolder(file);
           });
           return { file };
@@ -268,7 +316,10 @@ export const install = (isMainFrame: (frame: Electron.WebFrameMain | null) => bo
       try {
         return { ok: true, value: await Effect.runPromise(handler(decoded.success)) };
       } catch (error) {
-        return { ok: false, error: error instanceof Error ? error.message : String(error) };
+        const msg = error instanceof Error ? error.message : String(error);
+        // Inputs are never logged; some carry the user's own text.
+        log.warn(`ipc ${m} failed: ${msg}`);
+        return { ok: false, error: msg };
       }
     };
 

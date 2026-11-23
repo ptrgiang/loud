@@ -17,10 +17,12 @@ import {
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Electron from "electron";
 import * as NodePath from "node:path";
 
 import { AppPaths } from "../app/AppPaths.ts";
 import { EventBus } from "../app/EventBus.ts";
+import { Log } from "../app/Log.ts";
 import { Usage } from "../app/Usage.ts";
 import { Builder } from "../build/Builder.ts";
 import { formatStamp, parseStamp, wallClock } from "../build/time.ts";
@@ -62,6 +64,8 @@ interface ScanState {
   readonly fullDone?: string;
   readonly version?: number;
   readonly lastScan?: string;
+  /** Runs in a row that stored no posts. A growing count can mean the platform changed its pages. */
+  readonly emptyRuns?: number;
 }
 
 const daysBefore = (stamp: string, days: number) => {
@@ -78,12 +82,29 @@ export const layer = Layer.effect(
     const usage = yield* Usage;
     const builder = yield* Builder;
     const events = yield* EventBus;
+    const log = yield* Log;
 
     const limitsFile = NodePath.join(paths.home, "limits.json");
     const limiter = new Limiter(readJson<LimitFile>(limitsFile) ?? {}, (f) =>
       writeJson(limitsFile, f),
     );
     const stateFile = NodePath.join(paths.data, "state.json");
+
+    /** Limiter budgets plus the parser-health count each platform's state file keeps. */
+    const budgets = () => {
+      const scan = readJson<Partial<Record<ChannelId, ScanState>>>(stateFile) ?? {};
+      return limiter.views().map((v) => ({ ...v, emptyRuns: scan[v.id]?.emptyRuns ?? 0 }));
+    };
+
+    // The OS starts the installed app at login; from source that would register the dev Electron binary.
+    const applyLoginItem = (c: CollectionSettings) => {
+      if (!Electron.app.isPackaged) return;
+      try {
+        Electron.app.setLoginItemSettings({ openAtLogin: c.launchAtLogin });
+      } catch {
+        // A platform without login items: collection still works from the tray.
+      }
+    };
 
     let status: CollectStatus = {
       running: false,
@@ -238,9 +259,15 @@ export const layer = Layer.effect(
           progress: (detail, count) => setStep(step, { detail, count }),
         });
         writeJson(out, written);
+        const emptyRuns = written.posts.length === 0 ? (scan[id]?.emptyRuns ?? 0) + 1 : 0;
         writeJson(stateFile, {
           ...scan,
-          [id]: { ...scan[id], lastScan: now, ...(fullRun ? { fullDone: now, version } : {}) },
+          [id]: {
+            ...scan[id],
+            lastScan: now,
+            emptyRuns,
+            ...(fullRun ? { fullDone: now, version } : {}),
+          },
         });
         setStep(step, {
           status: "done",
@@ -294,6 +321,7 @@ export const layer = Layer.effect(
           steps: steps.map((step) => ({ step, status: "waiting", detail: "", count: 0 })),
         };
         publish();
+        log.info(`collect run started: ${steps.join(", ")}`);
         yield* Effect.forkDetach(
           Effect.promise(async () => {
             for (const step of steps) {
@@ -309,7 +337,12 @@ export const layer = Layer.effect(
                 }),
               );
               const ended = status.steps.find((s) => s.step === step);
-              if (ended) usage.record(step, ended.status, ended.detail);
+              if (ended) {
+                usage.record(step, ended.status, ended.detail);
+                (ended.status === "failed" ? log.warn : log.info)(
+                  `collect ${step}: ${ended.status}${ended.detail ? ` — ${ended.detail}` : ""}`,
+                );
+              }
             }
             await Effect.runPromise(builder.build);
             abort = null;
@@ -320,7 +353,10 @@ export const layer = Layer.effect(
         return status;
       });
 
-    yield* Effect.sync(() => arm());
+    yield* Effect.sync(() => {
+      applyLoginItem(Effect.runSync(settings.get).collection);
+      arm();
+    });
 
     // Accounts connected before, or whose look-up failed last time: try once now, one platform after another.
     platforms.onLogin((id) => void detect(id));
@@ -339,15 +375,18 @@ export const layer = Layer.effect(
         abort?.abort();
         return status;
       }),
-      budgets: Effect.sync(() => limiter.views()),
+      budgets: Effect.sync(budgets),
       resume: (id) =>
         Effect.sync(() => {
           limiter.resume(id);
           // A pause may have cut a detection short; the user just cleared the wall, so read again now.
           void detect(id, true);
-          return limiter.views();
+          return budgets();
         }),
-      reschedule: Effect.sync(() => arm()),
+      reschedule: Effect.sync(() => {
+        applyLoginItem(Effect.runSync(settings.get).collection);
+        arm();
+      }),
       detect: (id) => Effect.promise(() => detect(id, true, true)),
     });
   }),

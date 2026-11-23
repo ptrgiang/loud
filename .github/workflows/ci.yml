@@ -14,7 +14,12 @@ concurrency:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The app ships on all three; OS-specific code paths (paths, login items, signing) deserve a run each.
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -30,6 +35,15 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # Make sure Electron's binary is in place before tests load it; on Windows the install can leave it unfinished.
       - run: pnpm --filter @loud/desktop exec install-electron
+      - run: pnpm fmt:check
+      - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      # Boots the built app on a demo profile and asks for a screenshot; Linux has no display.
+      - name: Smoke test the built app
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node scripts/smoke.mjs
+      - name: Smoke test the built app
+        if: runner.os != 'Linux'
+        run: node scripts/smoke.mjs

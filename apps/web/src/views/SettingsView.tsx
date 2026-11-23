@@ -1,5 +1,14 @@
 import { AGENT_VENDORS, type AgentProviderView } from "@loud/contracts";
-import { Download, RefreshCw, RotateCcw, ShieldCheck } from "lucide-react";
+import {
+  Download,
+  FileClock,
+  FolderOpen,
+  RefreshCw,
+  RotateCcw,
+  ShieldCheck,
+  Trash2,
+  TriangleAlert,
+} from "lucide-react";
 import type * as React from "react";
 import { useEffect, useState } from "react";
 
@@ -181,6 +190,16 @@ function Collection() {
             onCheckedChange={(keepInTray) => void configure({ keepInTray })}
           />
         </Row>
+        <Row
+          label="Start when you log in"
+          hint="The installed app starts with the computer, so collection is running before you open it."
+        >
+          <Switch
+            checked={collection.launchAtLogin}
+            aria-label="Start when you log in"
+            onCheckedChange={(launchAtLogin) => void configure({ launchAtLogin })}
+          />
+        </Row>
       </div>
     </Card>
   );
@@ -226,6 +245,7 @@ function AgentSettingsCard() {
   const settings = useWork((s) => s.agentSettings);
   const providers = useWork((s) => s.providers);
   const configure = useWork((s) => s.configureAgent);
+  const os = useLoud((s) => s.info?.os);
   const [playbook, setPlaybook] = useState(settings?.playbook ?? "");
   if (!settings) return null;
   const current = providers.find((p) => p.id === settings.provider);
@@ -264,6 +284,15 @@ function AgentSettingsCard() {
             />
           ))}
         </div>
+        {settings.provider === "claude" && os === "win32" && (
+          <div className="flex gap-2.5 rounded-lg bg-warning/8 px-3 py-2.5 text-xs leading-relaxed dark:bg-warning/16">
+            <TriangleAlert className="mt-px size-3.5 shrink-0 text-warning-foreground" />
+            <p>
+              On Windows, Claude Code runs the commands it writes as you, without a sandbox — the
+              workspace rule is an instruction, not a wall. Codex is the sandboxed choice here.
+            </p>
+          </div>
+        )}
         <div className="flex flex-col gap-2 py-3">
           <div className="font-medium text-sm">Playbook</div>
           <div className="text-muted-foreground text-xs">
@@ -299,28 +328,103 @@ function AgentSettingsCard() {
 function DataCard() {
   const hub = useLoud((s) => s.hub);
   const [file, setFile] = useState<string | null>(null);
+  const [dir, setDir] = useState<string | null>(null);
+  const [diag, setDiag] = useState<string | null>(null);
+  // Two clicks: the first arms the delete, the second does it. A moment of intent before data goes.
+  const [sure, setSure] = useState(false);
+  const err = (e: unknown) =>
+    useLoud.setState({ error: e instanceof Error ? e.message : String(e) });
   return (
     <Card title="Data">
-      <Row
-        label="Export posts"
-        hint={file ?? "A CSV of every post and its numbers, saved in the data folder."}
-      >
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!hub}
-          onClick={async () => {
-            try {
-              setFile((await call("data.exportPosts", {})).file);
-            } catch (e) {
-              useLoud.setState({ error: e instanceof Error ? e.message : String(e) });
-            }
-          }}
+      <div className="divide-y">
+        <Row
+          label="Export posts"
+          hint={file ?? "A CSV of every post and its numbers, saved in the data folder."}
         >
-          <Download />
-          Export CSV
-        </Button>
-      </Row>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!hub}
+            onClick={async () => {
+              try {
+                setFile((await call("data.exportPosts", {})).file);
+              } catch (e) {
+                err(e);
+              }
+            }}
+          >
+            <Download />
+            Export CSV
+          </Button>
+        </Row>
+        <Row
+          label="Export everything"
+          hint={dir ?? "A copy of the whole data folder: posts, numbers, listening, drafts."}
+        >
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={async () => {
+              try {
+                setDir((await call("data.exportAll", {})).dir);
+              } catch (e) {
+                err(e);
+              }
+            }}
+          >
+            <FolderOpen />
+            Export all
+          </Button>
+        </Row>
+        <Row
+          label="Diagnostics"
+          hint={
+            diag ??
+            "One text file with the version, settings (handles removed), collection state and recent log lines. Attach it to a bug report."
+          }
+        >
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={async () => {
+              try {
+                setDiag((await call("app.diagnostics", {})).file);
+              } catch (e) {
+                err(e);
+              }
+            }}
+          >
+            <FileClock />
+            Export
+          </Button>
+        </Row>
+        <Row
+          label="Delete collected data"
+          hint="Posts, numbers, listening results, history and proposals are removed. Drafts and settings stay."
+        >
+          <Button
+            size="sm"
+            variant={sure ? "destructive" : "outline"}
+            onClick={async () => {
+              if (!sure) {
+                setSure(true);
+                setTimeout(() => setSure(false), 4000);
+                return;
+              }
+              setSure(false);
+              try {
+                await call("data.deleteAll", {});
+                await useLoud.getState().load();
+              } catch (e) {
+                err(e);
+              }
+            }}
+          >
+            <Trash2 />
+            {sure ? "Sure? This cannot be undone" : "Delete"}
+          </Button>
+        </Row>
+      </div>
     </Card>
   );
 }
@@ -386,7 +490,19 @@ function UpdatesCard() {
           <Switch
             checked={prefs.check}
             aria-label="Check for updates"
-            onCheckedChange={(check) => void configure({ check })}
+            onCheckedChange={(check) => void configure({ ...prefs, check })}
+          />
+        </Row>
+        <Row
+          label="Beta channel"
+          hint="Also offers prerelease builds, for trying a fix before it reaches everyone. New features may be rough."
+        >
+          <Switch
+            checked={prefs.channel === "beta"}
+            aria-label="Beta channel"
+            onCheckedChange={(beta) =>
+              void configure({ ...prefs, channel: beta ? "beta" : "latest" })
+            }
           />
         </Row>
       </div>

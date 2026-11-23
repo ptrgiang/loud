@@ -9,10 +9,12 @@ import {
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
 
 import { AppPaths } from "../app/AppPaths.ts";
 import { EventBus } from "../app/EventBus.ts";
+import { Log } from "../app/Log.ts";
 import { DEMO_MARKER, type DemoMarker, readJson, writeJson } from "../data/files.ts";
 import { SettingsStore } from "../settings/SettingsStore.ts";
 import { build } from "./build.ts";
@@ -34,6 +36,24 @@ export interface BuildSource {
   readonly channels: ReadonlyArray<ChannelId>;
 }
 
+/** Daily snapshots older than this many days are pruned, so history/ stays bounded. */
+const HISTORY_KEEP_DAYS = 400;
+
+const pruneHistory = (dir: string, today: string) => {
+  let names: Array<string>;
+  try {
+    names = NodeFS.readdirSync(dir);
+  } catch {
+    return;
+  }
+  const cutoff = new Date(Date.parse(`${today}T00:00:00Z`) - HISTORY_KEEP_DAYS * 864e5)
+    .toISOString()
+    .slice(0, 10);
+  for (const name of names)
+    if (name.endsWith(".json") && name.slice(0, 10) < cutoff)
+      NodeFS.rmSync(NodePath.join(dir, name), { force: true });
+};
+
 /** Reads, builds and writes; returns null when there is nothing to build from. Usable outside Electron. */
 export function buildFolder(src: BuildSource, now = new Date()): Hub | null {
   const files: Partial<Record<ChannelId, ChannelFile>> = {};
@@ -54,6 +74,7 @@ export function buildFolder(src: BuildSource, now = new Date()): Hub | null {
   });
   writeJson(NodePath.join(src.data, "hub.json"), hub);
   writeJson(NodePath.join(src.data, "history", `${stamp.slice(0, 10)}.json`), history);
+  pruneHistory(NodePath.join(src.data, "history"), stamp.slice(0, 10));
   return hub;
 }
 
@@ -63,6 +84,7 @@ export const layer = Layer.effect(
     const paths = yield* AppPaths;
     const settings = yield* SettingsStore;
     const events = yield* EventBus;
+    const log = yield* Log;
 
     const source = Effect.gen(function* () {
       // A demo folder carries its own zone and start date and shows every channel, whatever the settings say.
@@ -91,7 +113,12 @@ export const layer = Layer.effect(
           catch: (error) => error,
         }).pipe(
           Effect.catch((error) =>
-            Effect.as(Effect.logError("build failed", error), null as Hub | null),
+            Effect.as(
+              Effect.sync(() =>
+                log.warn(`build failed: ${error instanceof Error ? error.message : String(error)}`),
+              ),
+              null as Hub | null,
+            ),
           ),
         );
         if (hub) yield* events.publish({ type: "data" });

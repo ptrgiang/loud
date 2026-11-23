@@ -54,7 +54,18 @@ export function App() {
     <div className="flex h-full">
       <AppSidebar />
       <main className="flex min-w-0 flex-1 flex-col bg-background">
-        {!loaded ? null : !inDesktop() ? (
+        {!loaded ? (
+          <div className="flex flex-col gap-4 p-6" aria-hidden>
+            <div className="h-9 w-48 animate-pulse rounded-lg bg-muted" />
+            <div className="grid grid-cols-1 gap-4 @3xl:grid-cols-3">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-24 animate-pulse rounded-xl border bg-card" />
+              ))}
+            </div>
+            <div className="h-56 animate-pulse rounded-xl border bg-card" />
+            <div className="h-32 animate-pulse rounded-xl border bg-card" />
+          </div>
+        ) : !inDesktop() ? (
           <Empty title="Loud runs as a desktop app">
             Start it with pnpm dev from the repository.
           </Empty>

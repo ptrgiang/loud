@@ -36,6 +36,7 @@ export const AppInfo = Schema.Struct({
   tagline: Schema.String,
   version: Schema.String,
   demo: Schema.Boolean,
+  os: Schema.Literals(["win32", "darwin", "linux"]),
   timezone: Schema.String,
   since: Schema.String,
   channels: Schema.Array(Schema.Struct({ id: ChannelId, label: Schema.String })),
@@ -61,6 +62,12 @@ export const IpcMethods = {
   "links.open": { input: Schema.Struct({ url: Schema.String }), output: Schema.Struct({}) },
   /** Writes a CSV of the posts into the data folder and shows it in the file manager. */
   "data.exportPosts": { input: None, output: Schema.Struct({ file: Schema.String }) },
+  /** A copy of the whole data folder (minus earlier exports), shown in the file manager. */
+  "data.exportAll": { input: None, output: Schema.Struct({ dir: Schema.String }) },
+  /** Removes everything collection wrote: posts, numbers, listening, history and proposals. Drafts stay. */
+  "data.deleteAll": { input: None, output: Schema.Struct({}) },
+  /** One text file for a bug report: version, settings without handles, collection state, recent log lines. */
+  "app.diagnostics": { input: None, output: Schema.Struct({ file: Schema.String }) },
   "collect.status": { input: None, output: CollectStatus },
   "collect.start": { input: CollectStart, output: CollectStatus },
   "collect.cancel": { input: None, output: CollectStatus },
