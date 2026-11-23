@@ -232,8 +232,7 @@ export function AgentView() {
   // Follow the conversation as messages arrive and the answer streams in.
   useEffect(() => {
     const chat = agent?.chatId;
-    if (count + last > 0 || chat !== undefined)
-      bottom.current?.scrollIntoView({ block: "end" });
+    if (count + last > 0 || chat !== undefined) bottom.current?.scrollIntoView({ block: "end" });
   }, [count, last, agent?.chatId]);
 
   if (!settings || !agent) return null;
