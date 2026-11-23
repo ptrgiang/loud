@@ -243,15 +243,16 @@ export function AgentView() {
   }, [loadAgent, loadProviders]);
   const count = agent?.messages.length ?? 0;
   const last = agent?.messages.at(-1)?.text.length ?? 0;
+  const chatId = agent?.chatId ?? null;
   // Follow the stream only while the reader is already near the bottom — scrolling up pins the view.
   useEffect(() => {
     const el = scroll.current;
     if (!el) return;
-    const switched = agent?.chatId !== chatRef.current;
-    chatRef.current = agent?.chatId;
+    const switched = chatId !== chatRef.current;
+    chatRef.current = chatId;
     const near = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
     if (switched || near || count === 1) bottom.current?.scrollIntoView({ block: "end" });
-  }, [count, last, agent?.chatId]);
+  }, [count, last, chatId]);
 
   if (!settings || !agent) return null;
   const vendor = AGENT_VENDORS[agent.provider];
