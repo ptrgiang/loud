@@ -69,6 +69,8 @@ export interface ServerContext {
   readonly channels: ToolContext["channels"];
   readonly keywords: ToolContext["keywords"];
   readonly playbook: string;
+  /** The chat's attachment folder; preview_images stages files here for the answer to show. */
+  readonly filesDir?: string;
 }
 
 export function serve(data: string, context: ServerContext) {

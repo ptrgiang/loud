@@ -122,6 +122,8 @@ export const IpcMethods = {
   /** Puts the image on the clipboard, to paste into the platform's composer. */
   "drafts.copyImage": { input: DraftImageRef, output: Schema.Struct({}) },
   "drafts.showImage": { input: DraftImageRef, output: Schema.Struct({}) },
+  /** Opens the posting window: the draft's contents on the left, the channel's composer on the right. */
+  "post.open": { input: Schema.Struct({ id: Schema.String }), output: Schema.Struct({}) },
   "updates.settings": { input: None, output: UpdateSettings },
   "updates.configure": { input: UpdateSettings, output: UpdateSettings },
   "updates.status": { input: None, output: UpdateStatus },

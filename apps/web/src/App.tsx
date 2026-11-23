@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { AppSidebar } from "~/components/AppSidebar";
 import { CommandPalette } from "~/components/CommandPalette";
@@ -16,6 +16,7 @@ import { InsightsView } from "~/views/InsightsView";
 import { ListeningView } from "~/views/ListeningView";
 import { OverviewView } from "~/views/OverviewView";
 import { PlanView } from "~/views/PlanView";
+import { PostKitView } from "~/views/PostKitView";
 import { PostsView } from "~/views/PostsView";
 import { SettingsView } from "~/views/SettingsView";
 import { useWork } from "~/workStore";
@@ -51,6 +52,23 @@ export function App() {
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, []);
+
+  // The posting window's pane loads loud://app#post/<id> — a bare kit, none of the app's chrome. Reactive
+  // because setting the hash after mount doesn't re-render this component by itself.
+  const [postId, setPostId] = useState(() => /^#\/?post\/([a-z0-9]+)/.exec(location.hash)?.[1]);
+  useEffect(() => {
+    const onHash = () => setPostId(/^#\/?post\/([a-z0-9]+)/.exec(location.hash)?.[1]);
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+  if (postId) {
+    return (
+      <div className="h-full">
+        <PostKitView id={postId} />
+        <Toasts />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full">

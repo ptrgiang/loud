@@ -92,6 +92,44 @@ describe("agent tools", () => {
     expect(NodeFS.existsSync(NodePath.join(dir, "drafts", d!.id))).toBe(false);
   });
 
+  it("saves and keeps a first comment on a draft", () => {
+    run("save_draft", { channel: "x", text: "Post.", comment: "Thread link + tags" });
+    expect(readDrafts(dir)[0]?.comment).toBe("Thread link + tags");
+    // An edit without a comment keeps the old one; a new one replaces it.
+    const d = upsertDraft(dir, readDrafts(dir)[0]!, "you", new Date());
+    expect(d.comment).toBe("Thread link + tags");
+    expect(upsertDraft(dir, { ...d, comment: "New comment" }, "you", new Date()).comment).toBe(
+      "New comment",
+    );
+  });
+
+  it("preview_images stages files for the answer and never touches drafts", () => {
+    expect(run("preview_images", { paths: [] }).isError).toBe(true);
+    // Without a chat folder there is nowhere to show them.
+    expect(run("preview_images", { paths: ["x.png"] }).text).toContain("No chat folder");
+
+    const files = NodePath.join(dir, "chat-files");
+    ctx = { ...ctx, filesDir: files };
+    const png = NodePath.join(dir, "p.png");
+    NodeFS.writeFileSync(
+      png,
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]),
+    );
+    const bad = NodePath.join(dir, "n.png");
+    NodeFS.writeFileSync(bad, "not an image");
+
+    const out = run("preview_images", { paths: [png, bad] });
+    expect(out.text).toContain("showing 1 image");
+    expect(out.text).toContain("refused");
+    const manifest = JSON.parse(
+      NodeFS.readFileSync(NodePath.join(files, "preview.json"), "utf8"),
+    ) as Array<{ mime: string }>;
+    expect(manifest).toHaveLength(1);
+    expect(manifest[0]?.mime).toBe("image/png");
+    // Nothing went into drafts — preview is a look, not a save.
+    expect(readDrafts(dir)).toHaveLength(0);
+  });
+
   it("refuses proposals for a channel that is not enabled", () => {
     const item = { channel: "fb", title: "t", when: "Fri 15:00", hook: "h", why: "w" };
     expect(run("save_proposals", { summary: "s", items: [item] }).text).toContain(

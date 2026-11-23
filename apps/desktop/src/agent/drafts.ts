@@ -26,18 +26,26 @@ const writeDrafts = (data: string, drafts: ReadonlyArray<Draft>) =>
 /** Insert or replace by id, newest first. Images are kept; they change only through the image functions. */
 export function upsertDraft(
   data: string,
-  input: { id?: string | undefined; channel: ChannelId; text: string; note?: string | undefined },
+  input: {
+    id?: string | undefined;
+    channel: ChannelId;
+    text: string;
+    note?: string | undefined;
+    comment?: string | undefined;
+  },
   by: Draft["by"],
   now: Date,
 ): Draft {
   const all = readDrafts(data);
   const at = stampNow(now);
   const prev = input.id ? all.find((d) => d.id === input.id) : undefined;
+  const comment = input.comment ?? prev?.comment;
   const draft: Draft = {
     id: prev?.id ?? newId(),
     channel: input.channel,
     text: input.text,
     note: input.note ?? prev?.note ?? "",
+    ...(comment ? { comment } : {}),
     by: prev?.by ?? by,
     ...(prev?.images?.length ? { images: prev.images } : {}),
     created: prev?.created ?? at,
@@ -66,8 +74,13 @@ export function deleteDraft(data: string, id: string) {
 
 export const IMAGE_BYTES_MAX = 20 * 1024 * 1024;
 
-const MIME = { png: "image/png", jpg: "image/jpeg", webp: "image/webp", gif: "image/gif" } as const;
-type ImageType = keyof typeof MIME;
+export const IMAGE_MIME = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  webp: "image/webp",
+  gif: "image/gif",
+} as const;
+type ImageType = keyof typeof IMAGE_MIME;
 
 /** By the file's first bytes, not its name: anything that is not one of these four is refused. */
 export function sniffImage(b: Uint8Array): ImageType | null {
@@ -137,7 +150,7 @@ export function draftImagePath(data: string, id: string, name: string): string {
 
 export function readDraftImage(data: string, id: string, name: string) {
   const bytes = NodeFS.readFileSync(draftImagePath(data, id, name));
-  return { mime: MIME[name.split(".").pop() as ImageType], bytes };
+  return { mime: IMAGE_MIME[name.split(".").pop() as ImageType], bytes };
 }
 
 /** An image file the agent names by path, checked by its bytes; a string says why it was refused. */

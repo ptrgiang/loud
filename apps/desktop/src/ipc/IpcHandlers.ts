@@ -45,6 +45,7 @@ import { deleteCollected, exportAll } from "../data/lifecycle.ts";
 import { generateDemo } from "../demo/demo.ts";
 import { assetIdFrom } from "../platforms/PlatformCatalog.ts";
 import { Platforms } from "../platforms/Platforms.ts";
+import { Poster } from "../platforms/Poster.ts";
 import { cleanKeywords, SettingsStore } from "../settings/SettingsStore.ts";
 
 type Handlers = { readonly [M in IpcMethod]: (input: IpcInput<M>) => Effect.Effect<IpcOutput<M>> };
@@ -71,6 +72,7 @@ export const install = (isMainFrame: (frame: Electron.WebFrameMain | null) => bo
     const paths = yield* AppPaths;
     const builder = yield* Builder;
     const agent = yield* Agent;
+    const poster = yield* Poster;
     const collector = yield* Collector;
     const updater = yield* Updater;
     const usage = yield* Usage;
@@ -312,6 +314,7 @@ export const install = (isMainFrame: (frame: Electron.WebFrameMain | null) => bo
           Electron.shell.showItemInFolder(draftImagePath(paths.data, id, name));
           return {};
         }),
+      "post.open": ({ id }) => Effect.as(Effect.orDie(poster.open(id)), {}),
       "updates.settings": () => Effect.map(settings.get, (s) => s.updates),
       "updates.configure": (input) =>
         Effect.gen(function* () {

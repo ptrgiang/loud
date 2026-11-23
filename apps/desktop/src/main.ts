@@ -20,6 +20,7 @@ import { DEMO_MARKER } from "./data/files.ts";
 import { generateDemo, holdsRealData } from "./demo/demo.ts";
 import * as IpcHandlers from "./ipc/IpcHandlers.ts";
 import * as Platforms from "./platforms/Platforms.ts";
+import * as Poster from "./platforms/Poster.ts";
 import * as SettingsStore from "./settings/SettingsStore.ts";
 import * as MainWindow from "./window/MainWindow.ts";
 
@@ -32,6 +33,9 @@ const BaseLayer = Layer.mergeAll(
 const StoresLayer = Layer.mergeAll(SettingsStore.layer, DataStore.layer).pipe(
   Layer.provideMerge(BaseLayer),
 );
+// Frames Loud created itself that may call IPC: the main window's main frame, and posting panes.
+const ipcFrames = new Set<Electron.WebFrameMain>();
+
 const ServicesLayer = Layer.mergeAll(
   Platforms.layer,
   Builder.layer,
@@ -39,7 +43,10 @@ const ServicesLayer = Layer.mergeAll(
   Updater.layer,
 ).pipe(Layer.provideMerge(StoresLayer));
 const UsageLayer = Usage.layer.pipe(Layer.provideMerge(ServicesLayer));
-const MainLayer = Collector.layer.pipe(Layer.provideMerge(UsageLayer));
+// Poster's deps (Platforms included) come from the merged services, same as Collector's.
+const MainLayer = Layer.mergeAll(Collector.layer, Poster.layer(ipcFrames)).pipe(
+  Layer.provideMerge(UsageLayer),
+);
 
 // Dev only: LOUD_SHOT=<file.png> saves the dashboard once it settles, then quits. LOUD_SHOT_JS runs first (to open a
 // view), LOUD_SHOT_WAIT sets the settle time in ms.
@@ -94,9 +101,7 @@ const program = Effect.gen(function* () {
   let main: Electron.BrowserWindow | null = null;
   const openLink = (url: string) => Effect.runFork(platforms.openLink(url));
 
-  yield* IpcHandlers.install(
-    (frame) => frame !== null && main !== null && frame === main.webContents.mainFrame,
-  );
+  yield* IpcHandlers.install((frame) => frame !== null && ipcFrames.has(frame));
 
   const openMain = Effect.gen(function* () {
     if (main && !main.isDestroyed()) {
@@ -106,10 +111,15 @@ const program = Effect.gen(function* () {
     }
     const w = yield* MainWindow.create({ openLink });
     main = w;
-    yield* events.attach(w.webContents);
+    // Grab these before "closed" fires: after destroy, w.webContents throws.
+    const wc = w.webContents;
+    const frame = wc.mainFrame;
+    ipcFrames.add(frame);
+    yield* events.attach(wc);
     w.on("closed", () => {
       main = null;
-      Effect.runFork(events.attach(null));
+      ipcFrames.delete(frame);
+      Effect.runFork(events.detach(wc));
     });
     if (process.env.LOUD_SHOT && !Electron.app.isPackaged) screenshot(w, process.env.LOUD_SHOT);
   });

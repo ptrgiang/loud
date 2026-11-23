@@ -34,6 +34,7 @@ const TOOL_WORDS: Record<string, MsgKey> = {
   save_proposals: "ag.tool.save_proposals",
   list_drafts: "ag.tool.list_drafts",
   save_draft: "ag.tool.save_draft",
+  preview_images: "ag.tool.preview_images",
 };
 
 /** A saved image is read back from the profile when its chat opens; text files show as a chip. */
@@ -108,6 +109,13 @@ function Message({ m, live, chatId }: { m: AgentMessage; live: boolean; chatId: 
         <Markdown text={m.text} className="text-sm leading-relaxed" />
       ) : live ? (
         <div className="text-muted-foreground text-sm">{t("ag.reading")}</div>
+      ) : null}
+      {m.attachments?.length ? (
+        <div className="flex flex-wrap gap-1.5">
+          {m.attachments.map((a) => (
+            <Attachment key={a.id} chatId={chatId} a={a} />
+          ))}
+        </div>
       ) : null}
       {m.error && (
         <div className="flex items-center gap-1.5 text-error-foreground text-xs">

@@ -156,6 +156,8 @@ export const Draft = Schema.Struct({
   text: Schema.String,
   /** What the post is for, or what the agent was asked. */
   note: Schema.String,
+  /** A comment to post under the post right after publishing (a link, the hashtags), kept with the draft. */
+  comment: Schema.optionalKey(Schema.String),
   by: Schema.Literals(["you", "agent"]),
   /** File names in the draft's own folder, in posting order. */
   images: Schema.optionalKey(Schema.Array(Schema.String)),
@@ -169,6 +171,7 @@ export const DraftInput = Schema.Struct({
   channel: ChannelId,
   text: Schema.String,
   note: Schema.optionalKey(Schema.String),
+  comment: Schema.optionalKey(Schema.String),
 });
 export type DraftInput = typeof DraftInput.Type;
 

@@ -1,6 +1,7 @@
 // Loud's tools for the agent: read the built data, write proposals and drafts. None of them posts or reaches a network.
 // Pure over a data folder so the stdio server and the tests share it; the server runs it in its own process.
 import {
+  type AgentAttachment,
   CHANNEL_IDS,
   CHANNEL_LIMITS,
   CHANNEL_NAMES,
@@ -31,10 +32,20 @@ import {
 } from "@loud/shared/analytics";
 import { isNum, ymd } from "@loud/shared/stamp";
 import { postLength } from "@loud/shared/text";
+import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
 
 import { readJson, writeJson } from "../data/files.ts";
-import { addDraftImages, readDrafts, readImageFile, stampNow, upsertDraft } from "./drafts.ts";
+import { newId } from "./chats.ts";
+import {
+  addDraftImages,
+  checkImage,
+  IMAGE_MIME,
+  readDrafts,
+  readImageFile,
+  stampNow,
+  upsertDraft,
+} from "./drafts.ts";
 
 export interface ToolContext {
   readonly data: string;
@@ -42,6 +53,8 @@ export interface ToolContext {
   readonly channels: ReadonlyArray<ChannelId>;
   readonly keywords: Keywords;
   readonly playbook: string;
+  /** Where preview_images stages files for the chat to show; undefined outside a chat. */
+  readonly filesDir?: string | undefined;
   readonly now: () => Date;
 }
 
@@ -484,6 +497,11 @@ export const TOOLS: ReadonlyArray<Tool> = [
         channel: channelEnum,
         text: { type: "string", description: "The post, exactly as it should be published" },
         note: { type: "string", description: "One line: what it is for" },
+        comment: {
+          type: "string",
+          description:
+            "A comment to post under the post right after publishing (a link, the hashtags). Optional.",
+        },
         id: { type: "string", description: "Replace this draft instead of adding one" },
         images: {
           type: "array",
@@ -512,7 +530,13 @@ export const TOOLS: ReadonlyArray<Tool> = [
       if (refused.length) return fail(`not saved: ${refused.join("; ")}`);
       const d = upsertDraft(
         ctx.data,
-        { id: str(a.id) || undefined, channel: ch, text, note: str(a.note) },
+        {
+          id: str(a.id) || undefined,
+          channel: ch,
+          text,
+          note: str(a.note),
+          comment: str(a.comment) || undefined,
+        },
         "agent",
         ctx.now(),
       );
@@ -525,6 +549,63 @@ export const TOOLS: ReadonlyArray<Tool> = [
           `saved draft ${d.id} without images: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
+    },
+  },
+  {
+    name: "preview_images",
+    description:
+      "Show image files to the user in the chat, so they can approve them before any goes into a draft. Absolute paths of PNG, JPEG, WebP or GIF files from your workspace or your image tool.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        paths: {
+          type: "array",
+          items: { type: "string" },
+          maxItems: DRAFT_IMAGES_MAX,
+          description: "Absolute paths of the images to show, in posting order",
+        },
+      },
+      required: ["paths"],
+    },
+    run: (a, ctx) => {
+      if (!ctx.filesDir) return fail("No chat folder to show them in.");
+      const paths = Array.isArray(a.paths) ? a.paths.filter((p) => typeof p === "string") : [];
+      if (!paths.length) return fail("paths is empty");
+      const shown: Array<AgentAttachment> = [];
+      const refused: Array<string> = [];
+      for (const p of paths) {
+        const read = readImageFile(p);
+        if (typeof read === "string") {
+          refused.push(read);
+          continue;
+        }
+        // readImageFile already checked; checkImage again only to name the extension right.
+        const c = checkImage(read);
+        if ("error" in c) {
+          refused.push(`${p}: ${c.error}`);
+          continue;
+        }
+        const id = newId();
+        NodeFS.mkdirSync(ctx.filesDir, { recursive: true });
+        NodeFS.writeFileSync(NodePath.join(ctx.filesDir, `${id}.${c.type}`), read);
+        shown.push({
+          id,
+          name: NodePath.basename(p).slice(0, 120),
+          mime: IMAGE_MIME[c.type],
+          size: read.length,
+          kind: "image",
+        });
+      }
+      // The manifest is how the desktop learns which attachments to hang on the answer.
+      const file = NodePath.join(ctx.filesDir, "preview.json");
+      const prev = readJson<Array<AgentAttachment>>(file) ?? [];
+      writeJson(file, [...prev, ...shown]);
+      if (!shown.length) return fail(`nothing shown: ${refused.join("; ")}`);
+      return ok(
+        `showing ${shown.length} image${shown.length > 1 ? "s" : ""} to the user` +
+          (refused.length ? ` (${refused.length} refused: ${refused.join("; ")})` : "") +
+          ". Do not attach them to a draft until the user approves.",
+      );
     },
   },
 ];

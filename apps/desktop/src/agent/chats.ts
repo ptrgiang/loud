@@ -117,6 +117,8 @@ export function chatStore(home: string) {
     },
     /** The chat's own folder: the agent's working directory, the one place it may write. */
     workspace: (id: string) => NodePath.join(workDir, id),
+    /** The chat's attachment folder, where its images live and preview_images stages files. */
+    attachmentsDir: (id: string) => NodePath.join(filesDir, id),
     /** Saves an upload for a chat; the returned path is what the CLI is given for an image. */
     saveFile: (chatId: string, attachment: AgentAttachment, bytes: Buffer) => {
       const dir = NodePath.join(filesDir, chatId);

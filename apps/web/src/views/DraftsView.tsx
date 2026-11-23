@@ -3,6 +3,7 @@ import {
   CHANNEL_LIMITS,
   CHANNEL_NAMES,
   type ChannelId,
+  composerUrl,
   type Draft,
   DRAFT_IMAGES_MAX,
 } from "@loud/contracts";
@@ -49,15 +50,6 @@ import { toast } from "~/lib/toast";
 import { cn } from "~/lib/utils";
 import { useLoud } from "~/store";
 import { useWork } from "~/workStore";
-
-/** Where the user posts it themselves. X and Threads take the text in their own share intent. */
-const composer = (id: ChannelId, text: string) =>
-  ({
-    x: `https://x.com/intent/post?text=${encodeURIComponent(text)}`,
-    threads: `https://www.threads.com/intent/post?text=${encodeURIComponent(text)}`,
-    ig: "https://www.instagram.com/",
-    fb: "https://business.facebook.com/latest/composer",
-  })[id];
 
 // The labels are UI; the asks stay English because they are prompts for the agent, not prose for the user.
 const ASKS: ReadonlyArray<{ label: MsgKey; ask: (d: EditorDraft) => string }> = [
@@ -270,9 +262,16 @@ interface EditorDraft {
   readonly channel: ChannelId;
   readonly text: string;
   readonly note: string;
+  readonly comment: string;
 }
 
-const blank = (channel: ChannelId): EditorDraft => ({ id: undefined, channel, text: "", note: "" });
+const blank = (channel: ChannelId): EditorDraft => ({
+  id: undefined,
+  channel,
+  text: "",
+  note: "",
+  comment: "",
+});
 
 function Editor({ start, onSaved }: { start: EditorDraft; onSaved: (d: Draft) => void }) {
   const t = useT();
@@ -284,19 +283,38 @@ function Editor({ start, onSaved }: { start: EditorDraft; onSaved: (d: Draft) =>
   const length = postLength(d.text, d.channel);
   const limit = CHANNEL_LIMITS[d.channel];
   const over = length > limit;
-  const dirty = d.text !== start.text || d.note !== start.note || d.channel !== start.channel;
+  const dirty =
+    d.text !== start.text ||
+    d.note !== start.note ||
+    d.comment !== start.comment ||
+    d.channel !== start.channel;
 
-  const save = async () => {
+  const save = async (): Promise<Draft | null> => {
     const saved = await saveDraft({
       ...(d.id ? { id: d.id } : {}),
       channel: d.channel,
       text: d.text,
       note: d.note,
+      // Always sent: "" is how the editor clears a comment that was set before.
+      comment: d.comment.trim(),
     });
     if (saved) {
-      setD({ id: saved.id, channel: saved.channel, text: saved.text, note: saved.note });
+      setD({
+        id: saved.id,
+        channel: saved.channel,
+        text: saved.text,
+        note: saved.note,
+        comment: saved.comment ?? "",
+      });
       onSaved(saved);
     }
+    return saved;
+  };
+
+  /** Posting needs the draft on disk first: the window reads it by id. */
+  const post = async () => {
+    const id = dirty || !d.id ? (await save())?.id : d.id;
+    if (id) void call("post.open", { id }).catch(say);
   };
 
   return (
@@ -341,6 +359,13 @@ function Editor({ start, onSaved }: { start: EditorDraft; onSaved: (d: Draft) =>
         aria-label={t("drafts.noteAria")}
         onValueChange={(note) => setD({ ...d, note })}
       />
+      <Textarea
+        value={d.comment}
+        rows={2}
+        placeholder={t("drafts.commentPlaceholder")}
+        aria-label={t("drafts.commentAria")}
+        onChange={(e) => setD({ ...d, comment: e.target.value })}
+      />
       <DraftImages id={d.id} />
       <div className="flex flex-wrap items-center gap-1.5">
         <Button size="sm" disabled={!d.text.trim() || !dirty} onClick={() => void save()}>
@@ -360,14 +385,19 @@ function Editor({ start, onSaved }: { start: EditorDraft; onSaved: (d: Draft) =>
           {copied ? <Check /> : <Copy />}
           {copied ? t("common.copied") : t("common.copy")}
         </Button>
+        <Button size="sm" disabled={!d.text.trim() || over} onClick={() => void post()}>
+          <ExternalLink />
+          {t("drafts.post", { name: CHANNEL_NAMES[d.channel] })}
+        </Button>
+        {/* Fallback when the posting window is not wanted: the composer in the system browser. */}
         <Button
           size="sm"
-          variant="outline"
+          variant="ghost-muted"
           disabled={!d.text.trim() || over}
-          onClick={() => void call("links.open", { url: composer(d.channel, d.text) })}
+          title={t("drafts.openExternal", { name: CHANNEL_NAMES[d.channel] })}
+          onClick={() => void call("links.open", { url: composerUrl(d.channel, d.text) })}
         >
           <ExternalLink />
-          {t("drafts.open", { name: CHANNEL_NAMES[d.channel] })}
         </Button>
       </div>
       <div className="flex flex-wrap items-center gap-1.5 border-t pt-3">
@@ -405,7 +435,8 @@ export function DraftsView() {
     void loadAgent();
   }, [loadDrafts, loadAgent]);
 
-  const current = selected ?? (drafts[0] ? { ...drafts[0] } : null);
+  const asEditor = (d: Draft): EditorDraft => ({ ...d, comment: d.comment ?? "" });
+  const current = selected ?? (drafts[0] ? asEditor(drafts[0]) : null);
 
   return (
     <>
@@ -438,7 +469,7 @@ export function DraftsView() {
                 <button
                   type="button"
                   data-active={current.id === d.id}
-                  onClick={() => setSelected({ ...d })}
+                  onClick={() => setSelected(asEditor(d))}
                   className="flex w-full cursor-pointer flex-col gap-1 px-4 py-3 text-left hover:bg-accent data-[active=true]:bg-accent"
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -479,7 +510,7 @@ export function DraftsView() {
               <Editor
                 key={`${current.id ?? "new"}:${drafts.find((x) => x.id === current.id)?.updated ?? ""}`}
                 start={current}
-                onSaved={(d) => setSelected({ ...d })}
+                onSaved={(d) => setSelected(asEditor(d))}
               />
             </div>
           </div>
