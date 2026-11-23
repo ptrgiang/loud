@@ -91,9 +91,17 @@ async function receive(request: Request, env: Env): Promise<Response> {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
-/** Turning sharing off in the app deletes what that install sent. */
-async function forget(install: string, env: Env): Promise<Response> {
+/** Turning sharing off in the app deletes what that install sent. Capped per IP like reports, so it cannot sweep. */
+async function forget(install: string, env: Env, request: Request): Promise<Response> {
   if (!UUID.test(install)) return json({ error: "not an install id" }, 400);
+  const day = new Date().toISOString().slice(0, 10);
+  const seen = await env.DB.prepare(
+    `INSERT INTO posters (iphash, day, n) VALUES (?1, ?2, 1)
+     ON CONFLICT (iphash, day) DO UPDATE SET n = n + 1 RETURNING n`,
+  )
+    .bind(await ipHash(request), day)
+    .first<{ n: number }>();
+  if ((seen?.n ?? 0) > MAX_PER_IP_DAY) return json({ error: "too many requests today" }, 429);
   await env.DB.prepare("DELETE FROM reports WHERE install = ?1").bind(install).run();
   return json({ ok: true });
 }
@@ -204,7 +212,7 @@ export default {
     if (install) {
       if (request.method !== "DELETE")
         return json({ error: "DELETE only" }, 405, { Allow: "DELETE" });
-      return forget(install, env);
+      return forget(install, env, request);
     }
     if (pathname === "/api/stats") {
       if (request.method !== "GET") return json({ error: "GET only" }, 405, { Allow: "GET" });

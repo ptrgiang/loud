@@ -10,6 +10,7 @@ import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
 
 import { stampNow } from "../agent/drafts.ts";
+import { BRAND } from "../brand.ts";
 import { SettingsStore } from "../settings/SettingsStore.ts";
 import { EventBus } from "./EventBus.ts";
 import { Log } from "./Log.ts";
@@ -76,6 +77,14 @@ export const layer = Layer.effect(
       autoUpdater.on("update-downloaded", (info) => {
         log.info(`update ${info.version} downloaded`);
         set({ state: "ready", version: info.version, progress: 100 });
+        try {
+          new Electron.Notification({
+            title: `${BRAND.name} ${info.version} is ready`,
+            body: "Restart to update.",
+          }).show();
+        } catch {
+          // No display server: the sidebar row still shows it.
+        }
       });
       autoUpdater.on("error", (e) => {
         const msg = e.message.split("\n")[0]!;

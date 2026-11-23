@@ -11,6 +11,7 @@ import {
   type CollectStatus,
   type CollectStep,
   type ListenFile,
+  type ListenItem,
   LISTEN_KEYS,
   type StepState,
 } from "@loud/contracts";
@@ -129,7 +130,8 @@ export const layer = Layer.effect(
 
     const missing = (id: ChannelId) => {
       const p = Effect.runSync(settings.get).platforms[id];
-      return !p.handle || (id === "fb" && (!p.assetId || !p.pages?.length));
+      // The Pages list is only needed to offer a Page pick; once one is chosen, detect stops running every collect.
+      return !p.handle || (id === "fb" && !p.assetId && !p.pages?.length);
     };
     const detecting = new Map<ChannelId, Promise<void>>();
     const lastTry = new Map<ChannelId, number>();
@@ -186,7 +188,9 @@ export const layer = Layer.effect(
 
       if (step === "listen") {
         const old = readJson<ListenFile>(NodePath.join(paths.data, "listen.json"));
-        const kept = new Map((old?.items ?? []).map((i) => [i.url ?? `${i.channel}${i.text}`, i]));
+        // Two posts sharing text but from different authors are different posts.
+        const keyOf = (i: ListenItem) => i.url ?? `${i.channel}${i.author}${i.text}`;
+        const kept = new Map((old?.items ?? []).map((i) => [keyOf(i), i]));
         let count = 0;
         const notes: Array<string> = [];
         for (const id of ready) {
@@ -203,7 +207,7 @@ export const layer = Layer.effect(
               progress: (detail, n) =>
                 setStep(step, { detail: `${id}: ${detail}`, count: count + n }),
             });
-            for (const r of rows) kept.set(r.url ?? `${r.channel}${r.text}`, r);
+            for (const r of rows) kept.set(keyOf(r), r);
             count += rows.length;
           } catch (e) {
             if (e instanceof Blocked || signal.aborted)
@@ -216,7 +220,8 @@ export const layer = Layer.effect(
         }
         writeJson(NodePath.join(paths.data, "listen.json"), {
           collected: wallClock(new Date(), tz),
-          items: [...kept.values()].filter((i) => (i.posted ?? "") >= s.since),
+          // A date the parser can't read shouldn't cost the result — keep it rather than drop it.
+          items: [...kept.values()].filter((i) => !i.posted || i.posted >= s.since),
         } satisfies ListenFile);
         return setStep(step, {
           status: signal.aborted ? "stopped" : notes.length && !count ? "failed" : "done",
@@ -259,7 +264,11 @@ export const layer = Layer.effect(
           progress: (detail, count) => setStep(step, { detail, count }),
         });
         writeJson(out, written);
-        const emptyRuns = written.posts.length === 0 ? (scan[id]?.emptyRuns ?? 0) + 1 : 0;
+        // Posts without a single view count too: the parser likely changed, not the account.
+        const emptyRuns =
+          written.posts.length === 0 || written.posts.every((p) => p.views == null)
+            ? (scan[id]?.emptyRuns ?? 0) + 1
+            : 0;
         writeJson(stateFile, {
           ...scan,
           [id]: {
@@ -279,6 +288,14 @@ export const layer = Layer.effect(
           status: signal.aborted ? "stopped" : "failed",
           detail: e instanceof Error ? e.message : String(e),
         });
+        // A pause is easy to miss with the window closed; the OS says it.
+        if (e instanceof Blocked) {
+          try {
+            new Electron.Notification({ title: `Loud paused ${id}`, body: e.message }).show();
+          } catch {
+            // No display server: the pause still shows in the app.
+          }
+        }
       } finally {
         reader.close();
       }
@@ -324,30 +341,34 @@ export const layer = Layer.effect(
         log.info(`collect run started: ${steps.join(", ")}`);
         yield* Effect.forkDetach(
           Effect.promise(async () => {
-            for (const step of steps) {
-              if (ctl.signal.aborted) {
-                setStep(step, { status: "stopped", detail: "stopped" });
-                continue;
-              }
-              setStep(step, { status: "running", detail: "starting" });
-              await runStep(step, input.full ?? false, ctl.signal).catch((e: unknown) =>
-                setStep(step, {
-                  status: "failed",
-                  detail: e instanceof Error ? e.message : String(e),
-                }),
-              );
-              const ended = status.steps.find((s) => s.step === step);
-              if (ended) {
-                usage.record(step, ended.status, ended.detail);
-                (ended.status === "failed" ? log.warn : log.info)(
-                  `collect ${step}: ${ended.status}${ended.detail ? ` — ${ended.detail}` : ""}`,
+            try {
+              for (const step of steps) {
+                if (ctl.signal.aborted) {
+                  setStep(step, { status: "stopped", detail: "stopped" });
+                  continue;
+                }
+                setStep(step, { status: "running", detail: "starting" });
+                await runStep(step, input.full ?? false, ctl.signal).catch((e: unknown) =>
+                  setStep(step, {
+                    status: "failed",
+                    detail: e instanceof Error ? e.message : String(e),
+                  }),
                 );
+                const ended = status.steps.find((s) => s.step === step);
+                if (ended) {
+                  usage.record(step, ended.status, ended.detail);
+                  (ended.status === "failed" ? log.warn : log.info)(
+                    `collect ${step}: ${ended.status}${ended.detail ? ` — ${ended.detail}` : ""}`,
+                  );
+                }
               }
+              await Effect.runPromise(builder.build);
+            } finally {
+              // Whatever ended the run — a defect in a step or in the build counts too: mark it done and re-arm.
+              abort = null;
+              status = { ...status, running: false, finished: stamp() };
+              arm();
             }
-            await Effect.runPromise(builder.build);
-            abort = null;
-            status = { ...status, running: false, finished: stamp() };
-            arm();
           }),
         );
         return status;

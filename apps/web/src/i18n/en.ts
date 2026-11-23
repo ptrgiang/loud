@@ -254,6 +254,11 @@ export const en = {
 
   "set.general": "General",
   "set.locale": "Language",
+  "set.theme": "Theme",
+  "set.theme.hint": "System follows the OS and flips when it does.",
+  "set.theme.system": "System",
+  "set.theme.light": "Light",
+  "set.theme.dark": "Dark",
   "set.locale.hint":
     "The dashboard's language. Dates, numbers and platform names stay as they are.",
   "set.timezone": "Time zone",

@@ -21,6 +21,7 @@ import {
   type Row,
   threadsPostNumbers,
   threadsProfile,
+  threadsScheduled,
   threadsSearch,
   xFollowers,
   xListen,
@@ -180,8 +181,26 @@ export async function collectThreads(input: CollectInput): Promise<ChannelFile> 
     fresh.push({ ...p, ...threadsPostNumbers(page.objs, p.id) });
     input.progress(`${fresh.length} of ${want.length} posts`, fresh.length);
   }
-  // The queue sits behind the composer's Drafts dialog; Loud does not drive the composer, so it is left unknown.
-  return file(input, plan, fresh, followers, null);
+  // The queue is the composer's Drafts dialog: open the composer, switch to Drafts, and its graphql answer is
+  // captured like any other. If a click finds nothing the queue is left unknown, never "empty".
+  const queue = await (async (): Promise<Array<Queued> | null> => {
+    await reader.open(`${THREADS}/`, { capture: META_GQL, timeoutMs: 8_000 });
+    const opened = await reader.evaluate<number>(
+      `(()=>{const b=[...document.querySelectorAll('a,button')].find(x=>/new\\s*thread|create/i.test((x.getAttribute('aria-label')||'')+' '+(x.innerText||'')));if(!b)return 0;b.click();return 1})()`,
+    );
+    if (!opened) return null;
+    await new Promise((r) => setTimeout(r, 700));
+    await reader.evaluate<number>(
+      `(()=>{const b=[...document.querySelectorAll('button,[role="tab"]')].find(x=>/^drafts$/i.test((x.innerText||'').trim()));if(!b)return 0;b.click();return 1})()`,
+    );
+    const page = await reader.more({
+      capture: META_GQL,
+      timeoutMs: 8_000,
+      until: (objs) => threadsScheduled(objs, tz) !== null,
+    });
+    return threadsScheduled(page.objs, tz);
+  })().catch(() => null);
+  return file(input, plan, fresh, followers, queue);
 }
 
 // ---- Instagram ----
@@ -286,20 +305,20 @@ export async function collectFacebook(input: CollectInput): Promise<ChannelFile>
     embedKeys: ["row_id"],
     until: (objs) => fbRows(objs, page, tz).length > 0,
   });
-  const rows = fbRows(pub.objs, page, tz)
-    .filter(
-      (r) =>
-        !r.scheduled &&
-        (r.row.posted ?? "") >= input.scanFrom &&
-        !fbIsProfileChange(r.row.text ?? ""),
-    )
-    .map((r) => r.row);
-  const stored = new Set((input.old?.posts ?? []).map((p) => p.id));
-  const plan: ReadPlan = {
-    old: input.old?.posts ?? [],
-    read: rows.slice(0, MAX_POST_PAGES),
-    listedOnly: rows.slice(MAX_POST_PAGES).filter((r) => !stored.has(r.id)),
-  };
+  // The published list paginates like every platform's: scroll until it has gone past the rescan window, so a full
+  // read that reached the start date can drop stored posts Facebook no longer shows.
+  const listed = await scrollFor(
+    reader,
+    (objs) =>
+      fbRows(objs, page, tz)
+        .filter((r) => !r.scheduled && !fbIsProfileChange(r.row.text ?? ""))
+        .map((r) => r.row),
+    FB_ANSWERS,
+    pub.objs,
+    input.scanFrom,
+    input.full ? 12 : 3,
+  );
+  const plan = readPlan(input, listed);
   input.progress(`Business Suite read, ${plan.read.length} posts to update`, 0);
   const fresh: Array<CollectedPost> = [];
   for (const r of plan.read) {
@@ -354,7 +373,11 @@ export async function collectX(input: CollectInput): Promise<ChannelFile> {
     timeoutMs: 10_000,
     until: (objs) => xScheduled(objs, tz) !== null,
   });
-  const plan: ReadPlan = { old: input.old?.posts ?? [], read: [], listedOnly: [] };
+  // With the list read past the start date, a stored post it did not show is gone — drop it.
+  const plan = readPlan(
+    input,
+    [...seen.values()].map((t) => xRow(t, handle)),
+  );
   return file(input, plan, fresh, followers, xScheduled(queue.objs, tz));
 }
 
@@ -382,22 +405,120 @@ const PER_QUERY = 25;
 
 /** Facebook's own words for a time ("3 hours ago", "Yesterday", "10 September", "8 Mar 2024") as a stamp. */
 export function fbDate(s: string, now: Date, tz: string): string {
-  const t = s.trim().toLowerCase();
+  // Strip accents once: "hôm qua"→"hom qua", "févr."→"fevr." — matching stays on plain letters.
+  const t = s
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}+/gu, "");
   const base = parseStamp(wallClock(now, tz)) ?? now.getTime();
-  const rel = /^(\d+)\s*(m|mins?|minutes?|h|hrs?|hours?|d|days?|w|wks?|weeks?|y|years?)\b/.exec(t);
+  // "20 tháng 11" is a date, not "20 months ago" — the Vietnamese date pattern wins, so "thang" is not a month unit here.
+  const viDate = /^(\d{1,2}) thang (\d{1,2})(?:,? (\d{4}))?/.exec(t);
+  const rel = viDate
+    ? null
+    : /^(?:il y a |hace |ha |vor )?(\d+)\s*(m|min|mins|minute|minutes|minuto|minutos|minuten|phut|h|hr|hrs|hour|hours|gio|hora|horas|heure|heures|stunde|stunden|d|day|days|dia|dias|jour|jours|ngay|tag|tage|w|wk|wks|week|weeks|semana|semanas|semaine|semaines|tuan|woche|wochen|y|yr|yrs|year|years|ano|anos|an|jahr|mes|meses|mois|monat|monate|month|months|sem)\b/.exec(
+        t,
+      );
   if (rel) {
-    const unit = rel[2]![0] as "m" | "h" | "d" | "w" | "y";
-    const ms = { m: 60_000, h: 3_600_000, d: 864e5, w: 7 * 864e5, y: 365 * 864e5 }[unit];
-    return formatStamp(base - Number(rel[1]) * ms);
+    const ms =
+      {
+        m: 60_000,
+        min: 60_000,
+        mins: 60_000,
+        minute: 60_000,
+        minutes: 60_000,
+        minuto: 60_000,
+        minutos: 60_000,
+        minuten: 60_000,
+        phut: 60_000,
+        h: 3_600_000,
+        hr: 3_600_000,
+        hrs: 3_600_000,
+        hour: 3_600_000,
+        hours: 3_600_000,
+        gio: 3_600_000,
+        hora: 3_600_000,
+        horas: 3_600_000,
+        heure: 3_600_000,
+        heures: 3_600_000,
+        stunde: 3_600_000,
+        stunden: 3_600_000,
+        d: 864e5,
+        day: 864e5,
+        days: 864e5,
+        dia: 864e5,
+        dias: 864e5,
+        jour: 864e5,
+        jours: 864e5,
+        ngay: 864e5,
+        tag: 864e5,
+        tage: 864e5,
+        w: 7 * 864e5,
+        wk: 7 * 864e5,
+        wks: 7 * 864e5,
+        week: 7 * 864e5,
+        weeks: 7 * 864e5,
+        semana: 7 * 864e5,
+        semanas: 7 * 864e5,
+        semaine: 7 * 864e5,
+        semaines: 7 * 864e5,
+        tuan: 7 * 864e5,
+        woche: 7 * 864e5,
+        wochen: 7 * 864e5,
+        y: 365 * 864e5,
+        yr: 365 * 864e5,
+        yrs: 365 * 864e5,
+        year: 365 * 864e5,
+        years: 365 * 864e5,
+        ano: 365 * 864e5,
+        anos: 365 * 864e5,
+        an: 365 * 864e5,
+        jahr: 365 * 864e5,
+        mes: 30 * 864e5,
+        meses: 30 * 864e5,
+        mois: 30 * 864e5,
+        monat: 30 * 864e5,
+        monate: 30 * 864e5,
+        month: 30 * 864e5,
+        months: 30 * 864e5,
+      }[rel[2]!] ?? 0;
+    if (ms) {
+      const at = base - Number(rel[1]) * ms;
+      // "2 days ago" points at the day; "5 minutes ago" keeps the clock.
+      return ms >= 864e5 ? `${formatStamp(at).slice(0, 10)} 00:00` : formatStamp(at);
+    }
   }
-  if (t.startsWith("yesterday")) return formatStamp(base - 864e5).slice(0, 10) + " 00:00";
-  if (t.startsWith("today") || t === "just now") return formatStamp(base);
-  const MON = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
-  const dm = /^(\d{1,2}) ([a-z]{3})[a-z]*(?: (\d{4}))?/.exec(t) ?? null;
+  if (/^(yesterday|ayer|hier|ontem|hom qua)\b/.test(t))
+    return formatStamp(base - 864e5).slice(0, 10) + " 00:00";
+  if (/^(today|hoy|heute|hoje|aujourd'hui|aujourdhui|hom nay)\b/.test(t) || t === "just now")
+    return formatStamp(base);
+  const MONTHS = new Map<string, number>();
+  const names = [
+    "jan ene janv",
+    "feb fev fevr",
+    "mar mars",
+    "apr abr avr",
+    "may mai mag",
+    "jun juin",
+    "jul juil",
+    "aug ago aout",
+    "sep set sept",
+    "oct out okt",
+    "nov",
+    "dec dic dez des",
+  ];
+  names.forEach((list, i) => list.split(" ").forEach((m) => MONTHS.set(m, i)));
+  // "20 tháng 11" in Vietnamese; "10 September" elsewhere.
+  const dm = viDate ?? /^(\d{1,2}) ([a-z]{2,4})[a-z]*(?:,? (\d{4}))?/.exec(t);
   const md = /^([a-z]{3})[a-z]* (\d{1,2})(?:, (\d{4}))?/.exec(t) ?? null;
   const [day, mon, year] = dm ? [dm[1], dm[2], dm[3]] : md ? [md[2], md[1], md[3]] : [];
-  const mi = mon ? MON.indexOf(mon) : -1;
-  if (!day || mi < 0) return "";
+  let mi = -1;
+  if (mon) {
+    mi = /^\d{1,2}$/.test(mon)
+      ? Number(mon) - 1
+      : (MONTHS.get(mon.slice(0, 4)) ?? MONTHS.get(mon.slice(0, 3)) ?? -1);
+  }
+  if (!day || mi < 0 || mi > 11) return "";
   const y = year ? Number(year) : new Date(base).getUTCFullYear();
   let at = Date.UTC(y, mi, Number(day));
   if (!year && at > base) at = Date.UTC(y - 1, mi, Number(day));
@@ -479,7 +600,8 @@ async function searchOne(input: ListenInput, q: string): Promise<Array<ListenRow
 export async function listen(input: ListenInput): Promise<Array<CollectedListenItem>> {
   const out: Array<CollectedListenItem> = [];
   for (const q of input.queries.slice(0, MAX_QUERIES)) {
-    const rows = (await searchOne(input, q)).filter((r) => (r.posted ?? "") >= input.since);
+    // An unparseable date keeps its result: dropping it silently loses the hit entirely.
+    const rows = (await searchOne(input, q)).filter((r) => !r.posted || r.posted >= input.since);
     out.push(...rows.slice(0, PER_QUERY));
     input.progress(`"${q}": ${rows.length} results`, out.length);
   }

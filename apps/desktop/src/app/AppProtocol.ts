@@ -26,7 +26,7 @@ const CSP = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: https:",
+  "img-src 'self' data:",
   "font-src 'self' data:",
   "connect-src 'self'",
   "frame-src 'none'",
@@ -58,15 +58,25 @@ export const handle = (webRoot: string, dataDir: string) =>
       if (media) {
         try {
           const file = draftMediaPath(dataDir, media[1]!, media[2]!);
-          const response = await Electron.net.fetch(NodeUrl.pathToFileURL(file).toString());
-          return new Response(response.body, {
-            status: response.status,
-            headers: new Headers({
-              "Content-Type": draftMediaMime(media[2]!),
-              "Cache-Control": "no-store",
-              "X-Content-Type-Options": "nosniff",
-            }),
+          const headers = new Headers({
+            "Content-Type": draftMediaMime(media[2]!),
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+            "Accept-Ranges": "bytes",
           });
+          // A player asks for a range when seeking; answer it byte-exact.
+          const range = /^bytes=(\d+)-(\d*)$/.exec(request.headers.get("Range") ?? "");
+          if (range) {
+            const bytes = NodeFS.readFileSync(file);
+            const start = Math.min(Number(range[1]), bytes.length);
+            const end = range[2] ? Math.min(Number(range[2]), bytes.length - 1) : bytes.length - 1;
+            if (end < start) return new Response("bad range", { status: 416 });
+            headers.set("Content-Range", `bytes ${start}-${end}/${bytes.length}`);
+            headers.set("Content-Length", String(end - start + 1));
+            return new Response(bytes.subarray(start, end + 1), { status: 206, headers });
+          }
+          const response = await Electron.net.fetch(NodeUrl.pathToFileURL(file).toString());
+          return new Response(response.body, { status: response.status, headers });
         } catch {
           return new Response("not found", { status: 404 });
         }

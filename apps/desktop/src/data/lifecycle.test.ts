@@ -40,7 +40,7 @@ describe("exportAll", () => {
 });
 
 describe("deleteCollected", () => {
-  it("removes collected data but keeps drafts, their images and the demo marker", () => {
+  it("removes collected data and the demo marker but keeps drafts and their media", () => {
     const data = tmp();
     for (const name of [
       "threads.json",
@@ -64,9 +64,11 @@ describe("deleteCollected", () => {
       "proposals.json",
       "history",
       "exports",
+      // Delete all leaves demo mode too, so collection can run without an extra click.
+      "loud-demo.json",
     ])
       expect(NodeFS.existsSync(NodePath.join(data, gone))).toBe(false);
-    for (const kept of ["drafts.json", "loud-demo.json", "drafts/d1/aabbccddeeff0011.png"])
+    for (const kept of ["drafts.json", "drafts/d1/aabbccddeeff0011.png"])
       expect(NodeFS.existsSync(NodePath.join(data, kept))).toBe(true);
   });
 

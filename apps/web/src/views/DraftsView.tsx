@@ -84,27 +84,15 @@ const say = (e: unknown) => toast("error", e instanceof Error ? e.message : Stri
 function Thumb({ id, name, index }: { id: string; name: string; index: number }) {
   const t = useT();
   const changeDraft = useWork((s) => s.changeDraft);
-  const [src, setSrc] = useState<string | null>(null);
-  useEffect(() => {
-    let live = true;
-    call("drafts.image", { id, name }).then(
-      (r) => live && setSrc(`data:${r.mime};base64,${r.data}`),
-      () => undefined,
-    );
-    return () => {
-      live = false;
-    };
-  }, [id, name]);
   const act = "bg-popover/90 text-popover-foreground shadow-sm hover:bg-popover";
   return (
     <figure className="group relative size-28 shrink-0 overflow-hidden rounded-lg border bg-muted">
-      {src && (
-        <img
-          src={src}
-          alt={t("drafts.imageAlt", { n: index + 1 })}
-          className="size-full object-contain"
-        />
-      )}
+      <img
+        src={`${location.origin}/media/${id}/${name}`}
+        alt={t("drafts.imageAlt", { n: index + 1 })}
+        loading="lazy"
+        className="size-full object-contain"
+      />
       <span className="absolute top-1 left-1 rounded bg-popover/90 px-1 text-2xs tabular-nums">
         {index + 1}
       </span>

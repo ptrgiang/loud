@@ -57,20 +57,35 @@ export const layer = Layer.effect(
       }
     });
 
+    // Daily files are immutable once written; keep them parsed and re-read only what changed — focus reloads used to
+    // re-parse hundreds of files every time.
+    const dir = NodePath.join(paths.data, "history");
+    const cache = new Map<string, { mtimeMs: number; row: object }>();
+
     return DataStore.of({
       hub: Effect.sync(() => readJson(NodePath.join(paths.data, "hub.json"))),
       proposals: Effect.sync(() => readJson(NodePath.join(paths.data, "proposals.json"))),
       history: Effect.sync(() => {
-        const dir = NodePath.join(paths.data, "history");
         let names: Array<string>;
         try {
           names = NodeFS.readdirSync(dir).filter((n) => n.endsWith(".json"));
         } catch {
           return [];
         }
+        const live = new Set(names);
+        for (const name of cache.keys()) if (!live.has(name)) cache.delete(name);
         return names.sort().flatMap((name) => {
-          const row = readJson(NodePath.join(dir, name));
-          return row && typeof row === "object" ? [{ day: name.slice(0, -5), ...row }] : [];
+          const file = NodePath.join(dir, name);
+          const stat = NodeFS.statSync(file);
+          const hit = cache.get(name);
+          if (hit && hit.mtimeMs === stat.mtimeMs) return [{ day: name.slice(0, -5), ...hit.row }];
+          const row = readJson(file);
+          if (!row || typeof row !== "object") {
+            cache.delete(name);
+            return [];
+          }
+          cache.set(name, { mtimeMs: stat.mtimeMs, row });
+          return [{ day: name.slice(0, -5), ...row }];
         });
       }),
     });

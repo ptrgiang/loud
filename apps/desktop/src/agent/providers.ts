@@ -58,6 +58,51 @@ export interface Provider {
 const TOOL_PREFIX = `mcp__${SERVER_NAME}__`;
 const toolName = (n: string) => (n.startsWith(TOOL_PREFIX) ? n.slice(TOOL_PREFIX.length) : n);
 
+// A turn that never ends would pin the chat forever: cut it at a day. Claude's SDK still gets maxTurns.
+const TURN_LIMIT_MS = 24 * 3_600_000;
+
+/** Only what a CLI needs to run, find its config and reach its servers — never the app's whole environment. */
+const agentEnv = (): NodeJS.ProcessEnv => {
+  const names = [
+    "PATH",
+    "HOME",
+    "USERPROFILE",
+    "APPDATA",
+    "LOCALAPPDATA",
+    "SYSTEMROOT",
+    "SYSTEMDRIVE",
+    "TMP",
+    "TEMP",
+    "USER",
+    "SHELL",
+    "TERM",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+    "TZ",
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "NO_PROXY",
+    "SSL_CERT_FILE",
+    "NODE_EXTRA_CA_CERTS",
+    "XDG_CONFIG_HOME",
+    "XDG_CACHE_HOME",
+    "ProgramFiles",
+    "COMSPEC",
+    "PATHEXT",
+    "PSModulePath",
+    "NUMBER_OF_PROCESSORS",
+    "PROCESSOR_ARCHITECTURE",
+    "OS",
+  ];
+  const out: Record<string, string> = {};
+  for (const k of names) {
+    const v = process.env[k];
+    if (typeof v === "string") out[k] = v;
+  }
+  return out;
+};
+
 /** First match on PATH (and the usual install folders), with Windows' executable extensions. */
 export function findOnPath(name: string, extra: ReadonlyArray<string> = []): string | null {
   const dirs = [...(process.env.PATH ?? "").split(NodePath.delimiter), ...extra].filter(Boolean);
@@ -173,7 +218,8 @@ const claude: Provider = {
         ...(turn.effort ? { effort: turn.effort as EffortLevel } : {}),
         ...(turn.resume ? { resume: turn.resume } : {}),
         env: {
-          ...process.env,
+          // The agent inherits only what a CLI needs to run and authenticate — never the whole environment.
+          ...agentEnv(),
           ELECTRON_RUN_AS_NODE: undefined,
           ENABLE_CLAUDEAI_MCP_SERVERS: "false",
           CLAUDE_CODE_AUTO_CONNECT_IDE: "0",
@@ -295,7 +341,7 @@ const codex: Provider = {
       const child = NodeChild.spawn(exe, args, {
         cwd: turn.cwd,
         windowsHide: true,
-        env: { ...process.env, ELECTRON_RUN_AS_NODE: undefined },
+        env: { ...agentEnv(), ELECTRON_RUN_AS_NODE: undefined },
       });
       // Codex exec has no system prompt option; a first turn carries the instructions ahead of the question.
       child.stdin.end(turn.resume ? turn.prompt : `${turn.system}\n\n---\n\n${turn.prompt}`);
@@ -306,6 +352,10 @@ const codex: Provider = {
       child.stderr.on("data", (d: Buffer) => (stderr = (stderr + d.toString()).slice(-2000)));
       const kill = () => child.kill();
       turn.signal.addEventListener("abort", kill, { once: true });
+      const cap = setTimeout(() => {
+        error = "the turn hit the time limit";
+        child.kill();
+      }, TURN_LIMIT_MS);
       NodeReadline.createInterface({ input: child.stdout }).on("line", (line) => {
         let ev: Record<string, unknown>;
         try {
@@ -329,6 +379,7 @@ const codex: Provider = {
       });
       child.on("error", (e) => (error = e.message));
       child.on("close", (code) => {
+        clearTimeout(cap);
         turn.signal.removeEventListener("abort", kill);
         if (code && !error && !turn.signal.aborted)
           error = stderr.trim().split("\n").pop() || `codex exited with ${code}`;

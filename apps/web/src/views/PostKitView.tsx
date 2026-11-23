@@ -16,26 +16,14 @@ const say = (e: unknown) => toast("error", e instanceof Error ? e.message : Stri
 
 function KitImage({ id, name, index }: { id: string; name: string; index: number }) {
   const t = useT();
-  const [src, setSrc] = useState<string | null>(null);
-  useEffect(() => {
-    let live = true;
-    call("drafts.image", { id, name }).then(
-      (r) => live && setSrc(`data:${r.mime};base64,${r.data}`),
-      () => undefined,
-    );
-    return () => {
-      live = false;
-    };
-  }, [id, name]);
   return (
     <figure className="relative overflow-hidden rounded-lg border bg-muted">
-      {src && (
-        <img
-          src={src}
-          alt={t("drafts.imageAlt", { n: index + 1 })}
-          className="max-h-48 w-full object-contain"
-        />
-      )}
+      <img
+        src={`${location.origin}/media/${id}/${name}`}
+        alt={t("drafts.imageAlt", { n: index + 1 })}
+        loading="lazy"
+        className="max-h-48 w-full object-contain"
+      />
       <div className="absolute right-1 bottom-1 flex gap-1">
         <Button
           size="icon-xs"

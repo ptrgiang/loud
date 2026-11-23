@@ -23,6 +23,10 @@ export const isCheckpoint = (requested: string, landed: string) => {
   return CHECKPOINT_URL.test(path(landed)) && !CHECKPOINT_URL.test(path(requested));
 };
 
+/** A check that lands without a redirect shows itself in the markup, not the address. */
+const CHECKPOINT_HTML =
+  /(challenge_required|captcha_challenge|confirm your identity|verify your identity|prove your identity|account has been (locked|restricted|suspended)|we need to confirm it'?s you)/i;
+
 export interface OpenOptions {
   /** Answers worth keeping: their URL matches this. */
   readonly capture: RegExp;
@@ -112,26 +116,34 @@ export class PageReader {
     throw new Blocked(this.id, why);
   }
 
-  private check(requested: string) {
+  private check(requested: string, html = "") {
     if (this.limited) {
       this.limited = false;
       this.stop("limit");
     }
     const landed = this.win?.webContents.getURL() ?? "";
-    if (isCheckpoint(requested, landed)) this.stop("checkpoint", landed);
+    if (isCheckpoint(requested, landed) || CHECKPOINT_HTML.test(html))
+      this.stop("checkpoint", landed);
   }
 
   private async settle(opts: OpenOptions, url: string): Promise<Page> {
     const deadline = Date.now() + (opts.timeoutMs ?? 12_000);
     const wc = this.window().webContents;
     let html = "";
+    let lastHtml = "";
+    let embeds: Array<unknown> = [];
     for (;;) {
       if (this.signal.aborted) throw new Error("stopped");
-      this.check(url);
       html = String(
         await wc.executeJavaScript("document.documentElement.outerHTML").catch(() => ""),
       );
-      const objs = [...(opts.embedKeys ?? []).flatMap((k) => embedded(html, k)), ...this.captured];
+      this.check(url, html);
+      // Embedded blocks only move when the page does; re-parsing an unchanged megabyte per 300ms poll is waste.
+      if (html !== lastHtml) {
+        embeds = (opts.embedKeys ?? []).flatMap((k) => embedded(html, k));
+        lastHtml = html;
+      }
+      const objs = [...embeds, ...this.captured];
       if (!opts.until || opts.until(objs) || Date.now() > deadline)
         return { url: wc.getURL(), html, objs };
       await new Promise((r) => setTimeout(r, POLL_MS));
@@ -151,12 +163,14 @@ export class PageReader {
     return this.settle(opts, url);
   }
 
-  /** Scroll for more; keeps what was captured so far. */
+  /** Scroll for more; keeps what was captured so far. Staged steps read like a person scrolling, not a teleport. */
   async more(opts: OpenOptions): Promise<Page> {
     await this.limiter.take(this.id, this.signal);
     const wc = this.window().webContents;
     await wc
-      .executeJavaScript("window.scrollBy(0, document.body.scrollHeight)")
+      .executeJavaScript(
+        `(async()=>{const step=Math.min(Math.max(innerHeight,600),1400);for(let i=0;i<3;i++){scrollBy(0,step);await new Promise(r=>setTimeout(r,180))}})()`,
+      )
       .catch(() => undefined);
     return this.settle(opts, wc.getURL());
   }

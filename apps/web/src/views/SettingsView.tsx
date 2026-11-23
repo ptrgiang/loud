@@ -25,6 +25,7 @@ import { Select } from "~/components/ui/select";
 import { Switch } from "~/components/ui/switch";
 import { Textarea } from "~/components/ui/textarea";
 import { LOCALES, useLocale, useT, type Locale } from "~/i18n";
+import { useTheme, type ThemeMode } from "~/lib/theme";
 import { call } from "~/lib/loud";
 import { cn } from "~/lib/utils";
 import { useLoud } from "~/store";
@@ -73,6 +74,29 @@ function LocaleSelect() {
   );
 }
 
+/** "System" follows the OS and flips when it does. */
+function ThemeSelect() {
+  const t = useT();
+  const mode = useTheme((s) => s.mode);
+  const setMode = useTheme((s) => s.setMode);
+  return (
+    <Row label={t("set.theme")} hint={t("set.theme.hint")}>
+      <Select
+        className="w-40"
+        value={mode}
+        aria-label={t("set.theme")}
+        onChange={(e) => setMode(e.target.value as ThemeMode)}
+      >
+        {(["system", "light", "dark"] as const).map((m) => (
+          <option key={m} value={m}>
+            {t(`set.theme.${m}`)}
+          </option>
+        ))}
+      </Select>
+    </Row>
+  );
+}
+
 function General() {
   const t = useT();
   const info = useLoud((s) => s.info);
@@ -96,6 +120,7 @@ function General() {
     <Card title={t("set.general")}>
       <div className="divide-y">
         <LocaleSelect />
+        <ThemeSelect />
         <Row label={t("set.timezone")} hint={t("set.timezone.hint")}>
           <Input
             size="sm"

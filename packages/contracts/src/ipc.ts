@@ -22,6 +22,7 @@ import {
   CollectStart,
   CollectStatus,
 } from "./collect.ts";
+import type { HistoryDay, Hub, Proposals } from "./hub.ts";
 import { PlatformUpdate, PlatformView } from "./platform.ts";
 import { GeneralUpdate, Keywords } from "./settings.ts";
 import { UpdateSettings, UpdateStatus } from "./updates.ts";
@@ -30,6 +31,14 @@ import { UsageReport, UsageStatus } from "./usage.ts";
 const None = Schema.Struct({});
 const ById = Schema.Struct({ id: ChannelId });
 const DraftImageRef = Schema.Struct({ id: Schema.String, name: Schema.String });
+
+const isObj = (u: unknown) => u !== null && typeof u === "object" && !Array.isArray(u);
+/** Built files keep their full TS types; the guard only promises "a JSON object". */
+const HubFile = Schema.declare((u): u is Hub => isObj(u));
+const ProposalsFile = Schema.declare((u): u is Proposals => isObj(u));
+const HistoryFile = Schema.Array(
+  Schema.declare((u): u is HistoryDay => isObj(u) && typeof (u as HistoryDay).day === "string"),
+);
 
 export const AppInfo = Schema.Struct({
   name: Schema.String,
@@ -56,9 +65,9 @@ export const IpcMethods = {
   "keywords.get": { input: None, output: Keywords },
   "keywords.set": { input: Keywords, output: Keywords },
   /** Built data files, as JSON. Null when the file is not there yet. */
-  "data.hub": { input: None, output: Schema.Unknown },
-  "data.proposals": { input: None, output: Schema.Unknown },
-  "data.history": { input: None, output: Schema.Unknown },
+  "data.hub": { input: None, output: Schema.NullOr(HubFile) },
+  "data.proposals": { input: None, output: Schema.NullOr(ProposalsFile) },
+  "data.history": { input: None, output: HistoryFile },
   "links.open": { input: Schema.Struct({ url: Schema.String }), output: Schema.Struct({}) },
   /** Writes a CSV of the posts into the data folder and shows it in the file manager. */
   "data.exportPosts": { input: None, output: Schema.Struct({ file: Schema.String }) },

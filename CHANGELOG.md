@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+## 0.1.11-beta.8 (2026-11-23)
+
+- Collection can't get stuck "running" anymore: a crash inside a run now always ends the run and re-arms the timer.
+- Settings no longer flashes "Saved" when a value didn't take — an invalid timezone or start date says so.
+- Switching to a different account on a platform re-reads the handle; Loud can no longer collect the old account's page silently.
+- Delete all on the demo folder now leaves demo mode, so collection can run without an extra click.
+- Facebook reads the whole published list instead of the first page, and drops posts deleted on Facebook and X when a re-scan proves they're gone.
+- Threads' scheduled posts are read, so the Plan queue shows them instead of "queue not readable".
+- Listening on Facebook keeps results whose date can't be parsed, and reads dates in more languages.
+- A checkpoint or captcha that doesn't change the URL is still caught and pauses the platform for 24 hours.
+- Handles reject characters that can't appear in a profile name.
+- Two listening posts with identical text by different authors no longer merge into one.
+- Pauses, checkpoints and ready-to-install updates now show an OS notification — you don't have to open the window to find out.
+- Each post keeps its numbers over time, so views and engagement draw a trend instead of only the latest count.
+- The dashboard opens in your system's language when English or Vietnamese matches; the theme gains a "system" option.
+- The dashboard reloads faster on focus: daily history is read once and cached, not re-parsed every time.
+- A crashed dashboard reloads itself instead of leaving a dead white window.
+- Draft images load through the app's media route like videos do, and videos can seek.
+- Connections no longer re-detects Facebook Pages every run when the Page was picked by hand.
+- README and docs now say which platforms were checked against real accounts and which were not.
+
 ## 0.1.11-beta.7 (2026-11-23)
 
 - Drafts: unsaved edits are saved before you switch drafts or start a new one — nothing typed is silently dropped. Deleting asks twice, the action bar stays pinned at the bottom, note and first comment fold into one section, images and videos accept drag-and-drop, and rows show relative times.

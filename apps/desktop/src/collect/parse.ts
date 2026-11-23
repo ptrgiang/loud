@@ -234,6 +234,26 @@ export interface Queued {
   text: string;
 }
 
+/** The composer's Drafts answer (`xth_threads_viewer.drafts`) — only SCHEDULED nodes count. */
+export function threadsScheduled(objs: ReadonlyArray<unknown>, tz: string): Array<Queued> | null {
+  const drafts = walk(
+    objs,
+    (o) =>
+      isObj(get(o, "xth_threads_viewer")) &&
+      Array.isArray(get(o, "xth_threads_viewer", "drafts", "nodes")),
+  )[0];
+  if (!drafts) return null;
+  const out: Array<Queued> = [];
+  for (const n of get(drafts, "xth_threads_viewer", "drafts", "nodes") as Array<unknown>) {
+    if (!isObj(n) || text(n.schedule_publish_status) !== "SCHEDULED") continue;
+    const at = num(n.schedule_publish_time);
+    const items = get(n, "draft_thread_items", "nodes");
+    const t = Array.isArray(items) ? text(get(items[0], "text")) : "";
+    out.push({ when: at === null ? "" : stampFromUnix(at, tz), text: t.slice(0, 400) });
+  }
+  return out.sort((a, b) => a.when.localeCompare(b.when));
+}
+
 /** Null when the answer that lists the queue never came: unknown, not empty. */
 export function igScheduled(objs: ReadonlyArray<unknown>, tz: string): Array<Queued> | null {
   if (!walk(objs, (o) => "all_scheduled_ig_content" in o).length) return null;

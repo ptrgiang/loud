@@ -70,12 +70,21 @@ export const layer = Layer.effect(
         if (yield* isConnected(id)) {
           const raw = yield* Effect.promise(() => cookie(id, PLATFORMS[id].idCookie));
           const userId = raw ? accountIdFromCookie(id, raw) : undefined;
-          yield* settings.updatePlatform(id, (p) => ({
-            ...p,
-            enabled: p.connectedAt ? p.enabled : true,
-            connectedAt: p.connectedAt ?? new Date().toISOString(),
-            ...(userId ? { userId } : {}),
-          }));
+          yield* settings.updatePlatform(id, (p) => {
+            // A different account on the same session: the stored handle and picked Page belong to the old one.
+            const switched = userId !== undefined && p.userId !== undefined && userId !== p.userId;
+            const {
+              assetId: _assetId,
+              pages: _pages,
+              ...rest
+            } = switched ? { ...p, handle: "" } : p;
+            return {
+              ...rest,
+              enabled: p.connectedAt ? p.enabled : true,
+              connectedAt: p.connectedAt ?? new Date().toISOString(),
+              ...(userId ? { userId } : {}),
+            };
+          });
           for (const listener of loginListeners) listener(id);
         }
         yield* events.publish({ type: "platforms" });

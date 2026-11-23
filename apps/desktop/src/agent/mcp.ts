@@ -24,8 +24,8 @@ export function handle(msg: Request, ctx: ToolContext): object | null {
   switch (msg.method) {
     case "initialize":
       return reply({
-        protocolVersion:
-          typeof msg.params?.protocolVersion === "string" ? msg.params.protocolVersion : PROTOCOL,
+        // Answer with the version we speak, not an echo of whatever the client offered.
+        protocolVersion: PROTOCOL,
         capabilities: { tools: {} },
         serverInfo: { name: SERVER_NAME, version: "1" },
       });

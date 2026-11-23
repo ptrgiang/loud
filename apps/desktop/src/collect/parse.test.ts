@@ -14,6 +14,7 @@ import {
   mergePosts,
   threadsPostNumbers,
   threadsProfile,
+  threadsScheduled,
   xFollowers,
   xScheduled,
   xTime,
@@ -206,6 +207,19 @@ describe("Facebook", () => {
     expect(fbDate("8 Mar 2024", now, TZ)).toBe("2024-03-08 00:00");
     expect(fbDate("whenever", now, TZ)).toBe("");
   });
+
+  it("reads Facebook's dates in other languages", () => {
+    const now = new Date(Date.UTC(2026, 10, 20, 12, 0));
+    // Vietnamese, accents normalized away.
+    expect(fbDate("3 giờ", now, TZ)).toBe("2026-11-20 09:00");
+    expect(fbDate("hôm qua", now, TZ)).toBe("2026-11-19 00:00");
+    expect(fbDate("20 tháng 11", now, TZ)).toBe("2026-11-20 00:00");
+    // French / Spanish / Portuguese / German.
+    expect(fbDate("il y a 2 jours", now, TZ)).toBe("2026-11-18 00:00");
+    expect(fbDate("hace 5 minutos", now, TZ)).toBe("2026-11-20 11:55");
+    expect(fbDate("há 1 semana", now, TZ)).toBe("2026-11-13 00:00");
+    expect(fbDate("vor 3 Wochen", now, TZ)).toBe("2026-10-30 00:00");
+  });
 });
 
 describe("X", () => {
@@ -395,5 +409,32 @@ describe("checkpoints", () => {
     ).toBe(true);
     expect(isCheckpoint("https://x.com/i/flow/login", "https://x.com/i/flow/login")).toBe(false);
     expect(isCheckpoint("https://x.com/acme", "https://x.com/acme")).toBe(false);
+  });
+});
+
+describe("Threads scheduled queue", () => {
+  const node = (status: string, at: number, text: string) => ({
+    schedule_publish_status: status,
+    schedule_publish_time: at,
+    draft_thread_items: { nodes: [{ text }] },
+  });
+  const answer = (nodes: Array<unknown>) => ({
+    xth_threads_viewer: { drafts: { nodes } },
+  });
+
+  it("keeps only SCHEDULED drafts and stays silent without the answer", () => {
+    const objs = [
+      answer([
+        node("DRAFT", 1_800_000_000, "unfinished"),
+        node("SCHEDULED", 1_785_000_000, "launch post"),
+        node("SCHEDULED", 1_786_000_000, "follow up"),
+      ]),
+      { unrelated: true },
+    ];
+    const out = threadsScheduled(objs, TZ);
+    expect(out?.map((q) => q.text)).toEqual(["launch post", "follow up"]);
+    expect(out?.[0]?.when).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+    expect(threadsScheduled([{ unrelated: true }], TZ)).toBeNull();
+    expect(threadsScheduled([], TZ)).toBeNull();
   });
 });

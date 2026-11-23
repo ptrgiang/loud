@@ -28,7 +28,8 @@ Part of [Try Something](https://trysometh.ing). Home: [loud.trysometh.ing](https
 | Connections: per-platform profiles, login detection, handle detection | Working                                                                                         |
 | Today, Posts, Insights, Plan, Listening                               | Working; checked with demo data                                                                 |
 | Build (analytics) in TypeScript                                       | Working; tested                                                                                 |
-| Collectors with rate limits, timer and tray                           | Written and unit-tested on fictional fixtures; **not yet run against the real platforms**       |
+| Collectors: Threads, X                                                | Written and unit-tested; **checked against the real platforms**                                 |
+| Collectors: Instagram, Facebook                                       | Written and unit-tested on fictional fixtures; **not yet run against the real platforms**       |
 | Agent (Claude Code, Codex) and Drafts                                 | Working with demo data; off until you turn it on                                                |
 | Installers and updates                                                | Configured; Windows build tried locally, unsigned. Update checks are off until you turn them on |
 | Scheduled posting through official APIs                               | Later                                                                                           |

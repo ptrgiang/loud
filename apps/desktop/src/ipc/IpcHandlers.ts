@@ -3,7 +3,9 @@
 import {
   type AppInfo,
   CHANNEL_IDS,
+  type HistoryDay,
   type Hub,
+  type Proposals,
   IPC_INVOKE_CHANNEL,
   type IpcInput,
   type IpcMethod,
@@ -104,12 +106,15 @@ export const install = (isMainFrame: (frame: Electron.WebFrameMain | null) => bo
       "app.info": () => appInfo,
       "settings.updateGeneral": (input) =>
         Effect.gen(function* () {
+          // An unaccepted value must reach the dashboard as an error, not a quiet drop — the UI flashes "Saved".
+          if (input.timezone !== undefined && !isZone(input.timezone))
+            return yield* Effect.die(new Error(`Not a time zone: ${input.timezone}`));
+          if (input.since !== undefined && !isDate(input.since))
+            return yield* Effect.die(new Error("Not a date; use YYYY-MM-DD."));
           yield* settings.update((s) => ({
             ...s,
-            ...(input.timezone !== undefined && isZone(input.timezone)
-              ? { timezone: input.timezone }
-              : {}),
-            ...(input.since !== undefined && isDate(input.since) ? { since: input.since } : {}),
+            ...(input.timezone !== undefined ? { timezone: input.timezone } : {}),
+            ...(input.since !== undefined ? { since: input.since } : {}),
           }));
           yield* events.publish({ type: "settings" });
           yield* rebuild;
@@ -121,6 +126,15 @@ export const install = (isMainFrame: (frame: Electron.WebFrameMain | null) => bo
       "platforms.openBrowser": ({ id }) => Effect.as(platforms.openBrowser(id), {}),
       "platforms.update": ({ id, ...patch }) =>
         Effect.gen(function* () {
+          // A profile name can't carry other characters; reject instead of silently storing a broken one.
+          if (
+            patch.handle !== undefined &&
+            patch.handle.trim() !== "" &&
+            !/^@?[a-zA-Z0-9._-]+$/.test(patch.handle.trim())
+          )
+            return yield* Effect.die(
+              new Error("Handles are letters, digits, dots, underscores and hyphens only."),
+            );
           yield* settings.updatePlatform(id, (p) => ({
             ...p,
             ...patch,
@@ -144,9 +158,9 @@ export const install = (isMainFrame: (frame: Electron.WebFrameMain | null) => bo
           settings.update((s) => ({ ...s, keywords: cleanKeywords(input) })),
           (s) => s.keywords,
         ),
-      "data.hub": () => data.hub,
-      "data.proposals": () => data.proposals,
-      "data.history": () => data.history,
+      "data.hub": () => Effect.map(data.hub, (x) => x as Hub | null),
+      "data.proposals": () => Effect.map(data.proposals, (x) => x as Proposals | null),
+      "data.history": () => Effect.map(data.history, (rows) => rows as ReadonlyArray<HistoryDay>),
       "links.open": ({ url }) => Effect.as(platforms.openLink(url), {}),
       "data.exportPosts": () =>
         Effect.gen(function* () {

@@ -14,7 +14,11 @@ export type Locale = keyof typeof LOCALES;
 const catalogs: Record<Locale, Record<MsgKey, string>> = { en, vi };
 
 const stored = typeof localStorage === "undefined" ? null : localStorage.getItem("loud:locale");
-const initial: Locale = stored === "vi" || stored === "en" ? stored : "en";
+const guessed: Locale =
+  typeof navigator !== "undefined" && navigator.language.toLowerCase().startsWith("vi")
+    ? "vi"
+    : "en";
+const initial: Locale = stored === "vi" || stored === "en" ? stored : guessed;
 
 export const useLocale = create<{
   readonly locale: Locale;

@@ -73,8 +73,29 @@ export function buildFolder(src: BuildSource, now = new Date()): Hub | null {
     listen: listen && Array.isArray(listen.items) ? listen : null,
   });
   writeJson(NodePath.join(src.data, "hub.json"), hub);
-  writeJson(NodePath.join(src.data, "history", `${stamp.slice(0, 10)}.json`), history);
-  pruneHistory(NodePath.join(src.data, "history"), stamp.slice(0, 10));
+  const day = stamp.slice(0, 10);
+  writeJson(NodePath.join(src.data, "history", `${day}.json`), history);
+  pruneHistory(NodePath.join(src.data, "history"), day);
+  // Per-post numbers keyed by day, so each post's trend can be drawn later. Re-writes of the same day overwrite.
+  for (const p of hub.posts) {
+    const safe = p.id.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
+    if (!safe) continue;
+    const file = NodePath.join(src.data, "history", "posts", `${p.channel}-${safe}.json`);
+    const prev = readJson<Record<string, Record<string, number | null>>>(file) ?? {};
+    writeJson(file, {
+      ...prev,
+      [day]: {
+        views: p.views ?? null,
+        likes: p.likes ?? null,
+        replies: p.replies ?? null,
+        reposts: p.reposts ?? null,
+        quotes: p.quotes ?? null,
+        shares: p.shares ?? null,
+        saves: p.saves ?? null,
+        eng: p.eng ?? null,
+      },
+    });
+  }
   return hub;
 }
 

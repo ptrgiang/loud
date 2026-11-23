@@ -1,8 +1,11 @@
-// Whole-folder export and the delete-everything action from Settings. Drafts, their images and the demo marker are
-// the user's own files: export copies them, delete keeps them.
+// Whole-folder export and the delete-everything action from Settings. Drafts and their media are the user's own
+// files: export copies them, delete keeps them. The demo marker goes: deleting everything from a demo folder leaves
+// demo mode too, so collection can run without an extra step.
 import { CHANNEL_IDS } from "@loud/contracts";
 import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
+
+import { DEMO_MARKER } from "./files.ts";
 
 const EXPORTS = "exports";
 
@@ -36,7 +39,7 @@ export function deleteCollected(data: string): boolean {
     }
   };
   for (const id of CHANNEL_IDS) drop(`${id}.json`);
-  for (const f of ["listen.json", "state.json", "hub.json", "proposals.json"]) drop(f);
+  for (const f of ["listen.json", "state.json", "hub.json", "proposals.json", DEMO_MARKER]) drop(f);
   for (const d of ["history", EXPORTS]) drop(d);
   return removed;
 }

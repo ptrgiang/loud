@@ -256,6 +256,11 @@ export const vi: Record<MsgKey, string> = {
 
   "set.general": "Chung",
   "set.locale": "Ngôn ngữ",
+  "set.theme": "Giao diện",
+  "set.theme.hint": "Hệ thống theo hệ điều hành và tự đổi khi OS đổi.",
+  "set.theme.system": "Hệ thống",
+  "set.theme.light": "Sáng",
+  "set.theme.dark": "Tối",
   "set.locale.hint": "Ngôn ngữ của dashboard. Ngày giờ, số liệu và tên nền tảng giữ nguyên.",
   "set.timezone": "Múi giờ",
   "set.timezone.hint": "Mọi thời gian trong dữ liệu là giờ đồng hồ tại đây.",

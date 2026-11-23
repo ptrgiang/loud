@@ -60,6 +60,7 @@ const screenshot = (w: Electron.BrowserWindow, file: string) => {
           if (result !== undefined) console.log("[loud] script:", JSON.stringify(result));
         }
         await new Promise((r) => setTimeout(r, 600));
+        NodeFS.mkdirSync(NodePath.dirname(file), { recursive: true });
         // Extra windows (e.g. the posting window) get numbered shots next to the main one.
         const extra = Electron.BrowserWindow.getAllWindows().filter((x) => x !== w);
         const image = await w.webContents.capturePage();
@@ -134,6 +135,10 @@ const program = Effect.gen(function* () {
       ipcFrames.delete(frame);
       Effect.runFork(events.detach(wc));
     });
+    // A dead renderer should reload, not leave a white window.
+    wc.on("render-process-gone", () => {
+      if (!wc.isDestroyed()) wc.reload();
+    });
     if (process.env.LOUD_SHOT && !Electron.app.isPackaged) screenshot(w, process.env.LOUD_SHOT);
   });
 
@@ -145,7 +150,10 @@ const program = Effect.gen(function* () {
   let quitting = false;
   const tray = createTray({
     open: () => Effect.runFork(openMain),
-    collect: () => Effect.runFork(Effect.ignore(collector.start({}))),
+    collect: () =>
+      void Effect.runPromise(collector.start({})).catch((e: unknown) =>
+        log.warn(`tray collect failed: ${e instanceof Error ? e.message : String(e)}`),
+      ),
     quit: () => {
       quitting = true;
       Electron.app.quit();
@@ -180,6 +188,18 @@ if (!Electron.app.requestSingleInstanceLock()) {
   void Electron.app.whenReady().then(() =>
     Effect.runPromise(program.pipe(Effect.provide(MainLayer))).catch((error: unknown) => {
       console.error("[loud] failed to start:", error);
+      // A console may not exist; leave the line in the log file too.
+      try {
+        const file = NodePath.join(Electron.app.getPath("userData"), "logs", "loud.log");
+        NodeFS.mkdirSync(NodePath.dirname(file), { recursive: true });
+        NodeFS.appendFileSync(
+          file,
+          `${new Date().toISOString()} warn failed to start: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`,
+          "utf8",
+        );
+      } catch {
+        // Nothing to do.
+      }
       Electron.app.exit(1);
     }),
   );
