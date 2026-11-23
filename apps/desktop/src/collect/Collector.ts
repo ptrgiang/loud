@@ -283,11 +283,9 @@ export const layer = Layer.effect(
           progress: (detail, count) => setStep(step, { detail, count }),
         });
         writeJson(out, written);
-        // Posts without a single view count too: the parser likely changed, not the account.
-        const emptyRuns =
-          written.posts.length === 0 || written.posts.every((p) => p.views == null)
-            ? (scan[id]?.emptyRuns ?? 0) + 1
-            : 0;
+        // Only a truly empty profile counts toward a stuck run: posts present but views missing is a parser gap,
+        // not an empty account — retrying can't fill numbers the page never had.
+        const emptyRuns = written.posts.length === 0 ? (scan[id]?.emptyRuns ?? 0) + 1 : 0;
         writeJson(stateFile, {
           ...scan,
           [id]: {

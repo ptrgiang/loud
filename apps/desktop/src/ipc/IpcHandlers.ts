@@ -3,6 +3,7 @@
 import {
   type AppInfo,
   CHANNEL_IDS,
+  type ChannelId,
   type HistoryDay,
   type Hub,
   type Proposals,
@@ -47,7 +48,7 @@ import { postsCsv } from "../data/exportCsv.ts";
 import { DEMO_MARKER } from "../data/files.ts";
 import { deleteCollected, exportAll } from "../data/lifecycle.ts";
 import { generateDemo } from "../demo/demo.ts";
-import { assetIdFrom } from "../platforms/PlatformCatalog.ts";
+import { assetIdFrom, PLATFORMS } from "../platforms/PlatformCatalog.ts";
 import { Platforms } from "../platforms/Platforms.ts";
 import { Poster } from "../platforms/Poster.ts";
 import { cleanKeywords, SettingsStore } from "../settings/SettingsStore.ts";
@@ -126,14 +127,21 @@ export const install = (isMainFrame: (frame: Electron.WebFrameMain | null) => bo
       "platforms.openBrowser": ({ id }) => Effect.as(platforms.openBrowser(id), {}),
       "platforms.update": ({ id, ...patch }) =>
         Effect.gen(function* () {
-          // A profile name can't carry other characters; reject instead of silently storing a broken one.
+          // Each platform's own charset — X drops dots and hyphens, Meta drops hyphens; reject instead of
+          // storing a handle that builds a URL to nowhere.
+          const HANDLE: Record<ChannelId, RegExp> = {
+            x: /^@?[a-zA-Z0-9_]{1,15}$/,
+            threads: /^@?[a-zA-Z0-9._]{1,30}$/,
+            ig: /^@?[a-zA-Z0-9._]{1,30}$/,
+            fb: /^@?[\p{L}\p{N}._-]+$/u,
+          };
           if (
             patch.handle !== undefined &&
             patch.handle.trim() !== "" &&
-            !/^@?[a-zA-Z0-9._-]+$/.test(patch.handle.trim())
+            !HANDLE[id].test(patch.handle.trim())
           )
             return yield* Effect.die(
-              new Error("Handles are letters, digits, dots, underscores and hyphens only."),
+              new Error(`That is not a valid ${PLATFORMS[id].name} handle.`),
             );
           yield* settings.updatePlatform(id, (p) => ({
             ...p,
@@ -323,8 +331,11 @@ export const install = (isMainFrame: (frame: Electron.WebFrameMain | null) => bo
             // Through nativeImage so a JPEG goes on the clipboard as PNG, the type every composer pastes.
             const image = Electron.nativeImage.createFromPath(draftMediaPath(paths.data, id, name));
             if (image.isEmpty()) throw new Error("This image can't be copied; use Show in folder.");
-            const png = new Blob([new Uint8Array(image.toPNG())], { type: "image/png" });
-            await Electron.clipboard.write([new Electron.ClipboardItem({ "image/png": png })]);
+            await Electron.clipboard.write([
+              new Electron.ClipboardItem({
+                "image/png": new Blob([image.toPNG()], { type: "image/png" }),
+              }),
+            ]);
             return {};
           },
           catch: (e) => e,

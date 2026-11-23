@@ -288,6 +288,7 @@ function channel(r: Rng, id: ChannelId, now: number): ChannelFile {
     const q: Features = { question: true, number: true, tags: true, long: false };
     return {
       collected: nowStamp,
+      handle: "acmeforms",
       followers: spec.followers[1],
       posts,
       scheduled: [5, 29, 53, 77].map((h) => ({
@@ -299,6 +300,7 @@ function channel(r: Rng, id: ChannelId, now: number): ChannelFile {
   }
   return {
     collected: nowStamp,
+    handle: "acmeforms",
     followers: spec.followers[1],
     posts,
     scheduled: [],

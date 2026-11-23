@@ -22,7 +22,6 @@ import {
   CollectStart,
   CollectStatus,
 } from "./collect.ts";
-import type { HistoryDay, Hub, Proposals } from "./hub.ts";
 import { PlatformUpdate, PlatformView } from "./platform.ts";
 import { GeneralUpdate, Keywords } from "./settings.ts";
 import { UpdateSettings, UpdateStatus } from "./updates.ts";
@@ -32,12 +31,116 @@ const None = Schema.Struct({});
 const ById = Schema.Struct({ id: ChannelId });
 const DraftImageRef = Schema.Struct({ id: Schema.String, name: Schema.String });
 
-const isObj = (u: unknown) => u !== null && typeof u === "object" && !Array.isArray(u);
-/** Built files keep their full TS types; the guard only promises "a JSON object". */
-const HubFile = Schema.declare((u): u is Hub => isObj(u));
-const ProposalsFile = Schema.declare((u): u is Proposals => isObj(u));
+const Stamp = Schema.String;
+const NumOrNull = Schema.NullOr(Schema.Number);
+const metric = Schema.optional(NumOrNull);
+const Post = Schema.Struct({
+  channel: ChannelId,
+  id: Schema.String,
+  url: Schema.optional(Schema.String),
+  posted: Schema.optional(Stamp),
+  text: Schema.optional(Schema.String),
+  kind: Schema.optional(Schema.Literals(["post", "reel", "reply"])),
+  views: metric,
+  likes: metric,
+  replies: metric,
+  reposts: metric,
+  quotes: metric,
+  shares: metric,
+  saves: metric,
+  follows: metric,
+  reach: metric,
+  viewers: metric,
+  visits: metric,
+  dur: metric,
+  format: Schema.optional(Schema.String),
+  age_h: metric,
+  eng: metric,
+  trend: Schema.optional(Schema.Array(NumOrNull)),
+});
+const ChannelSummary = Schema.Struct({
+  id: ChannelId,
+  name: Schema.String,
+  collected: Schema.optional(Stamp),
+  followers: metric,
+  posts_total: Schema.Number,
+  posts_7d: Schema.Number,
+  views_7d: Schema.Number,
+  median_views_14d: NumOrNull,
+  last_post: Stamp,
+  scheduled: Schema.Number,
+  scheduled_known: Schema.Boolean,
+  best_7d: Schema.NullOr(Post),
+  premium: Schema.optional(Schema.Boolean),
+});
+const ListenItem = Schema.Struct({
+  channel: ChannelId,
+  query: Schema.String,
+  url: Schema.optional(Schema.String),
+  author: Schema.optional(Schema.String),
+  posted: Schema.optional(Stamp),
+  date_text: Schema.optional(Schema.String),
+  text: Schema.optional(Schema.String),
+  lang: Schema.optional(Schema.String),
+  views: metric,
+  likes: metric,
+  replies: metric,
+  reposts: metric,
+  shares: metric,
+  score: Schema.optional(Schema.Number),
+  question: Schema.optional(Schema.Boolean),
+  found: Schema.optional(Stamp),
+});
+const HubFile = Schema.Struct({
+  built: Stamp,
+  since: Schema.optional(Schema.String),
+  timezone: Schema.optional(Schema.String),
+  channels: Schema.Array(ChannelSummary),
+  posts: Schema.Array(Post),
+  scheduled: Schema.Array(
+    Schema.Struct({ channel: ChannelId, when: Stamp, text: Schema.optional(Schema.String) }),
+  ),
+  flags: Schema.Array(
+    Schema.Struct({
+      level: Schema.Literals(["good", "warn", "info"]),
+      text: Schema.String,
+    }),
+  ),
+  listen: Schema.Struct({ collected: Schema.optional(Stamp), items: Schema.Array(ListenItem) }),
+});
+const ProposalsFile = Schema.Struct({
+  written: Stamp,
+  data_built: Schema.optional(Stamp),
+  summary: Schema.String,
+  audit: Schema.optional(Schema.Array(Schema.String)),
+  items: Schema.Array(
+    Schema.Struct({
+      channel: ChannelId,
+      title: Schema.String,
+      when: Schema.String,
+      format: Schema.optional(Schema.String),
+      hook: Schema.String,
+      outline: Schema.optional(Schema.String),
+      why: Schema.String,
+      evidence: Schema.optional(
+        Schema.Array(Schema.Struct({ label: Schema.String, url: Schema.String })),
+      ),
+    }),
+  ),
+  stop: Schema.optional(Schema.Array(Schema.String)),
+});
+const Followers = Schema.Struct({ followers: metric });
 const HistoryFile = Schema.Array(
-  Schema.declare((u): u is HistoryDay => isObj(u) && typeof (u as HistoryDay).day === "string"),
+  Schema.Struct({
+    day: Schema.String,
+    at: Schema.optional(Stamp),
+    channels: Schema.Struct({
+      threads: Schema.optional(Followers),
+      ig: Schema.optional(Followers),
+      fb: Schema.optional(Followers),
+      x: Schema.optional(Followers),
+    }),
+  }),
 );
 
 export const AppInfo = Schema.Struct({

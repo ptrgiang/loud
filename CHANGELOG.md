@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 0.1.11-beta.11 (2026-11-23)
+
+- The Copy button on a draft's image puts the image on the clipboard — it errored before.
+- The posting window no longer shows a logged-out composer when the previous draft was for another platform: each channel gets its own logged-in pane.
+- The posting window refuses to open while its channel is disconnected, instead of landing on a logged-out composer.
+- Changing the X account no longer carries the old account's Premium flag: the wider post limit applies only when the current account verified it.
+- Usage checks on Claude Code and Codex send them the same trimmed environment a chat turn gets, not the whole process environment.
+- `LOUD_DEBUG` refuses to write its account dump inside the repository, like `LOUD_PROBE_OUT` already does.
+- Premium detection on X reads every captured response of a profile, not only the first.
+- Handle rules now follow each platform: X drops dots and hyphens, Meta drops hyphens.
+- A draft file that is too big is refused before its base64 inflates in memory.
+- A run that stores posts without view counts is no longer counted as an "empty" run.
+- The data the dashboard reads is checked against real shapes — a corrupt file is rejected instead of rendered weird.
+
 ## 0.1.11-beta.10 (2026-11-23)
 
 - Premium detection on X checks every user object naming the handle, not just the first: a bare author ref without verification fields is "undecided" instead of a wrong "no", and an object carrying the flag wins.

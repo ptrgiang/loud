@@ -78,6 +78,8 @@ export async function scrollFor<T extends { id: string; posted?: string | undefi
   first: ReadonlyArray<unknown>,
   from: string,
   maxScrolls: number,
+  /** Every page the scroll read, in order — callers that need the raw captures (X Premium) subscribe here. */
+  sink?: (objs: ReadonlyArray<unknown>) => void,
 ): Promise<Array<T>> {
   const seen = new Map<string, T>();
   // A later read of the same post has fresher numbers; the Map keeps its first position in the list.
@@ -85,6 +87,7 @@ export async function scrollFor<T extends { id: string; posted?: string | undefi
     for (const r of rows) seen.set(r.id, { ...seen.get(r.id), ...r });
   };
   const fresh = (rows: ReadonlyArray<T>) => rows.filter((r) => !seen.has(r.id)).length;
+  sink?.(first);
   add(read(first));
   let still = 0;
   for (let i = 0; i < maxScrolls && !pastWindow([...seen.values()], from) && still < 3; i++) {
@@ -93,6 +96,7 @@ export async function scrollFor<T extends { id: string; posted?: string | undefi
       timeoutMs: 6_000,
       until: (objs) => fresh(read(objs)) > 0,
     });
+    sink?.(page.objs);
     const rows = read(page.objs);
     still = fresh(rows) === 0 ? still + 1 : 0;
     add(rows);
@@ -134,24 +138,31 @@ export function readPlan(
   return { old, read, listedOnly };
 }
 
-const file = (
+export const channelFile = (
   input: CollectInput,
   plan: ReadPlan,
   fresh: ReadonlyArray<CollectedPost>,
   followers: number | null,
   scheduled: ReadonlyArray<Queued> | null,
   premium?: boolean | null,
-): ChannelFile => ({
-  collected: nowStamp(input.timezone),
-  followers: followers ?? input.old?.followers ?? null,
-  posts: mergePosts(plan.old, [...plan.listedOnly, ...fresh], input.since),
-  scheduled: scheduled ?? [],
-  scheduled_known: scheduled !== null,
-  // A null detection must not wipe a tier already known.
-  ...((premium ?? input.old?.premium) !== undefined
-    ? { premium: premium ?? input.old!.premium }
-    : {}),
-});
+): ChannelFile => {
+  // Another account's tier must not leak: reuse the stored flag only while the stored handle is this one.
+  const knownPremium =
+    input.old?.handle !== undefined && input.old.handle.toLowerCase() === input.handle.toLowerCase()
+      ? input.old.premium
+      : undefined;
+  const resolved = premium ?? knownPremium;
+  return {
+    collected: nowStamp(input.timezone),
+    handle: input.handle,
+    followers: followers ?? input.old?.followers ?? null,
+    posts: mergePosts(plan.old, [...plan.listedOnly, ...fresh], input.since),
+    scheduled: scheduled ?? [],
+    scheduled_known: scheduled !== null,
+    // A null detection must not wipe a tier already known.
+    ...(resolved !== undefined ? { premium: resolved } : {}),
+  };
+};
 
 // ---- Threads ----
 
@@ -208,7 +219,7 @@ export async function collectThreads(input: CollectInput): Promise<ChannelFile> 
     });
     return threadsScheduled(page.objs, tz);
   })().catch(() => null);
-  return file(input, plan, fresh, followers, queue);
+  return channelFile(input, plan, fresh, followers, queue);
 }
 
 // ---- Instagram ----
@@ -273,7 +284,7 @@ export async function collectInstagram(input: CollectInput): Promise<ChannelFile
     until: (objs) => igScheduled(objs, tz) !== null,
   });
   const kept = { ...plan, old: plan.old.filter((p) => !foreign.has(p.id)) };
-  return file(input, kept, fresh, followers, igScheduled(queue.objs, tz));
+  return channelFile(input, kept, fresh, followers, igScheduled(queue.objs, tz));
 }
 
 // ---- Facebook ----
@@ -346,7 +357,7 @@ export async function collectFacebook(input: CollectInput): Promise<ChannelFile>
         text: (r.row.text ?? "").slice(0, 400),
       }))
     : null;
-  return file(input, plan, fresh, followers, queue);
+  return channelFile(input, plan, fresh, followers, queue);
 }
 
 // ---- X ----
@@ -358,6 +369,8 @@ export async function collectX(input: CollectInput): Promise<ChannelFile> {
   const { reader, handle, timezone: tz } = input;
   const mine = (objs: ReadonlyArray<unknown>) =>
     xTweets(objs, tz).filter((t) => t.user.toLowerCase() === handle.toLowerCase());
+  // Every captured page, not just the first: the account's user object can arrive in a later response.
+  const captured: Array<unknown> = [];
   const tab = async (url: string, scrolls: number) => {
     const first = await reader.open(url, {
       capture: X_ANSWERS,
@@ -365,39 +378,54 @@ export async function collectX(input: CollectInput): Promise<ChannelFile> {
     });
     return {
       first,
-      tweets: await scrollFor(reader, mine, X_ANSWERS, first.objs, input.scanFrom, scrolls),
+      tweets: await scrollFor(
+        reader,
+        mine,
+        X_ANSWERS,
+        first.objs,
+        input.scanFrom,
+        scrolls,
+        (objs) => captured.push(...objs),
+      ),
     };
   };
   const posts = await tab(`${X}/${handle}`, input.full ? 15 : 3);
   const followers = xFollowers(posts.first.objs, handle);
   const replies = await tab(`${X}/${handle}/with_replies`, input.full ? 25 : 4);
   // Premium on the account itself — never a wider limit on guesswork.
-  const premium = xAccount(posts.first.objs, handle) ?? xAccount(replies.first.objs, handle);
-  if (process.env.LOUD_DEBUG) {
+  const premium = xAccount(captured, handle);
+  const debugDir = process.env.LOUD_DEBUG;
+  if (debugDir) {
     // Where verification lives in a real payload: field paths and values of objects naming the handle, nothing else.
-    const hits = walk(
-      [...posts.first.objs, ...replies.first.objs],
-      (o) =>
-        (
-          text(get(o, "core", "screen_name")) ||
-          text(get(o, "legacy", "screen_name")) ||
-          text(o.screen_name)
-        ).toLowerCase() === handle.toLowerCase(),
-    );
-    const paths = (o: Record<string, unknown>, p = ""): Array<string> =>
-      Object.entries(o).flatMap(([k, v]) =>
-        /verif|blue|badge|premium|business|govern|is_business|affiliat|profession/i.test(k)
-          ? [`${p}${k}=${JSON.stringify(v)}`]
-          : v && typeof v === "object" && !Array.isArray(v)
-            ? paths(v as Record<string, unknown>, `${p}${k}.`)
-            : [],
+    const repo = NodePath.resolve(__dirname, "../../..");
+    const out = NodePath.resolve(debugDir);
+    if (out === repo || out.startsWith(repo + NodePath.sep)) {
+      process.stderr.write("LOUD_DEBUG must be outside the repository; skipping dump\n");
+    } else {
+      const hits = walk(
+        captured,
+        (o) =>
+          (
+            text(get(o, "core", "screen_name")) ||
+            text(get(o, "legacy", "screen_name")) ||
+            text(o.screen_name)
+          ).toLowerCase() === handle.toLowerCase(),
       );
-    const dump = hits.map((u) => ({ keys: Object.keys(u), flags: paths(u) }));
-    NodeFS.mkdirSync(process.env.LOUD_DEBUG, { recursive: true });
-    NodeFS.writeFileSync(
-      NodePath.join(process.env.LOUD_DEBUG, "x-account.json"),
-      JSON.stringify({ handle, premium, hits: hits.length, dump }, null, 1),
-    );
+      const paths = (o: Record<string, unknown>, p = ""): Array<string> =>
+        Object.entries(o).flatMap(([k, v]) =>
+          /verif|blue|badge|premium|business|govern|is_business|affiliat|profession/i.test(k)
+            ? [`${p}${k}=${JSON.stringify(v)}`]
+            : v && typeof v === "object" && !Array.isArray(v)
+              ? paths(v as Record<string, unknown>, `${p}${k}.`)
+              : [],
+        );
+      const dump = hits.map((u) => ({ keys: Object.keys(u), flags: paths(u) }));
+      NodeFS.mkdirSync(out, { recursive: true });
+      NodeFS.writeFileSync(
+        NodePath.join(out, "x-account.json"),
+        JSON.stringify({ handle, premium, hits: hits.length, dump }, null, 1),
+      );
+    }
   }
   const seen = new Map([...posts.tweets, ...replies.tweets].map((t) => [t.id, t]));
   const fresh = [...seen.values()]
@@ -414,7 +442,7 @@ export async function collectX(input: CollectInput): Promise<ChannelFile> {
     input,
     [...seen.values()].map((t) => xRow(t, handle)),
   );
-  return file(input, plan, fresh, followers, xScheduled(queue.objs, tz), premium);
+  return channelFile(input, plan, fresh, followers, xScheduled(queue.objs, tz), premium);
 }
 
 export const COLLECTORS: Record<ChannelId, (input: CollectInput) => Promise<ChannelFile>> = {

@@ -10,6 +10,8 @@ import type { AgentModel, AgentProviderId, AgentUsage, AgentUsageWindow } from "
 import * as NodeChild from "node:child_process";
 import * as NodeReadline from "node:readline";
 
+import { agentEnv } from "./providers.ts";
+
 export interface Probe {
   readonly usage: AgentUsage;
   /** Null when the CLI did not list them; the built-in list stays. */
@@ -136,7 +138,7 @@ export async function probeClaude(exe: string): Promise<Probe> {
         mcpServers: {},
         strictMcpConfig: true,
         env: {
-          ...process.env,
+          ...agentEnv(),
           ELECTRON_RUN_AS_NODE: undefined,
           ENABLE_CLAUDEAI_MCP_SERVERS: "false",
           CLAUDE_CODE_AUTO_CONNECT_IDE: "0",
@@ -247,7 +249,7 @@ export function probeCodex(exe: string): Promise<Probe> {
     const checkedAt = () => new Date().toISOString();
     const child = NodeChild.spawn(exe, ["app-server"], {
       windowsHide: true,
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: undefined },
+      env: { ...agentEnv(), ELECTRON_RUN_AS_NODE: undefined },
     });
     let next = 0;
     const pending = new Map<number, (m: Record<string, unknown>) => void>();

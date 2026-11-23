@@ -2,7 +2,7 @@
 // dashboard pane, so copy buttons work), the platform's composer on the right in that platform's logged-in session.
 // Loud still never posts; it only puts the pieces next to each other so nothing has to be juggled between windows.
 import { APP_ORIGIN } from "../brand.ts";
-import { composerUrl } from "@loud/contracts";
+import { composerUrl, type ChannelId } from "@loud/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -48,6 +48,8 @@ export const layer = (ipcFrames: Set<Electron.WebFrameMain>) =>
       let win: Electron.BrowserWindow | null = null;
       let pane: Electron.WebContentsView | null = null;
       let web: Electron.WebContentsView | null = null;
+      /** Which platform session `web` was built with — a view can't switch partitions, so a new channel rebuilds it. */
+      let webChannel: ChannelId | null = null;
       let paneWidth = readJson<WindowState>(stateFile(paths.home))?.paneWidth ?? PANE_WIDTH;
 
       const layout = () => {
@@ -77,13 +79,57 @@ export const layer = (ipcFrames: Set<Electron.WebFrameMain>) =>
           const draft = readDrafts(paths.data).find((d) => d.id === id);
           if (!draft) return yield* Effect.fail(new Error("That draft is gone."));
           const p = PLATFORMS[draft.channel];
+          // A disconnected platform would open a logged-out composer that looks ready but cannot post.
+          if ((yield* platforms.view(draft.channel)).status !== "connected")
+            return yield* Effect.fail(new Error(`Connect ${p.name} first.`));
           platforms.session(draft.channel); // wires UA, permission denials and the login watcher
           const paneUrl = `${APP_ORIGIN}/#post/${draft.id}`;
           const target = composerUrl(draft.channel, draft.text);
 
+          const makeWeb = (channel: ChannelId) => {
+            const view = new Electron.WebContentsView({
+              webPreferences: {
+                partition: PLATFORMS[channel].partition,
+                sandbox: true,
+                contextIsolation: true,
+                nodeIntegration: false,
+                spellcheck: false,
+              },
+            });
+            // Same rules as a platform window: same-site popups stay in this profile, anything else leaves.
+            view.webContents.setWindowOpenHandler(({ url: target }) => {
+              if (platformForUrl(target) === channel) {
+                return {
+                  action: "allow",
+                  overrideBrowserWindowOptions: {
+                    ...windowIcon(),
+                    autoHideMenuBar: true,
+                    webPreferences: {
+                      partition: PLATFORMS[channel].partition,
+                      sandbox: true,
+                    },
+                  },
+                };
+              }
+              if (/^https?:\/\//.test(target)) void Electron.shell.openExternal(target);
+              return { action: "deny" };
+            });
+            return view;
+          };
+
           if (win && !win.isDestroyed() && pane && web) {
+            if (webChannel !== draft.channel) {
+              // Partitions are fixed at creation: drop the other platform's view and build this one's.
+              win.contentView.removeChildView(web);
+              web.webContents.close();
+              web = makeWeb(draft.channel);
+              win.contentView.addChildView(web);
+              webChannel = draft.channel;
+              layout();
+            }
             void pane.webContents.loadURL(paneUrl);
             void web.webContents.loadURL(target);
+            win.setTitle(`Post to ${p.name}`);
             win.focus();
             return;
           }
@@ -108,15 +154,8 @@ export const layer = (ipcFrames: Set<Electron.WebFrameMain>) =>
               spellcheck: false,
             },
           });
-          const webView = new Electron.WebContentsView({
-            webPreferences: {
-              partition: p.partition,
-              sandbox: true,
-              contextIsolation: true,
-              nodeIntegration: false,
-              spellcheck: false,
-            },
-          });
+          const webView = makeWeb(draft.channel);
+          webChannel = draft.channel;
           w.contentView.addChildView(paneView);
           w.contentView.addChildView(webView);
           w.on("resize", layout);
@@ -137,21 +176,6 @@ export const layer = (ipcFrames: Set<Electron.WebFrameMain>) =>
             Effect.runFork(platforms.openLink(url));
             return { action: "deny" };
           });
-          // Same rules as a platform window: same-site popups stay in this profile, anything else leaves.
-          webView.webContents.setWindowOpenHandler(({ url: target }) => {
-            if (platformForUrl(target) === draft.channel) {
-              return {
-                action: "allow",
-                overrideBrowserWindowOptions: {
-                  ...windowIcon(),
-                  autoHideMenuBar: true,
-                  webPreferences: { partition: p.partition, sandbox: true },
-                },
-              };
-            }
-            if (/^https?:\/\//.test(target)) void Electron.shell.openExternal(target);
-            return { action: "deny" };
-          });
           // This window's own page is never loaded — only its two views are — so ready-to-show would never
           // fire. Show it now; each pane paints when its page lands.
           w.show();
@@ -159,6 +183,7 @@ export const layer = (ipcFrames: Set<Electron.WebFrameMain>) =>
             win = null;
             pane = null;
             web = null;
+            webChannel = null;
             ipcFrames.delete(paneFrame);
             Effect.runFork(events.detach(paneWc));
           });

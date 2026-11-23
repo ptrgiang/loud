@@ -133,6 +133,8 @@ export interface ChannelFile {
   readonly scheduled_known?: boolean;
   /** Paid tier, when the platform exposes it (X Premium widens the post limit). */
   readonly premium?: boolean;
+  /** The account these numbers belong to — `premium` is reused only while it matches. */
+  readonly handle?: string;
 }
 
 export type CollectedListenItem = Omit<ListenItem, "score" | "question">;

@@ -392,6 +392,11 @@ export const layer = Layer.effect(
         return { error: `Attach at most ${AGENT_LIMITS.files} files.` } as const;
       const out: Array<{ upload: AgentUpload; bytes: Buffer; kind: AgentAttachment["kind"] }> = [];
       for (const f of files) {
+        // Base64 decodes to ~3/4 of its length; a string past the largest cap is refused before it inflates in memory.
+        const decoded = Math.floor((f.data.length * 3) / 4);
+        const cap = Math.max(AGENT_LIMITS.imageBytes, AGENT_LIMITS.textBytes);
+        if (decoded - 2 > cap)
+          return { error: `${f.name} is over ${cap / 1024 / 1024} MB` } as const;
         const bytes = Buffer.from(f.data, "base64");
         const c = classify(f, bytes.length);
         if ("error" in c) return { error: c.error } as const;

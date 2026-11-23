@@ -1,7 +1,14 @@
 // Fixtures are fictional and trimmed to the shapes docs/platform-notes.md describes.
 import { describe, expect, it } from "vite-plus/test";
 
-import { fbDate, fbPostCounts, pastWindow, readPlan, scrollFor } from "./collectors.ts";
+import {
+  channelFile,
+  fbDate,
+  fbPostCounts,
+  pastWindow,
+  readPlan,
+  scrollFor,
+} from "./collectors.ts";
 import { embedded, parseLoose } from "./json.ts";
 import { isCheckpoint } from "./PageReader.ts";
 import {
@@ -462,5 +469,36 @@ describe("xAccount", () => {
     expect(xAccount([], "acme")).toBeNull();
     // Any matching object carrying the flag wins over a bare ref.
     expect(xAccount([{ u: user({}) }, { u: user({ is_blue_verified: true }) }], "acme")).toBe(true);
+  });
+});
+
+describe("channelFile", () => {
+  const input = (handle: string, old?: object) =>
+    ({
+      id: "x",
+      handle,
+      assetId: undefined,
+      timezone: TZ,
+      since: "2026-10-01",
+      scanFrom: "2026-11-01",
+      full: false,
+      old: (old ?? null) as never,
+      reader: {} as never,
+      progress: () => {},
+    }) as Parameters<typeof channelFile>[0];
+  const plan = { old: [], read: [], listedOnly: [] };
+
+  it("reuses premium only while the stored handle is the current account", () => {
+    const old = { posts: [], premium: true, handle: "oldacct" };
+    // A null detection on a different account must not inherit its Premium.
+    expect(channelFile(input("newacct", old), plan, [], null, null, null).premium).toBeUndefined();
+    // Same account keeps a known tier when this run could not decide.
+    expect(channelFile(input("oldacct", old), plan, [], null, null, null).premium).toBe(true);
+    // A fresh verdict always wins.
+    expect(channelFile(input("newacct", old), plan, [], null, null, false).premium).toBe(false);
+    // The written file names the account it belongs to.
+    expect(channelFile(input("NewAcct", old), plan, [], null, null).handle).toBe("NewAcct");
+    // Matching is case-insensitive; the file stores the typed handle.
+    expect(channelFile(input("OLDACCT", old), plan, [], null, null, null).premium).toBe(true);
   });
 });

@@ -62,7 +62,7 @@ const toolName = (n: string) => (n.startsWith(TOOL_PREFIX) ? n.slice(TOOL_PREFIX
 const TURN_LIMIT_MS = 24 * 3_600_000;
 
 /** Only what a CLI needs to run, find its config and reach its servers — never the app's whole environment. */
-const agentEnv = (): NodeJS.ProcessEnv => {
+export const agentEnv = (): NodeJS.ProcessEnv => {
   const names = [
     "PATH",
     "HOME",
@@ -290,8 +290,8 @@ const claude: Provider = {
   },
 };
 
-/** TOML literal string: no escapes, so Windows paths survive. Our paths never hold a single quote. */
-const tomlLiteral = (s: string) => `'${s.replaceAll("'", "")}'`;
+/** TOML basic string: JSON escaping is TOML's own — backslashes and quotes both survive. */
+const tomlLiteral = (s: string) => JSON.stringify(s);
 
 /** npm installs Codex behind a .cmd shim; the native binary it launches sits in a per-platform package beside it. */
 export function codexBinary(found: string | null): string | null {
