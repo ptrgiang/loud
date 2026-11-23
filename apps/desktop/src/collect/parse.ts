@@ -447,26 +447,42 @@ export function xFollowers(objs: ReadonlyArray<unknown>, handle: string): number
 
 /**
  * The account's verification state: blue check (Premium) or a Business/Government verified_type widens the post
- * limit to 25,000. Null when no user object for the handle arrived — the previous answer stands.
+ * limit to 25,000. Payloads hold several objects naming the handle (full user results, bare author refs) — any hit
+ * with a verification flag is a yes; a hit that carries the fields but says no is a no; nothing with fields is
+ * undecided and keeps the previous answer.
  */
 export function xAccount(objs: ReadonlyArray<unknown>, handle: string): boolean | null {
-  const u = walk(
+  const matches = walk(
     objs,
     (o) =>
       (
-        text(get(o, "core", "screen_name")) || text(get(o, "legacy", "screen_name"))
+        text(get(o, "core", "screen_name")) ||
+        text(get(o, "legacy", "screen_name")) ||
+        text(o.screen_name)
       ).toLowerCase() === handle.toLowerCase(),
-  )[0];
-  if (!u) return null;
-  const blue =
-    get(u, "core", "is_blue_verified") === true ||
-    get(u, "is_blue_verified") === true ||
-    get(u, "legacy", "is_blue_verified") === true;
-  const tier =
-    text(get(u, "verification", "verified_type")) ||
-    text(u.verified_type) ||
-    text(get(u, "legacy", "verified_type"));
-  return blue || tier === "Business" || tier === "Government";
+  );
+  if (!matches.length) return null;
+  let decided = false;
+  for (const u of matches) {
+    const blue =
+      get(u, "core", "is_blue_verified") === true ||
+      get(u, "is_blue_verified") === true ||
+      get(u, "legacy", "is_blue_verified") === true;
+    const tier =
+      text(get(u, "verification", "verified_type")) ||
+      text(u.verified_type) ||
+      text(get(u, "legacy", "verified_type"));
+    if (blue || tier === "Business" || tier === "Government") return true;
+    // A user object that knows the fields at all settles the question; a bare screen_name ref does not.
+    if (
+      get(u, "core", "is_blue_verified") !== undefined ||
+      u.is_blue_verified !== undefined ||
+      get(u, "verification", "verified_type") !== undefined ||
+      u.verified_type !== undefined
+    )
+      decided = true;
+  }
+  return decided ? false : null;
 }
 
 export function xScheduled(objs: ReadonlyArray<unknown>, tz: string): Array<Queued> | null {

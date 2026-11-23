@@ -454,9 +454,13 @@ describe("xAccount", () => {
       true,
     );
     expect(xAccount([{ u: user({ legacy: { verified_type: "Government" } }) }], "acme")).toBe(true);
-    expect(xAccount([{ u: user({}) }], "acme")).toBe(false);
+    expect(xAccount([{ u: user({ is_blue_verified: false }) }], "acme")).toBe(false);
+    // A bare ref with the handle but no verification fields is undecided, not a no.
+    expect(xAccount([{ u: user({}) }], "acme")).toBeNull();
     // A user object for another handle, or none at all: nothing is decided.
     expect(xAccount([{ u: user({}) }], "someone-else")).toBeNull();
     expect(xAccount([], "acme")).toBeNull();
+    // Any matching object carrying the flag wins over a bare ref.
+    expect(xAccount([{ u: user({}) }, { u: user({ is_blue_verified: true }) }], "acme")).toBe(true);
   });
 });

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.1.11-beta.10 (2026-11-23)
+
+- Premium detection on X checks every user object naming the handle, not just the first: a bare author ref without verification fields is "undecided" instead of a wrong "no", and an object carrying the flag wins.
+- `LOUD_DEBUG=<dir>` writes `x-account.json` there on each X collect — the field paths and verification values of objects naming the handle — to pin down where the real payload keeps Premium.
+
 ## 0.1.11-beta.9 (2026-11-23)
 
 - Loud now notices a Premium (blue check) or Verified Organization account on X and lets its drafts run to 25,000 characters; everyone else keeps 280.

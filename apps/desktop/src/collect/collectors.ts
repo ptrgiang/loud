@@ -1,6 +1,8 @@
 // One function per platform: what to open, what to read from it, how to merge with what is stored. Each writes the
 // collector files described in docs/data-format.md; the build turns them into hub.json.
 import type { ChannelFile, ChannelId, CollectedListenItem, CollectedPost } from "@loud/contracts";
+import * as NodeFS from "node:fs";
+import * as NodePath from "node:path";
 
 import { formatStamp, parseStamp, wallClock } from "../build/time.ts";
 import type { PageReader } from "./PageReader.ts";
@@ -30,7 +32,7 @@ import {
   xScheduled,
   xTweets,
 } from "./parse.ts";
-import { countFromText, num, walk } from "./json.ts";
+import { countFromText, get, num, text, walk } from "./json.ts";
 
 export interface CollectInput {
   readonly id: ChannelId;
@@ -371,6 +373,32 @@ export async function collectX(input: CollectInput): Promise<ChannelFile> {
   const replies = await tab(`${X}/${handle}/with_replies`, input.full ? 25 : 4);
   // Premium on the account itself — never a wider limit on guesswork.
   const premium = xAccount(posts.first.objs, handle) ?? xAccount(replies.first.objs, handle);
+  if (process.env.LOUD_DEBUG) {
+    // Where verification lives in a real payload: field paths and values of objects naming the handle, nothing else.
+    const hits = walk(
+      [...posts.first.objs, ...replies.first.objs],
+      (o) =>
+        (
+          text(get(o, "core", "screen_name")) ||
+          text(get(o, "legacy", "screen_name")) ||
+          text(o.screen_name)
+        ).toLowerCase() === handle.toLowerCase(),
+    );
+    const paths = (o: Record<string, unknown>, p = ""): Array<string> =>
+      Object.entries(o).flatMap(([k, v]) =>
+        /verif|blue|badge|premium|business|govern|is_business|affiliat|profession/i.test(k)
+          ? [`${p}${k}=${JSON.stringify(v)}`]
+          : v && typeof v === "object" && !Array.isArray(v)
+            ? paths(v as Record<string, unknown>, `${p}${k}.`)
+            : [],
+      );
+    const dump = hits.map((u) => ({ keys: Object.keys(u), flags: paths(u) }));
+    NodeFS.mkdirSync(process.env.LOUD_DEBUG, { recursive: true });
+    NodeFS.writeFileSync(
+      NodePath.join(process.env.LOUD_DEBUG, "x-account.json"),
+      JSON.stringify({ handle, premium, hits: hits.length, dump }, null, 1),
+    );
+  }
   const seen = new Map([...posts.tweets, ...replies.tweets].map((t) => [t.id, t]));
   const fresh = [...seen.values()]
     .filter((t) => t.posted && t.posted >= input.scanFrom)
