@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.11-beta.4 (2026-11-23)
+
+- Drafts get a Post button that opens a dedicated split window: the draft kit (caption, first comment, images, copy and show-in-folder buttons) on the left, the platform's own composer logged in on the right — no more switching between Loud and a browser.
+- Drafts can carry a first comment to post right after publishing (link, hashtags), saved end to end and shown in the posting window.
+- The agent no longer saves a draft or images after every chat turn — only when you ask. Images are shown first in the chat for approval before any lands in a draft.
+- The window remembers its size, position and maximized state across updates and tray reopenings.
+
 ## 0.1.11-beta.3 (2026-11-23)
 
 - A visual pass on the whole dashboard: page titles carry weight, rising bars use quiet channel tints instead of stacked saturated fills, the second proposal action shrinks to an icon, the active nav row shows a left accent, the sidebar footer stops truncating next to the version, and first-run pages show a numbered next-step checklist.
