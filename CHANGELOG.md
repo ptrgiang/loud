@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+## 0.1.12-beta.4 (2026-11-23)
+
+- Instagram and Facebook now post through the composer — exercised against
+  real accounts. Instagram's caption rides on the platform's own submit
+  request (the composer's text model never accepts synthetic typing), and
+  Facebook posts text. Facebook's photo button opens an OS picker Loud
+  cannot answer yet, so a draft with images posts text and says so.
+- Each draft can carry channel switches (AI label, schedule, boost…); the
+  pane lists them per channel and Instagram's native schedule starts off.
+- Composer typing is one block per field — no more caret drift — and the
+  steps breathe between stages like a person, not a burst.
+- Threads confirms a post by its own submit request, not the dialog
+  closing, and its "Community or topic" slot beside the username takes a
+  draft's community. The old topic field is gone.
+- The agent only saves a draft when you ask ("draft it", "save this"), and
+  a Threads draft from the agent can carry the community and the reply
+  audience.
+
 ## 0.1.12-beta.3 (2026-11-24)
 
 - Scheduling is Loud's own clock now: a confirm in the posting window sets the

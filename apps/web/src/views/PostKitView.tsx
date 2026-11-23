@@ -1,6 +1,6 @@
 // The left pane of the posting window: everything in the draft, each with its own copy or show-in-folder button, so
 // it can go straight into the composer open on the right. No sidebar, no chrome — it lives next to a web page.
-import { CHANNEL_NAMES, type Draft } from "@loud/contracts";
+import { CHANNEL_NAMES, CHANNEL_TOGGLES, type Draft } from "@loud/contracts";
 import { Dialog } from "@base-ui/react/dialog";
 import {
   CalendarClock,
@@ -129,6 +129,47 @@ function DragHandle() {
   );
 }
 
+/** The composer's switches as Loud options — one checkbox each, saved onto the draft. */
+function Options({ draft }: { draft: Draft }) {
+  const t = useT();
+  const toggles = CHANNEL_TOGGLES[draft.channel];
+  if (!toggles.length) return null;
+  const opts = draft.options ?? {};
+  const set = (key: string, on: boolean) =>
+    void call("drafts.save", {
+      id: draft.id,
+      channel: draft.channel,
+      text: draft.text,
+      options: { ...opts, [key]: on },
+    })
+      .then(() => void useWork.getState().loadDrafts())
+      .catch(say);
+  return (
+    <section className="flex flex-col gap-2 rounded-lg border bg-card p-3">
+      <span className="font-medium text-muted-foreground text-2xs uppercase tracking-wide">
+        {t("post.options")}
+      </span>
+      {toggles.map((tg) => {
+        const on = opts[tg.key] ?? tg.on;
+        return (
+          <label
+            key={tg.key}
+            className="flex cursor-pointer items-center gap-2 text-sm select-none"
+          >
+            <input
+              type="checkbox"
+              checked={on}
+              onChange={(e) => set(tg.key, e.target.checked)}
+              className="accent-primary"
+            />
+            {tg.label}
+          </label>
+        );
+      })}
+    </section>
+  );
+}
+
 /** The automation row: shown when the channel has a driver and posting.auto is on. Confirm happens here, not in the page. */
 function AutoPost({ id, draft }: { id: string; draft: Draft }) {
   const t = useT();
@@ -235,10 +276,9 @@ function AutoPost({ id, draft }: { id: string; draft: Draft }) {
                         media: mediaCount ? t("post.confirmMedia", { n: mediaCount }) : "",
                       })}
                 </p>
-                {(draft.topic || draft.reply || draft.community) && (
+                {(draft.reply || draft.community) && (
                   <p className="text-2xs">
                     {[
-                      draft.topic && t("drafts.extrasTopic", { topic: draft.topic }),
                       draft.reply === "followers" && t("drafts.replyFollowers"),
                       draft.reply === "mentioned" && t("drafts.replyMentioned"),
                       draft.community && t("drafts.extrasCommunity", { name: draft.community }),
@@ -355,6 +395,7 @@ export function PostKitView({ id }: { id: string }) {
           ))}
         </section>
       ) : null}
+      <Options draft={d} />
       {auto === true && !d.posted && !d.scheduledAt && <AutoPost id={id} draft={d} />}
       <p className="mt-auto text-2xs text-muted-foreground">{t("post.hint")}</p>
       <DragHandle />

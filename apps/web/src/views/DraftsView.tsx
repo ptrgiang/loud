@@ -396,7 +396,6 @@ interface EditorDraft {
   readonly comment: string;
   readonly posted?: string | undefined;
   readonly scheduledAt?: string | undefined;
-  readonly topic?: string | undefined;
   readonly reply?: Draft["reply"] | undefined;
   readonly community?: string | undefined;
 }
@@ -437,7 +436,6 @@ function Editor({
     d.text !== start.text ||
     d.note !== start.note ||
     d.comment !== start.comment ||
-    d.topic !== start.topic ||
     d.reply !== start.reply ||
     d.community !== start.community ||
     d.channel !== start.channel;
@@ -450,7 +448,6 @@ function Editor({
       note: d.note,
       // Always sent: "" is how the editor clears an extra that was set before.
       comment: d.comment.trim(),
-      topic: (d.topic ?? "").trim(),
       // "anyone" is the platform default, not a cleared value — always a real choice.
       reply: d.reply ?? "anyone",
       community: (d.community ?? "").trim(),
@@ -462,7 +459,6 @@ function Editor({
         text: saved.text,
         note: saved.note,
         comment: saved.comment ?? "",
-        topic: saved.topic,
         reply: saved.reply,
         community: saved.community,
       });
@@ -554,13 +550,6 @@ function Editor({
               <div className="mt-1 text-2xs text-muted-foreground uppercase tracking-wide">
                 {t("drafts.threadsOnly")}
               </div>
-              <Input
-                size="sm"
-                value={d.topic ?? ""}
-                placeholder={t("drafts.topicPlaceholder")}
-                aria-label={t("drafts.topicAria")}
-                onValueChange={(topic) => setD({ ...d, topic })}
-              />
               <Select
                 className="w-full"
                 value={d.reply ?? ""}

@@ -160,17 +160,17 @@ export const Draft = Schema.Struct({
   note: Schema.String,
   /** A comment to post under the post right after publishing (a link, the hashtags), kept with the draft. */
   comment: Schema.optionalKey(Schema.String),
-  /** Threads only: a topic tag shown under the post. */
-  topic: Schema.optionalKey(Schema.String),
   /** Threads only: who may reply — anyone, followers, or mentioned. */
   reply: Schema.optionalKey(Schema.Literals(["anyone", "followers", "mentioned"])),
-  /** Threads only: post into one of the account's communities, matched by name. */
+  /** Threads only: the "Community or topic" tag beside the username, matched by name. */
   community: Schema.optionalKey(Schema.String),
   by: Schema.Literals(["you", "agent"]),
   /** File names in the draft's own folder, in posting order. */
   images: Schema.optionalKey(Schema.Array(Schema.String)),
   /** Video file names in the draft's own folder — mp4, mov or webm. */
   videos: Schema.optionalKey(Schema.Array(Schema.String)),
+  /** Composer switches, keyed by CHANNEL_TOGGLES — the driver sets each named switch to this state. */
+  options: Schema.optionalKey(Schema.Record(Schema.String, Schema.Boolean)),
   /** Set when Loud submitted it through the composer — wall-clock stamp. */
   posted: Schema.optionalKey(Schema.String),
   /** Set when the composer scheduled it — the platform's chosen time. */
@@ -186,9 +186,9 @@ export const DraftInput = Schema.Struct({
   text: Schema.String,
   note: Schema.optionalKey(Schema.String),
   comment: Schema.optionalKey(Schema.String),
-  topic: Schema.optionalKey(Schema.String),
   reply: Schema.optionalKey(Schema.Literals(["anyone", "followers", "mentioned"])),
   community: Schema.optionalKey(Schema.String),
+  options: Schema.optionalKey(Schema.Record(Schema.String, Schema.Boolean)),
 });
 export type DraftInput = typeof DraftInput.Type;
 

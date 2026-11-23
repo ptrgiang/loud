@@ -4,6 +4,8 @@ import type { ChannelId, Draft } from "@loud/contracts";
 import * as Electron from "electron";
 
 import type { PublishResult } from "./common.ts";
+import { publish as fb } from "./fb.ts";
+import { publish as ig } from "./ig.ts";
 import { publish as threads } from "./threads.ts";
 import { publish as x } from "./x.ts";
 
@@ -18,6 +20,14 @@ export interface Driver {
 }
 
 export const DRIVERS: Partial<Record<ChannelId, Driver>> = {
+  fb: {
+    fileSelector: 'input[type="file"]',
+    publish: fb,
+  },
+  ig: {
+    fileSelector: '[role="dialog"] input[type="file"]',
+    publish: ig,
+  },
   threads: {
     fileSelector: '[role="dialog"] input[type="file"]',
     publish: threads,

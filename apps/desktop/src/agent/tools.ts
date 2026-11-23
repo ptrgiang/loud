@@ -7,6 +7,7 @@ import {
   X_PREMIUM_LIMIT,
   CHANNEL_NAMES,
   type ChannelId,
+  type Draft,
   DRAFT_IMAGES_MAX,
   type Hub,
   type Keywords,
@@ -491,7 +492,7 @@ export const TOOLS: ReadonlyArray<Tool> = [
   },
   {
     name: "save_draft",
-    description: `Save a post draft to the Drafts page for the user to edit and post themselves. Give an id to replace an existing draft. Character limits: ${CHANNEL_IDS.map((id) => `${CHANNEL_NAMES[id]} ${id === "x" ? `${CHANNEL_LIMITS.x} (25,000 when the connected account is Premium)` : CHANNEL_LIMITS[id]}`).join(", ")}.`,
+    description: `Save a post draft to the Drafts page for the user to edit and post themselves. Only when the user explicitly asked for a saved draft — "draft it", "save this", or while editing one with you; post text in your answer needs no draft. Give an id to replace an existing draft. Character limits: ${CHANNEL_IDS.map((id) => `${CHANNEL_NAMES[id]} ${id === "x" ? `${CHANNEL_LIMITS.x} (25,000 when the connected account is Premium)` : CHANNEL_LIMITS[id]}`).join(", ")}.`,
     writes: true,
     inputSchema: {
       type: "object",
@@ -503,6 +504,16 @@ export const TOOLS: ReadonlyArray<Tool> = [
           type: "string",
           description:
             "A comment to post under the post right after publishing (a link, the hashtags). Optional.",
+        },
+        community: {
+          type: "string",
+          description:
+            "Threads only: the 'Community or topic' tag beside the username, matched by name. Optional.",
+        },
+        reply: {
+          type: "string",
+          enum: ["anyone", "followers", "mentioned"],
+          description: "Threads only: who may reply. Optional.",
         },
         id: { type: "string", description: "Replace this draft instead of adding one" },
         images: {
@@ -541,6 +552,10 @@ export const TOOLS: ReadonlyArray<Tool> = [
           text,
           note: str(a.note),
           comment: str(a.comment) || undefined,
+          community: str(a.community) || undefined,
+          reply: ["anyone", "followers", "mentioned"].includes(str(a.reply))
+            ? (str(a.reply) as Draft["reply"])
+            : undefined,
         },
         "agent",
         ctx.now(),

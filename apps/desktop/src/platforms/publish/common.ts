@@ -183,7 +183,8 @@ export const insertText = async (
   }
 };
 
-/** insertText in chunks with pauses — one giant insert in a single tick is a bot tell. */
+/** One whole-block insert — chunked inserts drift the caret between calls (a suggestion popup or a
+ * second editor steals it) and the next chunk lands in the wrong place. */
 export const typeText = async (
   wc: Electron.WebContents,
   selector: string,
@@ -216,15 +217,291 @@ export const typeText = async (
     const nodeId = pick === "last" ? (visible[visible.length - 1] ?? 0) : (visible[0] ?? 0);
     if (!nodeId) return false;
     await dbg.sendCommand("DOM.focus", { nodeId });
-    const chunk = 24;
-    for (let i = 0; i < text.length; i += chunk) {
-      await dbg.sendCommand("Input.insertText", { text: text.slice(i, i + chunk) });
+    await dbg.sendCommand("Input.insertText", { text });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** Shifted symbols on a US layout — keyCode takes the base key, `modifiers` adds the shift. */
+const SHIFT_KEYS: Record<string, string> = {
+  "!": "1",
+  "@": "2",
+  "#": "3",
+  $: "4",
+  "%": "5",
+  "^": "6",
+  "&": "7",
+  "*": "8",
+  "(": "9",
+  ")": "0",
+  ":": ";",
+  "<": ",",
+  ">": ".",
+  "?": "/",
+  '"': "'",
+  "{": "[",
+  "}": "]",
+  "|": "\\",
+  "~": "`",
+  _: "-",
+  "+": "=",
+};
+
+/** Char → Electron accelerator keyCode + shift flag; null for characters no key produces (emoji, CJK, …). */
+const keyOf = (ch: string): { code: string; shift: boolean } | null => {
+  if (/[a-z]/.test(ch)) return { code: ch.toUpperCase(), shift: false };
+  if (/[A-Z]/.test(ch)) return { code: ch, shift: true };
+  if (/[0-9]/.test(ch)) return { code: ch, shift: false };
+  if (ch === " ") return { code: "Space", shift: false };
+  if (ch === "\n") return { code: "Enter", shift: false };
+  if (SHIFT_KEYS[ch]) return { code: SHIFT_KEYS[ch], shift: true };
+  if ("-=[]\\;',./`".includes(ch)) return { code: ch, shift: false };
+  return null;
+};
+
+/**
+ * Trusted typing: sendInputEvent goes through Electron's real input pipeline — keyDown/char/keyUp
+ * land like keystrokes. Synthetic inserts (CDP insertText, execCommand, ClipboardEvent) fill the DOM
+ * and the counter, but editors like Instagram's Lexical never commit them to the submitted payload.
+ */
+export const typeKeys = async (
+  wc: Electron.WebContents,
+  selector: string,
+  text: string,
+): Promise<boolean> => {
+  const rect = await evalIn<{ x: number; y: number }>(
+    wc,
+    `(()=>{const el=[...document.querySelectorAll(${JSON.stringify(selector)})].find(e=>e.offsetParent!==null);
+if(!el)return null;const r=el.getBoundingClientRect();
+return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+Math.min(12,r.height/2))}})()`,
+  );
+  if (!rect) return false;
+  const keys = [...text].map(keyOf);
+  if (keys.some((k) => k === null)) return false; // unmappable chars — caller falls back whole
+  // A real click first — it focuses the editor the way a person's pointer does.
+  for (const type of ["mouseDown", "mouseUp"] as const) {
+    wc.sendInputEvent({
+      type,
+      x: rect.x,
+      y: rect.y,
+      button: "left",
+      clickCount: 1,
+    });
+  }
+  await pace(120);
+  for (const key of keys) {
+    const mods = key!.shift ? (["shift"] as const) : [];
+    wc.sendInputEvent({ type: "keyDown", keyCode: key!.code, modifiers: [...mods] });
+    wc.sendInputEvent({ type: "char", keyCode: key!.code, modifiers: [...mods] });
+    wc.sendInputEvent({ type: "keyUp", keyCode: key!.code, modifiers: [...mods] });
+    // Per-keystroke jitter — a fast typist, not a burst.
+    await new Promise((r) => setTimeout(r, 35 + Math.floor(Math.random() * 80)));
+  }
+  return true;
+};
+
+/** Arms a request-stage pause on `pattern`; resolves with the paused request the moment it fires.
+ * The caller rewrites postData (or not) then continues — the platform still signs and sends it. */
+export const armRequest = async (
+  wc: Electron.WebContents,
+  pattern: string,
+  ms: number,
+): Promise<{
+  paused: Promise<{ requestId: string; request: { url: string; postData?: string } }>;
+  disarm: () => Promise<void>;
+}> => {
+  const dbg = wc.debugger;
+  try {
+    dbg.attach("1.3");
+  } catch {
+    // Already attached — the commands still work.
+  }
+  let onMessage: ((event: unknown, method: string, params: unknown) => void) | null = null;
+  const paused = new Promise<{ requestId: string; request: { url: string; postData?: string } }>(
+    (resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("the request never fired")), ms);
+      onMessage = (_e: unknown, method: string, params: unknown) => {
+        if (method === "Fetch.requestPaused") {
+          clearTimeout(timer);
+          resolve(params as { requestId: string; request: { url: string; postData?: string } });
+        }
+      };
+      dbg.on("message", onMessage);
+    },
+  );
+  await dbg.sendCommand("Fetch.enable", {
+    patterns: [{ urlPattern: pattern, requestStage: "Request" }],
+  });
+  const disarm = async () => {
+    if (onMessage) dbg.off("message", onMessage);
+    try {
+      await dbg.sendCommand("Fetch.disable", {});
+    } catch {
+      // Debugger may have detached mid-publish.
+    }
+  };
+  return { paused, disarm };
+};
+
+/** A real Enter — contenteditable editors split lines on the key event, not on "\n" in inserted text. */
+const pressEnter = async (dbg: Electron.Debugger) => {
+  for (const type of ["rawKeyDown", "keyUp"] as const) {
+    await dbg.sendCommand("Input.dispatchKeyEvent", {
+      type,
+      key: "Enter",
+      code: "Enter",
+      windowsVirtualKeyCode: 13,
+      nativeVirtualKeyCode: 13,
+      ...(type === "rawKeyDown" ? { text: "\r" } : {}),
+    });
+  }
+};
+
+/** Instagram's caption wants each line typed and lines split by real Enter presses. */
+export const typeLines = async (
+  wc: Electron.WebContents,
+  selector: string,
+  text: string,
+): Promise<boolean> => {
+  const dbg = wc.debugger;
+  try {
+    dbg.attach("1.3");
+  } catch {
+    // Already attached — the commands still work.
+  }
+  try {
+    const doc = (await dbg.sendCommand("DOM.getDocument", { depth: 1 })) as {
+      root: { nodeId: number };
+    };
+    const all = (await dbg.sendCommand("DOM.querySelectorAll", {
+      nodeId: doc.root.nodeId,
+      selector,
+    })) as { nodeIds: Array<number> };
+    let nodeId = 0;
+    for (const id of all.nodeIds) {
+      try {
+        await dbg.sendCommand("DOM.getBoxModel", { nodeId: id });
+        nodeId = id;
+        break;
+      } catch {}
+    }
+    if (!nodeId) return false;
+    await dbg.sendCommand("DOM.focus", { nodeId });
+    const lines = text.split("\n");
+    for (const [i, line] of lines.entries()) {
+      if (i > 0) await pressEnter(dbg);
+      await dbg.sendCommand("Input.insertText", { text: line });
       await pace(0);
     }
     return true;
   } catch {
     return false;
   }
+};
+
+/** An image through the real clipboard paste — the composer's own paste handler attaches it like a user
+ * pasting a screenshot. Returns true when a blob preview appears. */
+export const pasteImage = async (
+  wc: Electron.WebContents,
+  selector: string,
+  imagePath: string,
+): Promise<boolean> => {
+  const mime = /\.jpe?g$/i.test(imagePath) ? "image/jpeg" : "image/png";
+  const ok = await evalIn<boolean>(
+    wc,
+    `(()=>{const el=[...document.querySelectorAll(${JSON.stringify(selector)})].find(e=>e.offsetParent!==null);
+if(!el)return false;el.focus();return true})()`,
+  );
+  if (!ok) return false;
+  try {
+    const bytes = await import("node:fs").then((m) => m.promises.readFile(imagePath));
+    await Electron.clipboard.write([
+      new Electron.ClipboardItem({ [mime]: new Blob([bytes], { type: mime }) }),
+    ]);
+    wc.paste();
+  } catch {
+    return false;
+  }
+  await pace(500);
+  const pasted = await evalIn<boolean>(
+    wc,
+    `[...document.querySelectorAll('img')].some(i=>i.offsetParent!==null&&(i.src||'').startsWith('blob:'))`,
+  );
+  return pasted ?? false;
+};
+
+/** wc.insertText goes through Electron's native text-input path — a real insertion the editor's model commits. */
+export const insertNative = async (
+  wc: Electron.WebContents,
+  selector: string,
+  text: string,
+): Promise<boolean> => {
+  const ok = await evalIn<boolean>(
+    wc,
+    `(()=>{const el=[...document.querySelectorAll(${JSON.stringify(selector)})].find(e=>e.offsetParent!==null);
+if(!el)return false;el.focus();return true})()`,
+  );
+  if (!ok) return false;
+  try {
+    await wc.insertText(text);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** Facebook's composer takes text through a real paste — ClipboardEvent, like the human flow. */
+export const pasteText = (wc: Electron.WebContents, selector: string, text: string) =>
+  evalIn<boolean>(
+    wc,
+    `(()=>{const el=[...document.querySelectorAll(${JSON.stringify(selector)})].find(e=>e.offsetParent!==null);
+if(!el)return false;el.focus();
+const dt=new DataTransfer();dt.setData('text/plain',${JSON.stringify(text)});
+el.dispatchEvent(new ClipboardEvent('paste',{clipboardData:dt,bubbles:true,cancelable:true}));
+return true})()`,
+  );
+
+/** Switch or checkbox by its own label: the composer's wording, not a position. Returns what it ended up doing. */
+export const setToggle = async (
+  wc: Electron.WebContents,
+  labelRe: string,
+  want: boolean,
+): Promise<"set" | "already" | "missing"> => {
+  const r = await evalIn<string>(
+    wc,
+    `(()=>{const re=${labelRe};
+const els=[...document.querySelectorAll('[role="switch"],[role="checkbox"],input[type="checkbox"],[aria-checked]')]
+.filter(e=>e.offsetParent!==null);
+const el=els.find(e=>{
+  const own=(e.getAttribute('aria-label')||'').trim();
+  if(re.test(own))return true;
+  let p=e.parentElement;
+  for(let i=0;i<4&&p;i++,p=p.parentElement){
+    const t=(p.innerText||'').trim();
+    if(t&&t.length<80&&re.test(t))return true;
+  }
+  return false});
+if(!el)return "missing";
+const on=el.getAttribute('aria-checked')==='true'||el.checked===true;
+if(on===${want})return "already";
+el.click();return "set"})()`,
+  );
+  return r === "set" || r === "already" ? r : "missing";
+};
+
+/** Background windows stall composer dialogs — bring the posting window forward before the last clicks. */
+export const focusWindow = (wc: Electron.WebContents) => {
+  const win = Electron.BrowserWindow.fromWebContents(wc);
+  if (win && !win.isDestroyed()) {
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+  }
+  try {
+    wc.focus();
+  } catch {}
 };
 
 /** Focused element gets text via native setters + an InputEvent when the debugger route fails. */

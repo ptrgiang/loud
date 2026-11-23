@@ -4,6 +4,7 @@ import type { Draft } from "@loud/contracts";
 import * as Electron from "electron";
 
 import {
+  armRequest,
   attachFiles,
   checkpointCheck,
   evalIn,
@@ -199,8 +200,6 @@ return dlgs.some(d=>d.querySelector('[contenteditable="true"],textarea'))})()`,
   const missing: Array<string> = [];
   await pace();
   if (draft.comment && !(await addThread(wc, draft.comment))) missing.push("comment");
-  if (draft.topic && !(await pickSlot(wc, draft.topic.replace(/^#/, "").trim())))
-    missing.push("topic");
   if (draft.community && !(await pickSlot(wc, draft.community))) missing.push("community");
   if (draft.reply && !(await setReply(wc, draft.reply)))
     return {
@@ -210,18 +209,28 @@ return dlgs.some(d=>d.querySelector('[contenteditable="true"],textarea'))})()`,
     } as const;
 
   await pace();
-  if (!(await clickPost(wc)))
-    return {
-      ok: false,
-      stage: "post",
-      message: "the Post button was not found in the dialog",
-    } as const;
+  // Threads can leave the composer rendered after a chained post — the editor staying visible is not
+  // proof it failed. Arm the configure request as the real confirm signal before the Post click.
+  const { paused, disarm } = await armRequest(wc, "*configure_text_post_app*", TOTAL_MS);
+  try {
+    if (!(await clickPost(wc)))
+      return {
+        ok: false,
+        stage: "post",
+        message: "the Post button was not found in the dialog",
+      } as const;
 
-  // The home page keeps a hidden dialog in the DOM, so "[role=dialog] gone" is not the signal —
-  // the composer editor disappearing or a posted toast is.
-  const confirmed = await evalIn<boolean>(
-    wc,
-    `(async()=>{const deadline=Date.now()+${TOTAL_MS};
+    let req: Awaited<typeof paused> | null | undefined;
+    paused
+      .then((r) => {
+        req = r;
+      })
+      .catch(() => {});
+    const fired = await Promise.race([
+      paused.then(() => true).catch(() => false),
+      evalIn<boolean>(
+        wc,
+        `(async()=>{const deadline=Date.now()+${TOTAL_MS};
 const toast=/post|shared|published|đã đăng|publi/i;
 for(;;){
   const ed=[...document.querySelectorAll(${JSON.stringify(EDITOR)})].some(e=>e.offsetParent!==null);
@@ -231,8 +240,15 @@ for(;;){
   if(t)return true;
   if(Date.now()>deadline)return false;
   await new Promise(r=>setTimeout(r,400))}})()`,
-  );
-  return confirmed
-    ? ({ ok: true, result: "posted", ...(missing.length ? { missing } : {}) } as const)
-    : ({ ok: false, stage: "confirm", message: "the dialog stayed open after Post" } as const);
+      ),
+    ]);
+
+    // Request paused — let it continue unchanged, the platform signs and sends it.
+    if (req) await wc.debugger.sendCommand("Fetch.continueRequest", { requestId: req.requestId });
+    return fired
+      ? ({ ok: true, result: "posted", ...(missing.length ? { missing } : {}) } as const)
+      : ({ ok: false, stage: "confirm", message: "the dialog stayed open after Post" } as const);
+  } finally {
+    await disarm();
+  }
 };

@@ -31,6 +31,32 @@ export const CHANNEL_LIMITS: Record<ChannelId, number> = {
 /** X Premium (blue check, Business or Government verified) posts run to 25,000. */
 export const X_PREMIUM_LIMIT = 25_000;
 
+export interface ChannelToggle {
+  /** Draft.options key — stable across platform wording. */
+  readonly key: string;
+  /** The composer's own switch label — what the driver looks for and the UI shows. */
+  readonly label: string;
+  /** The state a fresh draft starts with — the platform defaults differ; Loud's do not. */
+  readonly on: boolean;
+}
+
+/** Switches the platform composer exposes, settable per draft. `schedule` means the platform's own scheduling — Loud's in-app scheduling decides when the driver runs, this sets the composer's clock inside it. Instagram's Schedule defaults off. */
+export const CHANNEL_TOGGLES: Record<ChannelId, ReadonlyArray<ChannelToggle>> = {
+  ig: [
+    { key: "aiLabel", label: "Add AI label", on: false },
+    { key: "schedule", label: "Schedule content", on: false },
+    { key: "shareFb", label: "Facebook", on: false },
+  ],
+  fb: [
+    { key: "adPost", label: "Make this an ad post", on: false },
+    { key: "schedule", label: "Set date and time", on: false },
+    { key: "shareStory", label: "Share to Facebook story", on: false },
+    { key: "boost", label: "Boost", on: false },
+  ],
+  threads: [],
+  x: [],
+};
+
 /** Where the user posts it themselves. X takes the text in its share intent; Threads opens its home (the intent dialog has no media, reply or community controls); Instagram and Facebook open the composer. */
 export const composerUrl = (id: ChannelId, text: string): string =>
   ({
