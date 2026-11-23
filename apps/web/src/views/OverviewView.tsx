@@ -437,7 +437,8 @@ function RisingNow({ hub }: { hub: Hub }) {
                     className="block h-full rounded-full"
                     style={{
                       width: `${Math.min(100, (100 * ratio) / top)}%`,
-                      background: `var(--ch-${p.channel})`,
+                      // A quiet tint of the channel colour: the dot above already names it, stacking four saturated bars reads as noise.
+                      background: `color-mix(in oklab, var(--ch-${p.channel}) 42%, var(--muted))`,
                     }}
                   />
                 </span>
@@ -592,6 +593,7 @@ export function OverviewView() {
         <Empty
           icon={<LayoutDashboard />}
           title={connected ? t("nodata.title") : t("ov.connectStart")}
+          steps={connected ? undefined : [t("nodata.step1"), t("nodata.step2"), t("nodata.step3")]}
           action={
             connected ? (
               <Button

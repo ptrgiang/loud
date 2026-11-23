@@ -78,11 +78,17 @@ function SidebarRow({
       data-active={active}
       onClick={onSelect}
       className={cn(
-        "flex h-8 w-full cursor-pointer items-center gap-[var(--sidebar-control-gap)] overflow-hidden rounded-[var(--control-radius)] px-[var(--sidebar-row-content-inset)] py-1.5 text-left font-medium text-sidebar-muted-foreground/80 text-sm outline-hidden ring-ring transition-colors hover:bg-sidebar-row-hover hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-inset active:bg-sidebar-row-active",
+        "relative flex h-8 w-full cursor-pointer items-center gap-[var(--sidebar-control-gap)] overflow-hidden rounded-[var(--control-radius)] px-[var(--sidebar-row-content-inset)] py-1.5 text-left font-medium text-sidebar-muted-foreground/80 text-sm outline-hidden ring-ring transition-colors hover:bg-sidebar-row-hover hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-inset active:bg-sidebar-row-active",
         "data-[active=true]:bg-sidebar-row-selected data-[active=true]:text-sidebar-foreground data-[active=true]:shadow-xs/5 dark:data-[active=true]:shadow-none",
         "[&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-[var(--sidebar-icon-color)] hover:[&>svg]:text-sidebar-foreground data-[active=true]:[&>svg]:text-sidebar-foreground",
       )}
     >
+      {active && (
+        <span
+          aria-hidden
+          className="absolute top-1/2 left-[3px] h-4 w-0.5 -translate-y-1/2 rounded-full bg-primary"
+        />
+      )}
       <Icon />
       <span className="truncate">{t(item.label)}</span>
     </button>
@@ -183,11 +189,14 @@ export function AppSidebar() {
                   </span>
                 </>
               ) : (
-                <span className="truncate">
-                  {t("sidebar.connected", {
+                <span
+                  className="truncate"
+                  title={t("sidebar.connected", {
                     connected,
                     total: platforms.length || 4,
                   })}
+                >
+                  {connected}/{platforms.length || 4}
                 </span>
               )}
             </button>

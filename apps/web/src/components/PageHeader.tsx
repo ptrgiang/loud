@@ -13,7 +13,7 @@ export function PageHeader({
   return (
     <header className="flex h-[var(--workspace-topbar-height)] shrink-0 items-center justify-between gap-4 border-b px-6">
       <div className="flex min-w-0 items-baseline gap-3">
-        <h1 className="truncate font-semibold text-sm">{title}</h1>
+        <h1 className="shrink-0 font-semibold text-[15px] tracking-tight">{title}</h1>
         {description && <p className="truncate text-muted-foreground text-xs">{description}</p>}
       </div>
       {children && <div className="flex shrink-0 items-center gap-2">{children}</div>}
@@ -26,11 +26,14 @@ export function Empty({
   title,
   children,
   action,
+  steps,
 }: {
   icon?: React.ReactNode;
   title: string;
   children?: React.ReactNode;
   action?: React.ReactNode;
+  /** Numbered next steps under the body, for first-run guidance. */
+  steps?: ReadonlyArray<string> | undefined;
 }) {
   return (
     <div className="flex flex-1 items-center justify-center p-10">
@@ -42,6 +45,18 @@ export function Empty({
         )}
         <div className="font-medium text-sm">{title}</div>
         {children && <div className="text-muted-foreground text-sm">{children}</div>}
+        {steps && (
+          <ol className="mt-1 flex flex-col gap-1.5 self-center text-left text-muted-foreground text-xs">
+            {steps.map((s, i) => (
+              <li key={s} className="flex items-center gap-2.5">
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full border bg-card text-2xs tabular-nums">
+                  {i + 1}
+                </span>
+                {s}
+              </li>
+            ))}
+          </ol>
+        )}
         {action}
       </div>
     </div>

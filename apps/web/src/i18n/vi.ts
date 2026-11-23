@@ -30,6 +30,9 @@ export const vi: Record<MsgKey, string> = {
     "Kết nối một nền tảng trước. Loud giữ phiên đăng nhập và kéo số liệu của bạn.",
   "nodata.openConnections": "Mở Connections",
   "nodata.tryDemo": "Xem bản demo",
+  "nodata.step1": "Kết nối một kênh",
+  "nodata.step2": "Loud đọc số liệu trên máy",
+  "nodata.step3": "Số liệu và gợi ý hiện ở đây",
 
   "freshness.collecting": "đang thu thập",
   "freshness.nextAt": "lần thu thập tiếp {at}",

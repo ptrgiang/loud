@@ -27,6 +27,9 @@ export const en = {
   "nodata.notConnected": "Connect a platform first. Loud keeps the session and pulls your numbers.",
   "nodata.openConnections": "Open Connections",
   "nodata.tryDemo": "See the demo",
+  "nodata.step1": "Connect a channel",
+  "nodata.step2": "Loud reads it locally",
+  "nodata.step3": "Numbers and ideas appear here",
 
   "freshness.collecting": "collecting now",
   "freshness.nextAt": "next collection {at}",

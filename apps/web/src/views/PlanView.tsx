@@ -100,9 +100,15 @@ export function ProposalActions({ p, size = "xs" }: { p: ProposalItem; size?: "x
         <NotebookPen />
         {t("plan.draftIt")}
       </Button>
-      <Button size={size} variant="outline" onClick={() => void ask(agentAsk(p))}>
+      {/* The second action shrinks to an icon so the pair does not shout on every card and row. */}
+      <Button
+        size={size === "sm" ? "icon-sm" : "icon-xs"}
+        variant="ghost-muted"
+        title={t("plan.writeWithAgent")}
+        aria-label={t("plan.writeWithAgent")}
+        onClick={() => void ask(agentAsk(p))}
+      >
         <Sparkles />
-        {t("plan.writeWithAgent")}
       </Button>
     </div>
   );

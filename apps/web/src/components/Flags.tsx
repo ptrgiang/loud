@@ -26,9 +26,7 @@ export function FlagList({ flags }: { flags: ReadonlyArray<Flag> }) {
           <li key={`${f.level}:${f.text}`} className="flex gap-2.5 px-4 py-2.5 text-sm">
             <Icon className={`mt-0.5 size-4 shrink-0 ${TONE[f.level]}`} aria-hidden />
             <span>
-              <span
-                className={`mr-1.5 font-medium text-2xs uppercase tracking-wide ${TONE[f.level]}`}
-              >
+              <span className={`mr-1.5 font-medium text-2xs ${TONE[f.level]}`}>
                 {t(WORD[f.level])}
               </span>
               {f.text}

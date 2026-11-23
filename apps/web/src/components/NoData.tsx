@@ -18,6 +18,7 @@ export function NoData({ title, icon: Icon }: { title: string; icon: LucideIcon 
       <Empty
         icon={<Icon />}
         title={t("nodata.title")}
+        steps={connected ? undefined : [t("nodata.step1"), t("nodata.step2"), t("nodata.step3")]}
         action={
           !connected && (
             <div className="flex gap-2">
