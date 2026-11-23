@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.1.11-beta.2 (2026-11-23)
+
+- The draft editor shows a "What works" strip for the chosen channel: the text features your own settled posts prove (1.5x median lift or more), checked live against the draft as you type, plus the posting block that outperforms. Nothing is hardcoded — it is measured on your numbers.
+- Insights' feature table and content callouts now translate; the comments-prompt check also catches "cmt" and Vietnamese calls.
+
 ## 0.1.11-beta.1 (2026-11-23)
 
 - A new install can try the fictional Acme Forms demo in one click — from any empty page, the command palette or Settings — without logging in. While the demo is loaded, a badge sits next to the logo and collection stays off; removing it takes the same click in Settings.
