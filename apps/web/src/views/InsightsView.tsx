@@ -42,9 +42,11 @@ import {
   parseStamp,
   short,
   stampLabel,
-  WEEKDAYS,
+  weekday,
 } from "~/lib/format";
 import { FEATURE_LABEL, FEATURE_SAYS } from "~/lib/features";
+import { call } from "~/lib/loud";
+import { toast } from "~/lib/toast";
 import { cn } from "~/lib/utils";
 import { useLoud } from "~/store";
 
@@ -253,7 +255,10 @@ function ViewsPerPost({ rows }: { rows: BySettled }) {
                         onPointerMove={(e) => tip.show(e, content)}
                         onPointerLeave={tip.hide}
                         onClick={() =>
-                          href && void window.loud?.invoke("links.open", { url: href })
+                          href &&
+                          void call("links.open", { url: href }).catch((e) =>
+                            toast("error", e instanceof Error ? e.message : String(e)),
+                          )
                         }
                       />
                     </g>
@@ -712,7 +717,7 @@ export function InsightsView() {
             title={t("ins.dayOfWeek")}
             hint={t("ins.dayOfWeek.hint")}
           >
-            <Heat rows={rows} cols={WEEK_ORDER} colLabel={(d) => WEEKDAYS[d]} keyOf={weekdayOf} />
+            <Heat rows={rows} cols={WEEK_ORDER} colLabel={(d) => weekday(d)} keyOf={weekdayOf} />
           </Card>
           <Card
             className="@6xl:col-span-7"

@@ -194,6 +194,14 @@ export function addDraftVideos(data: string, id: string, list: ReadonlyArray<Uin
   });
 }
 
+/** Reorders a draft's media to the given order — posting order on the platform follows it. Unknown names fall behind instead of being dropped. */
+export function reorderDraftImages(data: string, id: string, names: ReadonlyArray<string>): Draft {
+  return update(data, id, "images", (images) => {
+    const next = names.filter((n) => SAFE_NAME.test(n) && images.includes(n));
+    return [...next, ...images.filter((n) => !next.includes(n))];
+  });
+}
+
 export function removeDraftImage(data: string, id: string, name: string): Draft {
   const file = draftMediaPath(data, id, name);
   const d = update(data, id, "images", (images) => images.filter((n) => n !== name));

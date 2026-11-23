@@ -31,6 +31,7 @@ import {
   readDraftImage,
   readDrafts,
   removeDraftImage,
+  reorderDraftImages,
   removeDraftVideo,
   upsertDraft,
 } from "../agent/drafts.ts";
@@ -322,6 +323,8 @@ export const install = (isMainFrame: (frame: Electron.WebFrameMain | null) => bo
       "drafts.addImage": ({ id, data }) =>
         attempt(() => addDraftImages(paths.data, id, [Buffer.from(data, "base64")])),
       "drafts.removeImage": ({ id, name }) => attempt(() => removeDraftImage(paths.data, id, name)),
+      "drafts.reorderImages": ({ id, names }) =>
+        attempt(() => reorderDraftImages(paths.data, id, names)),
       "drafts.addVideo": ({ id, data }) =>
         attempt(() => addDraftVideos(paths.data, id, [Buffer.from(data, "base64")])),
       "drafts.removeVideo": ({ id, name }) => attempt(() => removeDraftVideo(paths.data, id, name)),

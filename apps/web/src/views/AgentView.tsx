@@ -21,7 +21,7 @@ import { Empty, PageHeader } from "~/components/PageHeader";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { useT, type MsgKey } from "~/i18n";
-import { hm } from "~/lib/format";
+import { clock, hm, monthDay, weekday } from "~/lib/format";
 import { call } from "~/lib/loud";
 import { toast } from "~/lib/toast";
 import { cn } from "~/lib/utils";
@@ -198,9 +198,9 @@ function Message({
 const when = (iso: string) => {
   const d = new Date(iso);
   const days = Math.floor((Date.now() - d.getTime()) / 86_400_000);
-  if (days < 1) return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-  if (days < 7) return d.toLocaleDateString(undefined, { weekday: "short" });
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  if (days < 1) return clock(d);
+  if (days < 7) return weekday(d.getDay());
+  return monthDay(d);
 };
 
 /** Saved chats, newest first, like T3 Code's thread list. Delete asks once more on the same button. */
@@ -218,7 +218,7 @@ function ChatList() {
   useEffect(() => void load(), [load]);
   useEffect(() => {
     if (!confirm) return;
-    const timer = setTimeout(() => setConfirm(null), 3000);
+    const timer = setTimeout(() => setConfirm(null), 5000);
     return () => clearTimeout(timer);
   }, [confirm]);
 

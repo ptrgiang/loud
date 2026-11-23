@@ -236,6 +236,11 @@ export const IpcMethods = {
     output: Draft,
   },
   "drafts.removeImage": { input: DraftImageRef, output: Draft },
+  /** Reorders a draft's images; that order is the order the post attaches them. */
+  "drafts.reorderImages": {
+    input: Schema.Struct({ id: Schema.String, names: Schema.Array(Schema.String) }),
+    output: Draft,
+  },
   /** Adds a video the user picked (base64 of the file). */
   "drafts.addVideo": {
     input: Schema.Struct({ id: Schema.String, data: Schema.String }),

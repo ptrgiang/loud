@@ -21,6 +21,7 @@ import { Input } from "~/components/ui/input";
 import { Select } from "~/components/ui/select";
 import { Switch } from "~/components/ui/switch";
 import { useT, type MsgKey } from "~/i18n";
+import { weekdayTime } from "~/lib/format";
 import { cn } from "~/lib/utils";
 import { useLoud } from "~/store";
 import { useWork } from "~/workStore";
@@ -29,13 +30,7 @@ type T = ReturnType<typeof useT>;
 
 const pausedText = (t: T, reason: string, until: string | null) => {
   const why = reason ? reason[0]!.toUpperCase() + reason.slice(1) : t("conn.paused");
-  const at = until
-    ? new Date(until).toLocaleString(undefined, {
-        weekday: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : null;
+  const at = until ? weekdayTime(new Date(until)) : null;
   return at ? t("conn.pausedUntil", { why, at }) : t("conn.pausedReason", { why });
 };
 

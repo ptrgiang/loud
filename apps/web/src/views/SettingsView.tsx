@@ -25,6 +25,7 @@ import { Select } from "~/components/ui/select";
 import { Switch } from "~/components/ui/switch";
 import { Textarea } from "~/components/ui/textarea";
 import { LOCALES, useLocale, useT, type Locale } from "~/i18n";
+import { dateTime } from "~/lib/format";
 import { useTheme, type ThemeMode } from "~/lib/theme";
 import { call } from "~/lib/loud";
 import { cn } from "~/lib/utils";
@@ -159,6 +160,7 @@ function Rescan() {
   const running = useWork((s) => s.collect?.running ?? false);
   const demo = useLoud((s) => s.info?.demo ?? false);
   const [days, setDays] = useState(String(collection?.rescanDays ?? 7));
+  const [bad, setBad] = useState(false);
   const [flash, mark] = useSaveFlash();
   if (!collection) return null;
   return (
@@ -171,14 +173,26 @@ function Rescan() {
         max={60}
         value={days}
         aria-label={t("set.daysAria")}
-        onValueChange={setDays}
+        aria-invalid={bad || undefined}
+        onValueChange={(v) => {
+          setDays(v);
+          setBad(false);
+        }}
         onBlur={() => {
-          const next = Number(days) || 7;
-          if (next === collection.rescanDays) return;
-          void configure({ rescanDays: next }).then(mark);
+          const n = Number(days);
+          // Nothing silently snaps to a default: a bad value resets the box and says why.
+          if (!Number.isInteger(n) || n < 1 || n > 60) {
+            setBad(true);
+            setDays(String(collection.rescanDays));
+            return;
+          }
+          setBad(false);
+          if (n === collection.rescanDays) return;
+          void configure({ rescanDays: n }).then(mark);
         }}
       />
       <span className="text-muted-foreground text-xs">{t("set.days")}</span>
+      {bad && <span className="text-2xs text-error-foreground">{t("set.rangeDays")}</span>}
       {flash}
       <Button
         size="sm"
@@ -200,6 +214,7 @@ function Collection() {
   const configure = useWork((s) => s.configureCollection);
   const demo = useLoud((s) => s.info?.demo ?? false);
   const [every, setEvery] = useState(String(collection?.everyHours ?? 12));
+  const [badEvery, setBadEvery] = useState(false);
   const [flash, mark] = useSaveFlash();
   if (!collection) return null;
 
@@ -211,9 +226,7 @@ function Collection() {
           label={t("set.autoCollect")}
           hint={
             collection.auto && collect?.next
-              ? t("set.autoCollect.next", {
-                  at: new Date(collect.next).toLocaleString(),
-                })
+              ? t("set.autoCollect.next", { at: dateTime(collect.next) })
               : t("set.autoCollect.off")
           }
         >
@@ -232,14 +245,27 @@ function Collection() {
             max={168}
             value={every}
             aria-label={t("set.everyAria")}
-            onValueChange={setEvery}
+            aria-invalid={badEvery || undefined}
+            onValueChange={(v) => {
+              setEvery(v);
+              setBadEvery(false);
+            }}
             onBlur={() => {
-              const next = Number(every) || 12;
-              if (next === collection.everyHours) return;
-              void configure({ everyHours: next }).then(mark);
+              const n = Number(every);
+              if (!Number.isInteger(n) || n < 3 || n > 168) {
+                setBadEvery(true);
+                setEvery(String(collection.everyHours));
+                return;
+              }
+              setBadEvery(false);
+              if (n === collection.everyHours) return;
+              void configure({ everyHours: n }).then(mark);
             }}
           />
           <span className="text-muted-foreground text-xs">{t("set.hours")}</span>
+          {badEvery && (
+            <span className="text-2xs text-error-foreground">{t("set.rangeHours")}</span>
+          )}
           {flash}
         </Row>
         <Row label={t("set.tray")} hint={t("set.tray.hint")}>
@@ -569,7 +595,7 @@ function UsageCard() {
     : usage.share !== true
       ? t("usage.off")
       : usage.lastSent
-        ? t("usage.lastSent", { at: new Date(usage.lastSent).toLocaleString() })
+        ? t("usage.lastSent", { at: dateTime(usage.lastSent) })
         : t("usage.first");
 
   return (

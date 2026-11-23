@@ -7,7 +7,11 @@ import { Input } from "~/components/ui/input";
 import { useT } from "~/i18n";
 import { Toggle, ToggleGroup } from "~/components/ui/toggle-group";
 import { safeUrl } from "~/lib/analytics";
+import { call } from "~/lib/loud";
+import { toast } from "~/lib/toast";
 import { cn } from "~/lib/utils";
+
+const say = (e: unknown) => toast("error", e instanceof Error ? e.message : String(e));
 
 /** The one row of filters above a view's content. */
 export function FilterBar({ children }: { children: React.ReactNode }) {
@@ -133,7 +137,7 @@ export function PostText({
   return (
     <button
       type="button"
-      onClick={() => void window.loud?.invoke("links.open", { url: href })}
+      onClick={() => void call("links.open", { url: href }).catch(say)}
       className={cn(
         "cursor-pointer text-left underline-offset-2 hover:underline focus-visible:underline",
         className,

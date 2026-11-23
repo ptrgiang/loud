@@ -68,10 +68,12 @@ function useCommands(): ReadonlyArray<Command> {
   const check = useWork((s) => s.checkUpdates);
   const reset = useWork((s) => s.reset);
   const ask = useWork((s) => s.ask);
+  const saveDraft = useWork((s) => s.saveDraft);
   const toggleTheme = useTheme((s) => s.toggle);
   const dark = useTheme((s) => s.dark);
 
   const hub = useLoud((s) => s.hub);
+  const firstChannel = useLoud((s) => s.info?.channels[0]?.id) ?? "threads";
 
   return useMemo(() => {
     const canCollect = connected && !demo;
@@ -134,6 +136,17 @@ function useCommands(): ReadonlyArray<Command> {
     }
     list.push(
       {
+        id: "draft",
+        group: "palette.group.do",
+        label: "drafts.new",
+        icon: NotebookPen,
+        run: () =>
+          void saveDraft({ channel: firstChannel, text: "", note: "", comment: "" }).then(
+            () => go("drafts"),
+            (e) => toast("error", e instanceof Error ? e.message : String(e)),
+          ),
+      },
+      {
         id: "proposals",
         group: "palette.group.do",
         label: "palette.proposals",
@@ -169,7 +182,23 @@ function useCommands(): ReadonlyArray<Command> {
       },
     );
     return list;
-  }, [t, go, demo, hub, connected, running, start, cancel, check, reset, ask, toggleTheme, dark]);
+  }, [
+    t,
+    go,
+    demo,
+    hub,
+    connected,
+    running,
+    start,
+    cancel,
+    check,
+    reset,
+    ask,
+    toggleTheme,
+    dark,
+    firstChannel,
+    saveDraft,
+  ]);
 }
 
 /** As in T3 Code: Ctrl+K (⌘K) jumps to a page or runs an action without hunting for its button. */
@@ -194,8 +223,25 @@ export function CommandPalette() {
   }, [setOpen]);
 
   const q = query.trim().toLowerCase();
+  // Substring first, then fuzzy (letters in order): "nc" finds "New chat", "ov" finds "Overview".
+  const fuzzy = (s: string, needle: string) => {
+    let i = 0;
+    for (const c of needle) {
+      i = s.indexOf(c, i);
+      if (i < 0) return false;
+      i++;
+    }
+    return true;
+  };
   const shown = q
-    ? commands.filter((c) => `${t(c.label)} ${c.hint ? t(c.hint) : ""}`.toLowerCase().includes(q))
+    ? commands
+        .map((c) => {
+          const s = `${t(c.label)} ${c.hint ? t(c.hint) : ""}`.toLowerCase();
+          return { c, hit: s.includes(q) ? 0 : fuzzy(s, q) ? 1 : -1 };
+        })
+        .filter((x) => x.hit >= 0)
+        .sort((a, b) => a.hit - b.hit)
+        .map((x) => x.c)
     : commands;
   const current = Math.min(index, Math.max(0, shown.length - 1));
 
@@ -288,6 +334,11 @@ export function CommandPalette() {
                 </div>
               );
             })}
+          </div>
+          <div className="flex items-center gap-3 border-t px-3 py-1.5 text-2xs text-muted-foreground">
+            <span>{t("palette.hintNav")}</span>
+            <span>{t("palette.hintRun")}</span>
+            <span>{t("palette.hintClose")}</span>
           </div>
         </Dialog.Popup>
       </Dialog.Portal>

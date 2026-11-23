@@ -28,7 +28,15 @@ const LABEL: Record<(typeof COUNTS)[number], MsgKey> = {
 type T = ReturnType<typeof useT>;
 
 /** Views per day over 30 days as a 64×14 stroke; a null day is a gap. One point or none: nothing to draw. */
-function Sparkline({ points, label }: { points: Post["trend"]; label: string }) {
+function Sparkline({
+  points,
+  label,
+  channel,
+}: {
+  points: Post["trend"];
+  label: string;
+  channel: Post["channel"];
+}) {
   const vals = (points ?? []).filter((v): v is number => v !== null);
   if (vals.length < 2) return null;
   const min = Math.min(...vals);
@@ -43,7 +51,13 @@ function Sparkline({ points, label }: { points: Post["trend"]; label: string }) 
     .filter((s): s is string => s !== null)
     .join(" ");
   return (
-    <svg width="64" height="14" className="text-primary" role="img" aria-label={label}>
+    <svg
+      width="64"
+      height="14"
+      style={{ color: `var(--ch-${channel})` }}
+      role="img"
+      aria-label={label}
+    >
       <polyline
         points={d}
         fill="none"
@@ -124,7 +138,7 @@ function postColumns(t: T, medians: Readonly<Record<string, number | null>>): Ar
     {
       key: "trend",
       label: t("posts.col.trend"),
-      cell: (p) => <Sparkline points={p.trend} label={t("posts.col.trend")} />,
+      cell: (p) => <Sparkline points={p.trend} label={t("posts.col.trend")} channel={p.channel} />,
     },
     {
       key: "eng",

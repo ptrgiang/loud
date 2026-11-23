@@ -1,6 +1,6 @@
 import type { AgentAttachment } from "@loud/contracts";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useT } from "~/i18n";
 import { call } from "~/lib/loud";
@@ -24,6 +24,7 @@ export function Lightbox({
 }) {
   const t = useT();
   const a = images[index] ?? images[0];
+  const root = useRef<HTMLDivElement>(null);
   const [src, setSrc] = useState<string | null>(null);
   useEffect(() => {
     if (!a) return;
@@ -42,20 +43,45 @@ export function Lightbox({
       if (e.key === "Escape") onClose();
       else if (e.key === "ArrowLeft") onNav((index - 1 + images.length) % images.length);
       else if (e.key === "ArrowRight") onNav((index + 1) % images.length);
+      else if (e.key === "Tab") {
+        // Keep focus inside the dialog: wrap around its focusable buttons.
+        const els = root.current?.querySelectorAll("button") ?? [];
+        if (els.length === 0) return;
+        const list = [...els];
+        const i = list.indexOf(document.activeElement as HTMLButtonElement);
+        e.preventDefault();
+        const next = e.shiftKey
+          ? i <= 0
+            ? list.length - 1
+            : i - 1
+          : i >= list.length - 1
+            ? 0
+            : i + 1;
+        list[next]!.focus();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [index, images.length, onClose, onNav]);
+
+  // Focus lands on the dialog on open and goes back where it came from on close.
+  useEffect(() => {
+    const back = document.activeElement as HTMLElement | null;
+    root.current?.focus();
+    return () => back?.focus();
+  }, []);
 
   const navBtn =
     "flex size-9 cursor-pointer items-center justify-center rounded-full bg-popover/90 text-popover-foreground shadow-md transition-opacity hover:bg-popover disabled:opacity-30 [&>svg]:size-5";
   if (!a) return null;
   return (
     <div
+      ref={root}
       role="dialog"
       aria-modal="true"
       aria-label={a.name}
-      className="fixed inset-0 z-50 flex flex-col bg-black/75 backdrop-blur-[1px]"
+      tabIndex={-1}
+      className="fixed inset-0 z-50 flex flex-col bg-black/75 backdrop-blur-[1px] outline-none"
       onClick={onClose}
     >
       <div className="flex items-center justify-between gap-3 px-4 py-3">

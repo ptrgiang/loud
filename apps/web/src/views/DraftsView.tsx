@@ -46,7 +46,7 @@ import {
   settled,
 } from "~/lib/analytics";
 import { FEATURE_LABEL } from "~/lib/features";
-import { dec, relative } from "~/lib/format";
+import { dec, fmt, relative } from "~/lib/format";
 import { call } from "~/lib/loud";
 import { toast } from "~/lib/toast";
 import { cn } from "~/lib/utils";
@@ -82,12 +82,36 @@ const readBase64 = (file: File) =>
 
 const say = (e: unknown) => toast("error", e instanceof Error ? e.message : String(e));
 
-function Thumb({ id, name, index }: { id: string; name: string; index: number }) {
+function Thumb({
+  id,
+  name,
+  index,
+  onMove,
+}: {
+  id: string;
+  name: string;
+  index: number;
+  onMove: (name: string, before: string) => void;
+}) {
   const t = useT();
   const changeDraft = useWork((s) => s.changeDraft);
   const act = "bg-popover/90 text-popover-foreground shadow-sm hover:bg-popover";
   return (
-    <figure className="group relative size-28 shrink-0 overflow-hidden rounded-lg border bg-muted">
+    <figure
+      draggable
+      title={t("drafts.dragOrder")}
+      onDragStart={(e) => e.dataTransfer.setData("application/x-loud-image", name)}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => {
+        const n = e.dataTransfer.getData("application/x-loud-image");
+        if (n && n !== name) {
+          e.preventDefault();
+          e.stopPropagation();
+          onMove(n, name);
+        }
+      }}
+      className="group relative size-28 shrink-0 cursor-grab overflow-hidden rounded-lg border bg-muted"
+    >
       <img
         src={`${location.origin}/media/${id}/${name}`}
         alt={t("drafts.imageAlt", { n: index + 1 })}
@@ -206,9 +230,20 @@ function DraftMedia({ id }: { id: string | undefined }) {
   };
 
   const drop = (e: React.DragEvent) => {
+    // A thumb being dragged carries its own type; only real files land in the draft.
+    if (e.dataTransfer.types.includes("application/x-loud-image")) return;
     e.preventDefault();
     setOver(false);
     void add([...e.dataTransfer.files]);
+  };
+
+  /** Moves `name` in front of `before` — the order this draft posts its images in. */
+  const move = (name: string, before: string) => {
+    if (!id) return;
+    const next = images.filter((n) => n !== name);
+    const at = next.indexOf(before);
+    next.splice(at < 0 ? next.length : at, 0, name);
+    void changeDraft(() => call("drafts.reorderImages", { id, names: next }));
   };
 
   const addClass =
@@ -238,7 +273,8 @@ function DraftMedia({ id }: { id: string | undefined }) {
           over && "outline-2 outline-ring/50 outline-dashed",
         )}
       >
-        {id && images.map((name, i) => <Thumb key={name} id={id} name={name} index={i} />)}
+        {id &&
+          images.map((name, i) => <Thumb key={name} id={id} name={name} index={i} onMove={move} />)}
         {id && videos.map((name) => <Video key={name} id={id} name={name} />)}
         {images.length < DRAFT_IMAGES_MAX && (
           <button
@@ -452,13 +488,18 @@ function Editor({
           }))}
           onChange={(channel) => setD({ ...d, channel })}
         />
-        <span
-          className={cn(
-            "text-xs tabular-nums",
-            over ? "text-error-foreground" : "text-muted-foreground",
+        <span className="flex items-baseline gap-1.5">
+          {xPremium && (
+            <span className="text-2xs text-muted-foreground">{t("drafts.premiumLimit")}</span>
           )}
-        >
-          {length.toLocaleString("en-US")} / {limit.toLocaleString("en-US")}
+          <span
+            className={cn(
+              "text-xs tabular-nums",
+              over ? "text-error-foreground" : "text-muted-foreground",
+            )}
+          >
+            {fmt(length)} / {fmt(limit)}
+          </span>
         </span>
       </div>
       <ChannelPatterns channel={d.channel} text={d.text} />
@@ -496,7 +537,12 @@ function Editor({
       <DraftMedia id={d.id} />
       <div className="sticky bottom-0 -mx-6 flex flex-col gap-3 border-t bg-background px-6 pt-3 pb-4">
         <div className="flex flex-wrap items-center gap-1.5">
-          <Button size="sm" disabled={!d.text.trim() || !dirty} onClick={() => void save()}>
+          <Button
+            size="sm"
+            disabled={!d.text.trim() || !dirty || over}
+            title={over ? t("drafts.overLimit", { name: CHANNEL_NAMES[d.channel] }) : undefined}
+            onClick={() => void save()}
+          >
             {t("drafts.save")}
           </Button>
           <Button size="sm" disabled={!d.text.trim() || over} onClick={() => void post()}>
@@ -640,7 +686,7 @@ export function DraftsView() {
                 </div>
               )}
               <Editor
-                key={`${current.id ?? "new"}:${drafts.find((x) => x.id === current.id)?.updated ?? ""}`}
+                key={current.id ?? "new"}
                 ref={editor}
                 start={current}
                 onSaved={(d) => setSelected(asEditor(d))}

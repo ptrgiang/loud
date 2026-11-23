@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 0.1.11-beta.12 (2026-11-23)
+
+- The dashboard speaks its dates and numbers in your language: weekdays, "3h ago", separators follow the chosen locale instead of always English.
+- Saving a draft no longer makes the text box lose your cursor.
+- A draft over its channel's limit can't be saved silently — the editor says so.
+- The draft counter explains a 25,000 limit when the X account is Premium.
+- Trend sparklines take each channel's own colour.
+- Post links that fail to open say so instead of doing nothing.
+- A draft's images can be reordered by dragging; the post attaches them in that order.
+- The command palette matches fuzzily, can start a new draft, and shows its keys.
+- The image viewer keeps keyboard focus inside itself until it closes.
+- Bad numbers in Settings show a small error instead of silently snapping back.
+
 ## 0.1.11-beta.11 (2026-11-23)
 
 - The Copy button on a draft's image puts the image on the clipboard — it errored before.

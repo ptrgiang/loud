@@ -110,6 +110,9 @@ export const en = {
   "palette.placeholder": "Go to a page or run an action…",
   "palette.searchLabel": "Search commands",
   "palette.nothing": "Nothing matches.",
+  "palette.hintNav": "↑↓ move",
+  "palette.hintRun": "↵ run",
+  "palette.hintClose": "Esc close",
 
   "filters.channel": "Channel",
 
@@ -282,6 +285,8 @@ export const en = {
   "set.every.hint": "At least 3 hours apart.",
   "set.everyAria": "Hours between runs",
   "set.hours": "hours",
+  "set.rangeDays": "1–60",
+  "set.rangeHours": "3–168",
   "set.tray": "Keep running in the tray",
   "set.tray.hint": "Closing the window leaves Loud in the tray so the timer keeps going.",
   "set.login": "Start when you log in",
@@ -390,6 +395,9 @@ export const en = {
   "drafts.post": "Post on {name}",
   "drafts.openExternal": "Open the {name} composer in your browser instead",
   "drafts.save": "Save draft",
+  "drafts.overLimit": "Over {name}'s limit — trim it to save",
+  "drafts.premiumLimit": "X Premium limit",
+  "drafts.dragOrder": "Drag to reorder — this is the post's image order",
   "drafts.open": "Open {name}",
   "drafts.askAgent": "Ask the agent",
   "drafts.agentOff": "(turn the agent on in Settings)",
@@ -621,6 +629,17 @@ export const en = {
   "ag.nextImage": "Next image",
   "sidebar.collapse": "Collapse sidebar",
   "sidebar.expand": "Expand sidebar",
+
+  "time.justNow": "just now",
+  "time.mAgo": "{n}m ago",
+  "time.hAgo": "{n}h ago",
+  "time.dAgo": "{n}d ago",
+  "time.inMin": "in {n} min",
+  "time.inH": "in {n} h",
+  "time.inD": "in {n} days",
+  "time.minAgo": "{n} min ago",
+  "time.hAgoL": "{n} h ago",
+  "time.dAgoL": "{n} days ago",
 } as const;
 
 export type MsgKey = keyof typeof en;
