@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.11-beta.5 (2026-11-23)
+
+- Fix the posting window never appearing: it waited on `ready-to-show`, which never fires because the window's own page is never loaded — only its two views are. It shows directly now.
+- The sidebar collapses to an icon rail (persisted): divider between nav groups, collecting status compresses to a spinning glyph, restart-to-update gets a compact icon variant, and a toggle button lives in the header.
+- Chat polish: fenced blocks wrap instead of scrolling sideways and get a hover copy button; starter prompts are localized (EN + VI); the stream only auto-scrolls while you're near the bottom — scrolling up pins the view.
+
 ## 0.1.11-beta.4 (2026-11-23)
 
 - Drafts get a Post button that opens a dedicated split window: the draft kit (caption, first comment, images, copy and show-in-folder buttons) on the left, the platform's own composer logged in on the right — no more switching between Loud and a browser.
