@@ -151,7 +151,9 @@ function AutoPost({ id, draft }: { id: string; draft: Draft }) {
     try {
       const r = await call("post.publish", { id, ...(schedule ? { schedule } : {}) });
       setDone(r.result);
-      const suffix = r.missing?.length ? ` ${t("post.missing", { list: r.missing.join(", ") })}` : "";
+      const suffix = r.missing?.length
+        ? ` ${t("post.missing", { list: r.missing.join(", ") })}`
+        : "";
       toast("done", t(r.result === "posted" ? "post.postedDone" : "post.scheduledDone") + suffix);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
