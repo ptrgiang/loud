@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.1.11-beta.7 (2026-11-23)
+
+- Drafts: unsaved edits are saved before you switch drafts or start a new one — nothing typed is silently dropped. Deleting asks twice, the action bar stays pinned at the bottom, note and first comment fold into one section, images and videos accept drag-and-drop, and rows show relative times.
+- Drafts can carry videos (up to 4, MP4/MOV/WebM) with previews in the editor and the posting window.
+- Posting window: drag the right edge to widen or narrow the kit pane — Loud remembers the width. A deleted draft now offers a close button.
+- Chat: rename a chat from its row or by double-clicking its title, timestamps appear on hover, and every answer has a copy button. Markdown headings render as real headings.
+- Settings and Connections: every save-on-blur field flashes "Saved", and dropdowns match the rest of the UI.
+- Identity: violet primary in place of plain blue, emptier states carry their section's colour, primary cards sit above flatter supporting surfaces.
+- Sidebar: Ctrl+B (or Cmd+B) collapses it, a demo marker stays visible in the rail, keyboard users get a skip-to-content link, and listening keyword rows answer Enter.
+- Each view loads its own bundle, so the app opens faster.
+
 ## 0.1.11-beta.6 (2026-11-23)
 
 - Chat images open in a lightbox — click to view, arrow keys or on-screen buttons move through every image in the conversation, Esc or a backdrop click closes.
