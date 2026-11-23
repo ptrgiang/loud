@@ -597,6 +597,9 @@ export const en = {
   "ag.starter.3": "What are people asking about in the listening results?",
   "ag.starter.4": "Propose five posts for next week and save them to Proposals.",
   "ag.starter.5": "Turn my best Threads post into an X post and save it as a draft.",
+  "ag.working": "Working…",
+  "ag.prevImage": "Previous image",
+  "ag.nextImage": "Next image",
   "sidebar.collapse": "Collapse sidebar",
   "sidebar.expand": "Expand sidebar",
 } as const;

@@ -3,7 +3,6 @@ import {
   CHANNEL_LIMITS,
   CHANNEL_NAMES,
   type ChannelId,
-  composerUrl,
   type Draft,
   DRAFT_IMAGES_MAX,
 } from "@loud/contracts";
@@ -279,7 +278,6 @@ function Editor({ start, onSaved }: { start: EditorDraft; onSaved: (d: Draft) =>
   const ask = useWork((s) => s.ask);
   const agentOn = useWork((s) => s.agentSettings?.enabled ?? false);
   const [d, setD] = useState(start);
-  const [copied, setCopied] = useState(false);
   const length = postLength(d.text, d.channel);
   const limit = CHANNEL_LIMITS[d.channel];
   const over = length > limit;
@@ -371,33 +369,9 @@ function Editor({ start, onSaved }: { start: EditorDraft; onSaved: (d: Draft) =>
         <Button size="sm" disabled={!d.text.trim() || !dirty} onClick={() => void save()}>
           {t("drafts.save")}
         </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!d.text.trim()}
-          onClick={() =>
-            void navigator.clipboard.writeText(d.text).then(() => {
-              setCopied(true);
-              setTimeout(() => setCopied(false), 1400);
-            })
-          }
-        >
-          {copied ? <Check /> : <Copy />}
-          {copied ? t("common.copied") : t("common.copy")}
-        </Button>
         <Button size="sm" disabled={!d.text.trim() || over} onClick={() => void post()}>
           <ExternalLink />
           {t("drafts.post", { name: CHANNEL_NAMES[d.channel] })}
-        </Button>
-        {/* Fallback when the posting window is not wanted: the composer in the system browser. */}
-        <Button
-          size="sm"
-          variant="ghost-muted"
-          disabled={!d.text.trim() || over}
-          title={t("drafts.openExternal", { name: CHANNEL_NAMES[d.channel] })}
-          onClick={() => void call("links.open", { url: composerUrl(d.channel, d.text) })}
-        >
-          <ExternalLink />
         </Button>
       </div>
       <div className="flex flex-wrap items-center gap-1.5 border-t pt-3">

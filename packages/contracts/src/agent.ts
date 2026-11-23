@@ -111,6 +111,8 @@ export const AgentState = Schema.Struct({
   busy: Schema.Boolean,
   /** The open chat; null for a new one nothing was sent in yet. */
   chatId: Schema.NullOr(Schema.String),
+  /** The chat a run is answering; null when idle. Reading another chat does not stop it. */
+  runningChatId: Schema.NullOr(Schema.String),
   /** Fixed once the chat has messages: a conversation cannot move to another CLI. */
   provider: AgentProviderId,
   model: Schema.String,

@@ -1,8 +1,18 @@
 import { AGENT_VENDORS, type AgentAttachment, type AgentMessage } from "@loud/contracts";
-import { Bot, FileText, Plus, Settings2, Trash2, TriangleAlert, Wrench } from "lucide-react";
+import {
+  Bot,
+  FileText,
+  Loader,
+  Plus,
+  Settings2,
+  Trash2,
+  TriangleAlert,
+  Wrench,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Composer } from "~/components/agent/Composer";
+import { Lightbox } from "~/components/agent/Lightbox";
 import { Markdown } from "~/components/Markdown";
 import { Empty, PageHeader } from "~/components/PageHeader";
 import { Badge } from "~/components/ui/badge";
@@ -38,7 +48,15 @@ const TOOL_WORDS: Record<string, MsgKey> = {
 };
 
 /** A saved image is read back from the profile when its chat opens; text files show as a chip. */
-function Attachment({ chatId, a }: { chatId: string | null; a: AgentAttachment }) {
+function Attachment({
+  chatId,
+  a,
+  onImage,
+}: {
+  chatId: string | null;
+  a: AgentAttachment;
+  onImage?: (a: AgentAttachment) => void;
+}) {
   const [src, setSrc] = useState<string | null>(null);
   useEffect(() => {
     if (a.kind !== "image" || !chatId) return;
@@ -53,12 +71,14 @@ function Attachment({ chatId, a }: { chatId: string | null; a: AgentAttachment }
   }, [chatId, a.id, a.kind]);
   if (a.kind === "image")
     return src ? (
-      <img
-        src={src}
-        alt={a.name}
+      <button
+        type="button"
+        onClick={() => onImage?.(a)}
+        className="cursor-zoom-in rounded-lg border transition-shadow hover:shadow-md"
         title={a.name}
-        className="max-h-40 max-w-60 rounded-lg border object-cover"
-      />
+      >
+        <img src={src} alt={a.name} className="max-h-40 max-w-60 rounded-lg object-cover" />
+      </button>
     ) : (
       <div className="size-20 rounded-lg border bg-muted" title={a.name} />
     );
@@ -73,7 +93,17 @@ function Attachment({ chatId, a }: { chatId: string | null; a: AgentAttachment }
   );
 }
 
-function Message({ m, live, chatId }: { m: AgentMessage; live: boolean; chatId: string | null }) {
+function Message({
+  m,
+  live,
+  chatId,
+  onImage,
+}: {
+  m: AgentMessage;
+  live: boolean;
+  chatId: string | null;
+  onImage: (a: AgentAttachment) => void;
+}) {
   const t = useT();
   if (m.role === "user")
     return (
@@ -81,7 +111,7 @@ function Message({ m, live, chatId }: { m: AgentMessage; live: boolean; chatId: 
         {m.attachments?.length ? (
           <div className="flex max-w-[80%] flex-wrap justify-end gap-1.5">
             {m.attachments.map((a) => (
-              <Attachment key={a.id} chatId={chatId} a={a} />
+              <Attachment key={a.id} chatId={chatId} a={a} onImage={onImage} />
             ))}
           </div>
         ) : null}
@@ -103,17 +133,21 @@ function Message({ m, live, chatId }: { m: AgentMessage; live: boolean; chatId: 
               {TOOL_WORDS[tool] ? t(TOOL_WORDS[tool]) : tool}
             </Badge>
           ))}
+          {live && <Loader className="size-3 animate-spin" />}
         </div>
       )}
       {m.text ? (
         <Markdown text={m.text} className="text-sm leading-relaxed" />
       ) : live ? (
-        <div className="text-muted-foreground text-sm">{t("ag.reading")}</div>
+        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+          <Loader className="size-3.5 animate-spin" />
+          {t("ag.working")}
+        </div>
       ) : null}
       {m.attachments?.length ? (
         <div className="flex flex-wrap gap-1.5">
           {m.attachments.map((a) => (
-            <Attachment key={a.id} chatId={chatId} a={a} />
+            <Attachment key={a.id} chatId={chatId} a={a} onImage={onImage} />
           ))}
         </div>
       ) : null}
@@ -151,7 +185,6 @@ function ChatList() {
     const timer = setTimeout(() => setConfirm(null), 3000);
     return () => clearTimeout(timer);
   }, [confirm]);
-  const busy = agent?.busy ?? false;
 
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r">
@@ -160,7 +193,7 @@ function ChatList() {
           size="sm"
           variant="outline"
           className="w-full justify-start"
-          disabled={busy || agent?.chatId === null}
+          disabled={agent?.chatId === null}
           onClick={() => void reset()}
         >
           <Plus />
@@ -174,18 +207,21 @@ function ChatList() {
           <ul className="flex flex-col gap-0.5">
             {chats.map((c) => {
               const on = c.id === agent?.chatId;
+              const running = c.id === agent?.runningChatId;
               return (
                 <li key={c.id} className="group relative">
                   <button
                     type="button"
-                    disabled={busy && !on}
                     className={cn(
                       "flex w-full cursor-pointer flex-col gap-0.5 rounded-lg px-2.5 py-2 pr-8 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-64",
                       on ? "bg-accent" : "hover:bg-accent/60",
                     )}
                     onClick={() => !on && void open(c.id)}
                   >
-                    <span className="truncate text-sm">{c.title}</span>
+                    <span className="flex items-center gap-1.5 truncate text-sm">
+                      {running && <Loader className="size-3 shrink-0 animate-spin" />}
+                      <span className="truncate">{c.title}</span>
+                    </span>
                     <span className="text-2xs text-muted-foreground">
                       {AGENT_VENDORS[c.provider].name} · {when(c.updated)}
                     </span>
@@ -198,7 +234,7 @@ function ChatList() {
                         : `${t("common.delete")} ${c.title}`
                     }
                     title={confirm === c.id ? t("ag.confirmDeleteTitle") : t("ag.deleteChat")}
-                    disabled={busy && on}
+                    disabled={running}
                     className={cn(
                       "absolute top-2 right-1.5 flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none hover:bg-background hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100",
                       confirm === c.id &&
@@ -236,6 +272,7 @@ export function AgentView() {
   const scroll = useRef<HTMLDivElement>(null);
   const bottom = useRef<HTMLDivElement>(null);
   const chatRef = useRef<string | null | undefined>(undefined);
+  const [viewer, setViewer] = useState<number | null>(null);
 
   useEffect(() => {
     void loadAgent();
@@ -247,7 +284,7 @@ export function AgentView() {
   // Follow the stream only while the reader is already near the bottom — scrolling up pins the view.
   useEffect(() => {
     const el = scroll.current;
-    if (!el) return;
+    if (!el || count + last === 0) return;
     const switched = chatId !== chatRef.current;
     chatRef.current = chatId;
     const near = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
@@ -281,6 +318,10 @@ export function AgentView() {
 
   const busy = agent.busy;
   const title = chats.find((c) => c.id === agent.chatId)?.title ?? t("ag.newChat");
+  // Every image in the conversation, in message order — the lightbox moves through them all.
+  const images = agent.messages
+    .flatMap((m) => m.attachments ?? [])
+    .filter((a) => a.kind === "image");
 
   return (
     <>
@@ -317,7 +358,16 @@ export function AgentView() {
                 </div>
               ) : (
                 agent.messages.map((m, i) => (
-                  <Message key={m.id} m={m} chatId={agent.chatId} live={busy && i === count - 1} />
+                  <Message
+                    key={m.id}
+                    m={m}
+                    chatId={agent.chatId}
+                    live={busy && agent.chatId === agent.runningChatId && i === count - 1}
+                    onImage={(a) => {
+                      const at = images.findIndex((x) => x.id === a.id);
+                      if (at >= 0) setViewer(at);
+                    }}
+                  />
                 ))
               )}
               <div ref={bottom} />
@@ -326,6 +376,15 @@ export function AgentView() {
           <Composer vendor={vendor} />
         </div>
       </div>
+      {viewer !== null && agent.chatId && images[viewer] && (
+        <Lightbox
+          chatId={agent.chatId}
+          images={images}
+          index={viewer}
+          onClose={() => setViewer(null)}
+          onNav={setViewer}
+        />
+      )}
     </>
   );
 }

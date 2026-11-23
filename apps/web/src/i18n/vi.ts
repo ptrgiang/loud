@@ -593,6 +593,9 @@ export const vi: Record<MsgKey, string> = {
   "ag.starter.3": "Người ta đang hỏi gì trong kết quả lắng nghe?",
   "ag.starter.4": "Đề xuất năm bài cho tuần tới và lưu vào Proposals.",
   "ag.starter.5": "Viết lại bài Threads tốt nhất thành bài X và lưu thành nháp.",
+  "ag.working": "Đang làm việc…",
+  "ag.prevImage": "Ảnh trước",
+  "ag.nextImage": "Ảnh tiếp",
   "sidebar.collapse": "Thu gọn sidebar",
   "sidebar.expand": "Mở rộng sidebar",
 };

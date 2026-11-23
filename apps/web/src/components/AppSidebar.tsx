@@ -57,8 +57,8 @@ const GROUPS: ReadonlyArray<{ readonly label: MsgKey; readonly items: ReadonlyAr
   {
     label: "nav.group.write",
     items: [
-      { view: "drafts", label: "nav.drafts", icon: NotebookPen },
       { view: "agent", label: "nav.agent", icon: Bot },
+      { view: "drafts", label: "nav.drafts", icon: NotebookPen },
     ],
   },
 ];

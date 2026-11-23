@@ -146,6 +146,7 @@ export const layer = Layer.effect(
       return {
         busy: running !== null,
         chatId: chat?.id ?? null,
+        runningChatId: running?.chatId ?? null,
         provider: chat?.provider ?? p.provider,
         model: chat?.model ?? p.model,
         effort: chat?.effort ?? p.effort,
@@ -498,15 +499,14 @@ export const layer = Layer.effect(
         running?.abort.abort();
         return snapshot();
       }),
-      reset: Effect.gen(function* () {
-        yield* idle("start a new chat");
+      // The running turn keeps writing to its own chat through updateChat; a view change is safe.
+      reset: Effect.sync(() => {
         chat = null;
         publishNow();
         return snapshot();
       }),
       open: (id) =>
         Effect.gen(function* () {
-          yield* idle("open another chat");
           const c = store.read(id);
           if (!c) return yield* fail("That chat is gone.");
           chat = c;
