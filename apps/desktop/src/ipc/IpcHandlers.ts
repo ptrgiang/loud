@@ -42,6 +42,7 @@ import { DataStore } from "../data/DataStore.ts";
 import { postsCsv } from "../data/exportCsv.ts";
 import { DEMO_MARKER } from "../data/files.ts";
 import { deleteCollected, exportAll } from "../data/lifecycle.ts";
+import { generateDemo } from "../demo/demo.ts";
 import { assetIdFrom } from "../platforms/PlatformCatalog.ts";
 import { Platforms } from "../platforms/Platforms.ts";
 import { cleanKeywords, SettingsStore } from "../settings/SettingsStore.ts";
@@ -173,6 +174,27 @@ export const install = (isMainFrame: (frame: Electron.WebFrameMain | null) => bo
           yield* events.publish({ type: "data" });
           log.info("collected data deleted from Settings");
           return {};
+        }),
+      "data.loadDemo": () =>
+        Effect.gen(function* () {
+          yield* collector.cancel;
+          yield* attempt(() => generateDemo(paths.data));
+          yield* events.publish({ type: "data" });
+          yield* rebuild;
+          log.info("demo data loaded into the data folder");
+          return yield* appInfo;
+        }),
+      "data.leaveDemo": () =>
+        Effect.gen(function* () {
+          yield* collector.cancel;
+          yield* Effect.sync(() => {
+            deleteCollected(paths.data);
+            NodeFS.rmSync(NodePath.join(paths.data, DEMO_MARKER), { force: true });
+          });
+          yield* events.publish({ type: "data" });
+          yield* rebuild;
+          log.info("demo data removed from the data folder");
+          return yield* appInfo;
         }),
       "app.diagnostics": () =>
         Effect.gen(function* () {

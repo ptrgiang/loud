@@ -16,6 +16,7 @@ import { PostText } from "~/components/Filters";
 import { FlagList } from "~/components/Flags";
 import { Freshness } from "~/components/Freshness";
 import { ChannelDot, ChannelTag, Empty, PageHeader } from "~/components/PageHeader";
+import { TryDemo } from "~/components/TryDemo";
 import { Button } from "~/components/ui/button";
 import { CheckboxMark } from "~/components/ui/checkbox";
 import { useT } from "~/i18n";
@@ -602,10 +603,13 @@ export function OverviewView() {
                 {t("conn.collectNow")}
               </Button>
             ) : (
-              <Button size="sm" onClick={() => go("connections")}>
-                <Plug />
-                {t("nodata.openConnections")}
-              </Button>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => go("connections")}>
+                  <Plug />
+                  {t("nodata.openConnections")}
+                </Button>
+                <TryDemo />
+              </div>
             )
           }
         >

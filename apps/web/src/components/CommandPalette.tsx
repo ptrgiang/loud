@@ -5,6 +5,7 @@ import {
   ChartNoAxesColumn,
   CornerDownLeft,
   Ear,
+  FlaskConical,
   History,
   LayoutDashboard,
   type LucideIcon,
@@ -23,7 +24,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { create } from "zustand";
 
 import { useT, type MsgKey } from "~/i18n";
+import { call } from "~/lib/loud";
 import { useTheme } from "~/lib/theme";
+import { toast } from "~/lib/toast";
 import { cn } from "~/lib/utils";
 import { useLoud, type View } from "~/store";
 import { useWork } from "~/workStore";
@@ -55,6 +58,7 @@ const PAGES: ReadonlyArray<readonly [View, MsgKey, LucideIcon]> = [
 ];
 
 function useCommands(): ReadonlyArray<Command> {
+  const t = useT();
   const go = useLoud((s) => s.go);
   const demo = useLoud((s) => s.info?.demo ?? false);
   const connected = useLoud((s) => s.platforms.some((p) => p.status === "connected"));
@@ -67,6 +71,8 @@ function useCommands(): ReadonlyArray<Command> {
   const toggleTheme = useTheme((s) => s.toggle);
   const dark = useTheme((s) => s.dark);
 
+  const hub = useLoud((s) => s.hub);
+
   return useMemo(() => {
     const canCollect = connected && !demo;
     const list: Array<Command> = PAGES.map(([view, label, icon]) => ({
@@ -76,6 +82,21 @@ function useCommands(): ReadonlyArray<Command> {
       icon,
       run: () => go(view),
     }));
+    if (!demo && !hub)
+      list.push({
+        id: "demo",
+        group: "palette.group.do",
+        label: "nodata.tryDemo",
+        icon: FlaskConical,
+        run: () =>
+          void call("data.loadDemo", {}).then(
+            (info) => {
+              useLoud.setState({ info });
+              toast("done", t("set.demoLoaded"));
+            },
+            () => undefined,
+          ),
+      });
     if (running)
       list.push({
         id: "stop",
@@ -148,7 +169,7 @@ function useCommands(): ReadonlyArray<Command> {
       },
     );
     return list;
-  }, [go, demo, connected, running, start, cancel, check, reset, ask, toggleTheme, dark]);
+  }, [t, go, demo, hub, connected, running, start, cancel, check, reset, ask, toggleTheme, dark]);
 }
 
 /** As in T3 Code: Ctrl+K (⌘K) jumps to a page or runs an action without hunting for its button. */

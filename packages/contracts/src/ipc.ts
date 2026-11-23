@@ -66,6 +66,10 @@ export const IpcMethods = {
   "data.exportAll": { input: None, output: Schema.Struct({ dir: Schema.String }) },
   /** Removes everything collection wrote: posts, numbers, listening, history and proposals. Drafts stay. */
   "data.deleteAll": { input: None, output: Schema.Struct({}) },
+  /** Fills an empty data folder with the fictional demo (Acme Forms); refuses a folder with real data. */
+  "data.loadDemo": { input: None, output: AppInfo },
+  /** Removes the demo so collection can run: same files as deleteAll plus the demo marker. */
+  "data.leaveDemo": { input: None, output: AppInfo },
   /** One text file for a bug report: version, settings without handles, collection state, recent log lines. */
   "app.diagnostics": { input: None, output: Schema.Struct({ file: Schema.String }) },
   "collect.status": { input: None, output: CollectStatus },

@@ -22,6 +22,7 @@ import { useTheme } from "~/lib/theme";
 import { cn } from "~/lib/utils";
 import { usePalette } from "~/components/CommandPalette";
 import { LoudMark } from "~/components/LoudMark";
+import { Badge } from "~/components/ui/badge";
 import { RestartToUpdate, UpdateButton } from "~/components/UpdateControl";
 import { useLoud, type View } from "~/store";
 import { useWork } from "~/workStore";
@@ -93,6 +94,8 @@ export function AppSidebar() {
   const view = useLoud((s) => s.view);
   const go = useLoud((s) => s.go);
   const platforms = useLoud((s) => s.platforms);
+  const version = useLoud((s) => s.info?.version ?? "");
+  const demo = useLoud((s) => s.info?.demo ?? false);
   const connected = platforms.filter((p) => p.status === "connected").length;
   const dark = useTheme((s) => s.dark);
   const toggleTheme = useTheme((s) => s.toggle);
@@ -110,6 +113,11 @@ export function AppSidebar() {
       <div className="flex h-[var(--workspace-topbar-height)] shrink-0 items-center gap-2 px-4">
         <LoudMark />
         <span className="font-semibold text-sm tracking-tight">Loud</span>
+        {demo && (
+          <Badge variant="outline" size="sm" className="text-muted-foreground">
+            {t("common.demo")}
+          </Badge>
+        )}
       </div>
 
       <div className="px-[var(--sidebar-content-inset)] pb-2">
@@ -159,29 +167,36 @@ export function AppSidebar() {
           <RestartToUpdate />
         </div>
         <div className="flex items-center justify-between gap-2 px-[var(--sidebar-row-content-inset)] pt-1">
-          <button
-            type="button"
-            onClick={() => go("connections")}
-            className="flex min-w-0 cursor-pointer items-center gap-1.5 text-2xs text-sidebar-muted-foreground tabular-nums hover:text-sidebar-foreground"
-          >
-            {current ? (
-              <>
-                <Loader className="size-3 shrink-0 animate-spin" />
+          <div className="flex min-w-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => go("connections")}
+              className="flex min-w-0 cursor-pointer items-center gap-1.5 text-2xs text-sidebar-muted-foreground tabular-nums hover:text-sidebar-foreground"
+            >
+              {current ? (
+                <>
+                  <Loader className="size-3 shrink-0 animate-spin" />
+                  <span className="truncate">
+                    {t("sidebar.collecting", {
+                      name: STEP_NAME[current] ?? t("sidebar.step.listen"),
+                    })}
+                  </span>
+                </>
+              ) : (
                 <span className="truncate">
-                  {t("sidebar.collecting", {
-                    name: STEP_NAME[current] ?? t("sidebar.step.listen"),
+                  {t("sidebar.connected", {
+                    connected,
+                    total: platforms.length || 4,
                   })}
                 </span>
-              </>
-            ) : (
-              <span className="truncate">
-                {t("sidebar.connected", {
-                  connected,
-                  total: platforms.length || 4,
-                })}
+              )}
+            </button>
+            {version && !current && (
+              <span className="shrink-0 select-none text-2xs text-sidebar-muted-foreground/60">
+                v{version}
               </span>
             )}
-          </button>
+          </div>
           <div className="flex items-center gap-0.5">
             <UpdateButton />
             <button

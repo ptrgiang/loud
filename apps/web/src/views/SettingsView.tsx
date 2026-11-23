@@ -1,6 +1,7 @@
 import { AGENT_VENDORS, type AgentProviderView } from "@loud/contracts";
 import {
   Download,
+  ExternalLink,
   FileClock,
   FolderOpen,
   RefreshCw,
@@ -15,6 +16,7 @@ import { useEffect, useState } from "react";
 import { Card } from "~/components/Card";
 import { PageHeader } from "~/components/PageHeader";
 import { openUsagePage, ReportPreview } from "~/components/UsageReports";
+import { toast } from "~/lib/toast";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -33,7 +35,7 @@ function Row({
 }: {
   label: string;
   hint?: React.ReactNode;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }) {
   return (
     <div className="flex items-start justify-between gap-6 py-3">
@@ -319,6 +321,7 @@ function AgentSettingsCard() {
 function DataCard() {
   const t = useT();
   const hub = useLoud((s) => s.hub);
+  const demo = useLoud((s) => s.info?.demo ?? false);
   const [file, setFile] = useState<string | null>(null);
   const [dir, setDir] = useState<string | null>(null);
   const [diag, setDiag] = useState<string | null>(null);
@@ -326,9 +329,28 @@ function DataCard() {
   const [sure, setSure] = useState(false);
   const err = (e: unknown) =>
     useLoud.setState({ error: e instanceof Error ? e.message : String(e) });
+  const demoCall = async (method: "data.loadDemo" | "data.leaveDemo") => {
+    try {
+      useLoud.setState({ info: await call(method, {}) });
+      toast("done", t(method === "data.loadDemo" ? "set.demoLoaded" : "set.demoRemoved"));
+    } catch (e) {
+      err(e);
+    }
+  };
   return (
     <Card title={t("set.data")}>
       <div className="divide-y">
+        {(demo || !hub) && (
+          <Row label={t("set.demo")} hint={t("set.demo.hint")}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void demoCall(demo ? "data.leaveDemo" : "data.loadDemo")}
+            >
+              {demo ? t("set.demoRemove") : t("set.demoLoad")}
+            </Button>
+          </Row>
+        )}
         <Row label={t("set.exportPosts")} hint={file ?? t("set.exportPosts.hint")}>
           <Button
             size="sm"
@@ -531,6 +553,40 @@ function UsageCard() {
   );
 }
 
+const LINKS = [
+  { key: "set.about.website", url: "https://loud.trysometh.ing" },
+  { key: "set.about.privacy", url: "https://loud.trysometh.ing/privacy.html" },
+  { key: "set.about.source", url: "https://github.com/ptrgiang/loud" },
+] as const;
+
+function AboutCard() {
+  const t = useT();
+  const info = useLoud((s) => s.info);
+  if (!info) return null;
+  const open = (url: string) =>
+    call("links.open", { url }).catch((e: unknown) =>
+      useLoud.setState({ error: e instanceof Error ? e.message : String(e) }),
+    );
+  return (
+    <Card title={t("set.about")}>
+      <div className="divide-y">
+        <Row
+          label={`${info.name} ${info.version}`}
+          hint={`${info.tagline} ${t("set.about.opensource")}`}
+        />
+        {LINKS.map((link) => (
+          <Row key={link.key} label={t(link.key)} hint={link.url}>
+            <Button size="sm" variant="outline" onClick={() => void open(link.url)}>
+              <ExternalLink />
+              {t("common.open")}
+            </Button>
+          </Row>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 export function SettingsView() {
   const t = useT();
   const loadCollect = useWork((s) => s.loadCollect);
@@ -560,6 +616,7 @@ export function SettingsView() {
             <DataCard />
             <UpdatesCard />
             <UsageCard />
+            <AboutCard />
           </div>
         )}
       </div>

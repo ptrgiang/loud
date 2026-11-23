@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import { Plug } from "lucide-react";
 
 import { Empty, PageHeader } from "~/components/PageHeader";
+import { TryDemo } from "~/components/TryDemo";
 import { Button } from "~/components/ui/button";
 import { useT } from "~/i18n";
 import { useLoud } from "~/store";
@@ -19,10 +20,13 @@ export function NoData({ title, icon: Icon }: { title: string; icon: LucideIcon 
         title={t("nodata.title")}
         action={
           !connected && (
-            <Button size="sm" onClick={() => go("connections")}>
-              <Plug />
-              {t("nodata.openConnections")}
-            </Button>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => go("connections")}>
+                <Plug />
+                {t("nodata.openConnections")}
+              </Button>
+              <TryDemo />
+            </div>
           )
         }
       >

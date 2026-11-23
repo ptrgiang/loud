@@ -29,6 +29,7 @@ export const vi: Record<MsgKey, string> = {
   "nodata.notConnected":
     "Kết nối một nền tảng trước. Loud giữ phiên đăng nhập và kéo số liệu của bạn.",
   "nodata.openConnections": "Mở Connections",
+  "nodata.tryDemo": "Xem bản demo",
 
   "freshness.collecting": "đang thu thập",
   "freshness.nextAt": "lần thu thập tiếp {at}",
@@ -309,6 +310,18 @@ export const vi: Record<MsgKey, string> = {
     "Bài đăng, số liệu, kết quả lắng nghe, lịch sử và đề xuất bị xoá. Nháp và cài đặt được giữ.",
   "set.deleteSure": "Chắc chưa? Không thể hoàn tác",
   "set.delete": "Xoá",
+  "set.demo": "Dữ liệu demo",
+  "set.demo.hint":
+    "Tài khoản bịa Acme Forms lấp đầy mọi màn hình để bạn xem Loud làm gì. Thu thập tắt khi bản demo còn ở đây; kết nối tài khoản thật và gỡ demo để chạy thật.",
+  "set.demoLoad": "Nạp demo",
+  "set.demoRemove": "Gỡ demo",
+  "set.demoLoaded": "Đã nạp demo. Acme Forms là dữ liệu bịa.",
+  "set.demoRemoved": "Đã gỡ demo.",
+  "set.about": "Giới thiệu",
+  "set.about.opensource": "Miễn phí, mã nguồn mở giấy phép MIT.",
+  "set.about.website": "Trang web",
+  "set.about.privacy": "Chính sách riêng tư",
+  "set.about.source": "Mã nguồn",
   "set.updates": "Cập nhật",
   "upd.checking": "Đang kiểm tra…",
   "upd.downloading": "Đang tải {version}… {pct}%",
