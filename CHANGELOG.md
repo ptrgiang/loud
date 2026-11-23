@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.1.10 (2026-11-23)
+
+- The dashboard speaks English and Vietnamese, chosen in Settings → Language.
+
 ## 0.1.10-beta.0 (2026-11-23)
 
 - Settings → Data can export the whole data folder, export a diagnostics file for a bug report (handles, keywords and the playbook are redacted), and delete all collected data. Drafts and settings stay.
