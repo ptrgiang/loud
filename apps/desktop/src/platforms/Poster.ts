@@ -9,11 +9,15 @@ import * as Layer from "effect/Layer";
 import * as Electron from "electron";
 import * as NodePath from "node:path";
 
-import { readDrafts } from "../agent/drafts.ts";
+import { draftMediaPath, markDraftPosted, readDrafts, stampNow } from "../agent/drafts.ts";
 import { windowIcon } from "../app/appIcon.ts";
 import { AppPaths } from "../app/AppPaths.ts";
 import { EventBus } from "../app/EventBus.ts";
+import { Log } from "../app/Log.ts";
 import { readJson, writeJson } from "../data/files.ts";
+import { SettingsStore } from "../settings/SettingsStore.ts";
+import { DRIVERS } from "./publish/index.ts";
+import { evalIn, type PublishResult } from "./publish/common.ts";
 import { PLATFORMS, platformForUrl } from "./PlatformCatalog.ts";
 import { Platforms } from "./Platforms.ts";
 
@@ -21,6 +25,10 @@ export interface PosterShape {
   readonly open: (id: string) => Effect.Effect<void, Error>;
   /** The pane's drag handle reports a width; clamped and kept in window.json for next time. */
   readonly setPane: (width: number) => void;
+  /** What the open composer's page supports right now — media slot and scheduling. */
+  readonly capable: (id: string) => Effect.Effect<{ schedule: boolean; media: boolean }, Error>;
+  /** Submits the draft in the open composer — after the pane's confirm click. */
+  readonly publish: (id: string, schedule?: string) => Effect.Effect<PublishResult, Error>;
 }
 
 export class Poster extends Context.Service<Poster, PosterShape>()(
@@ -45,11 +53,17 @@ export const layer = (ipcFrames: Set<Electron.WebFrameMain>) =>
       const paths = yield* AppPaths;
       const platforms = yield* Platforms;
       const events = yield* EventBus;
+      const settings = yield* SettingsStore;
+      const log = yield* Log;
       let win: Electron.BrowserWindow | null = null;
       let pane: Electron.WebContentsView | null = null;
       let web: Electron.WebContentsView | null = null;
       /** Which platform session `web` was built with — a view can't switch partitions, so a new channel rebuilds it. */
       let webChannel: ChannelId | null = null;
+      /** Which draft the window is posting — publish refuses anything else. */
+      let openDraft: string | null = null;
+      /** One publish at a time; a second confirm gets refused instead of two clicks. */
+      let publishing = false;
       let paneWidth = readJson<WindowState>(stateFile(paths.home))?.paneWidth ?? PANE_WIDTH;
 
       const layout = () => {
@@ -127,6 +141,7 @@ export const layer = (ipcFrames: Set<Electron.WebFrameMain>) =>
               webChannel = draft.channel;
               layout();
             }
+            openDraft = draft.id;
             void pane.webContents.loadURL(paneUrl);
             void web.webContents.loadURL(target);
             win.setTitle(`Post to ${p.name}`);
@@ -184,17 +199,87 @@ export const layer = (ipcFrames: Set<Electron.WebFrameMain>) =>
             pane = null;
             web = null;
             webChannel = null;
+            openDraft = null;
+            publishing = false;
             ipcFrames.delete(paneFrame);
             Effect.runFork(events.detach(paneWc));
           });
           win = w;
           pane = paneView;
           web = webView;
+          openDraft = draft.id;
           layout();
           void paneView.webContents.loadURL(paneUrl);
           void webView.webContents.loadURL(target);
         });
 
-      return Poster.of({ open, setPane });
+      /** Everything that must be true before the composer is touched. */
+      const preconditions = (id: string) =>
+        Effect.gen(function* () {
+          const draft = readDrafts(paths.data).find((d) => d.id === id);
+          if (!draft) return yield* Effect.fail(new Error("That draft is gone."));
+          const s = yield* settings.get;
+          if (!s.posting.auto)
+            return yield* Effect.fail(
+              new Error("Posting automation is off — turn it on in Settings."),
+            );
+          const p = PLATFORMS[draft.channel];
+          if ((yield* platforms.view(draft.channel)).status !== "connected")
+            return yield* Effect.fail(new Error(`Connect ${p.name} first.`));
+          const driver = DRIVERS[draft.channel];
+          if (!driver)
+            return yield* Effect.fail(
+              new Error(`${p.name} posts by hand for now — automation comes later.`),
+            );
+          if (!win || win.isDestroyed() || !web || openDraft !== id)
+            return yield* Effect.fail(new Error("The posting window is not open."));
+          return { draft, driver, wc: web.webContents };
+        });
+
+      const capable = (id: string) =>
+        Effect.gen(function* () {
+          const checked = yield* preconditions(id).pipe(Effect.catch(() => Effect.succeed(null)));
+          if (!checked) return { schedule: false, media: false };
+          const { driver, wc } = checked;
+          const probe = (sel: string) =>
+            Effect.promise(
+              async () =>
+                (await evalIn<boolean>(wc, `!!document.querySelector(${JSON.stringify(sel)})`)) ??
+                false,
+            );
+          return {
+            schedule: driver.scheduleSelector ? yield* probe(driver.scheduleSelector) : false,
+            media: yield* probe(driver.fileSelector),
+          };
+        });
+
+      const publish = (id: string, schedule?: string) =>
+        Effect.gen(function* () {
+          if (publishing)
+            return yield* Effect.fail(new Error("A post is already going out — wait for it."));
+          const { draft, driver, wc } = yield* preconditions(id);
+          const mediaPaths = [...(draft.images ?? []), ...(draft.videos ?? [])].map((name) =>
+            draftMediaPath(paths.data, id, name),
+          );
+          publishing = true;
+          try {
+            const result = yield* Effect.promise(() =>
+              driver.publish(wc, draft, mediaPaths, schedule),
+            );
+            if (!result.ok) return result;
+            const mark =
+              result.result === "scheduled" && schedule
+                ? { scheduledAt: schedule }
+                : { posted: stampNow(new Date()) };
+            markDraftPosted(paths.data, id, mark);
+            yield* events.publish({ type: "drafts" });
+            log.info(`posted draft ${id} to ${draft.channel}${schedule ? ` (${schedule})` : ""}`);
+            return result;
+          } finally {
+            publishing = false;
+          }
+        });
+
+      return Poster.of({ open, setPane, capable, publish });
     }),
   );

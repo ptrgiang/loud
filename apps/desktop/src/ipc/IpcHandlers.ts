@@ -349,6 +349,23 @@ export const install = (isMainFrame: (frame: Electron.WebFrameMain | null) => bo
           return {};
         }),
       "post.open": ({ id }) => Effect.as(Effect.orDie(poster.open(id)), {}),
+      "post.capable": ({ id }) => Effect.orDie(poster.capable(id)),
+      "post.publish": ({ id, schedule }) =>
+        // The pane reads a failed stage as its own message; ok:true carries the result.
+        Effect.orDie(
+          Effect.flatMap(poster.publish(id, schedule), (r) =>
+            r.ok
+              ? Effect.succeed({ result: r.result })
+              : Effect.fail(new Error(`${r.stage}: ${r.message}`)),
+          ),
+        ),
+      "posting.settings": () => Effect.map(settings.get, (s) => s.posting),
+      "posting.configure": (input) =>
+        Effect.gen(function* () {
+          const s = yield* settings.update((s) => ({ ...s, posting: input }));
+          yield* events.publish({ type: "settings" });
+          return s.posting;
+        }),
       "post.paneWidth": ({ width }) =>
         Effect.as(
           Effect.sync(() => poster.setPane(width)),

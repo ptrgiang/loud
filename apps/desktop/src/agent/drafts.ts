@@ -55,6 +55,8 @@ export function upsertDraft(
     by: prev?.by ?? by,
     ...(prev?.images?.length ? { images: prev.images } : {}),
     ...(prev?.videos?.length ? { videos: prev.videos } : {}),
+    ...(prev?.posted ? { posted: prev.posted } : {}),
+    ...(prev?.scheduledAt ? { scheduledAt: prev.scheduledAt } : {}),
     created: prev?.created ?? at,
     updated: at,
   };
@@ -70,6 +72,23 @@ const imageDir = (data: string, id: string) => {
   if (!SAFE_ID.test(id)) throw new Error("Not a draft id.");
   return NodePath.join(data, "drafts", id);
 };
+
+/** Stamps a draft as submitted through the composer — posted now, or scheduled for `scheduledAt`. */
+export function markDraftPosted(
+  data: string,
+  id: string,
+  result: { posted: string } | { scheduledAt: string },
+): Draft {
+  const all = readDrafts(data);
+  const d = all.find((x) => x.id === id);
+  if (!d) throw new Error("That draft is gone.");
+  const next: Draft = { ...d, ...result };
+  writeDrafts(
+    data,
+    all.map((x) => (x.id === id ? next : x)),
+  );
+  return next;
+}
 
 export function deleteDraft(data: string, id: string) {
   writeDrafts(

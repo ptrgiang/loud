@@ -23,7 +23,7 @@ import {
   CollectStatus,
 } from "./collect.ts";
 import { PlatformUpdate, PlatformView } from "./platform.ts";
-import { GeneralUpdate, Keywords } from "./settings.ts";
+import { GeneralUpdate, Keywords, PostingSettings } from "./settings.ts";
 import { UpdateSettings, UpdateStatus } from "./updates.ts";
 import { UsageReport, UsageStatus } from "./usage.ts";
 
@@ -252,6 +252,26 @@ export const IpcMethods = {
   "drafts.showImage": { input: DraftImageRef, output: Schema.Struct({}) },
   /** Opens the posting window: the draft's contents on the left, the channel's composer on the right. */
   "post.open": { input: Schema.Struct({ id: Schema.String }), output: Schema.Struct({}) },
+  /** Fills the open composer's media and submits or schedules the draft — after the pane's confirm. */
+  "post.publish": {
+    input: Schema.Struct({
+      id: Schema.String,
+      /** ISO wall-clock stamp; absent = post now. */
+      schedule: Schema.optionalKey(Schema.String),
+    }),
+    output: Schema.Struct({ result: Schema.Literals(["posted", "scheduled"]) }),
+  },
+  /** What the composer can do right now (media slot, schedule support) — for the pane to hide what isn't there. */
+  "post.capable": {
+    input: Schema.Struct({ id: Schema.String }),
+    output: Schema.Struct({
+      schedule: Schema.Boolean,
+      media: Schema.Boolean,
+    }),
+  },
+  /** Posting settings — whether Loud may submit the composer after your confirm. */
+  "posting.settings": { input: None, output: PostingSettings },
+  "posting.configure": { input: PostingSettings, output: PostingSettings },
   /** The pane drag handle reports its width; the poster clamps and applies it. */
   "post.paneWidth": {
     input: Schema.Struct({ width: Schema.Number }),

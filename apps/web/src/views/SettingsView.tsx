@@ -286,6 +286,35 @@ function Collection() {
   );
 }
 
+/** Automation is opt-in: the posting window still asks before anything is submitted. */
+function PostingCard() {
+  const t = useT();
+  const [auto, setAuto] = useState<boolean | null>(null);
+  useEffect(() => {
+    void call("posting.settings", {}).then(
+      (s) => setAuto(s.auto),
+      () => setAuto(false),
+    );
+  }, []);
+  if (auto === null) return null;
+  return (
+    <Card title={t("set.posting")}>
+      <Row label={t("set.posting.auto")} hint={t("set.posting.hint")}>
+        <Switch
+          checked={auto}
+          aria-label={t("set.posting.auto")}
+          onCheckedChange={(next) =>
+            void call("posting.configure", { auto: next }).then(
+              () => setAuto(next),
+              (e) => useLoud.setState({ error: e instanceof Error ? e.message : String(e) }),
+            )
+          }
+        />
+      </Row>
+    </Card>
+  );
+}
+
 function ProviderOption({
   p,
   selected,
@@ -685,6 +714,7 @@ export function SettingsView() {
           <div className="mx-auto flex max-w-3xl flex-col gap-5 px-6 py-6">
             <General />
             <Collection />
+            <PostingCard />
             <AgentSettingsCard />
             <DataCard />
             <UpdatesCard />

@@ -24,6 +24,12 @@ export type PlatformSettings = typeof PlatformSettings.Type;
 export const Keywords = Schema.Record(Schema.String, Schema.Array(Schema.String));
 export type Keywords = typeof Keywords.Type;
 
+export const PostingSettings = Schema.Struct({
+  /** Loud may fill and submit the platform composer after you confirm in the posting window. Off by default. */
+  auto: Schema.Boolean,
+});
+export type PostingSettings = typeof PostingSettings.Type;
+
 export const Settings = Schema.Struct({
   /** IANA zone. Every stamp in the data is wall-clock time in it. */
   timezone: Schema.String,
@@ -35,6 +41,7 @@ export const Settings = Schema.Struct({
   collection: CollectionSettings,
   updates: UpdateSettings,
   usage: UsageSettings,
+  posting: PostingSettings,
 });
 export type Settings = typeof Settings.Type;
 

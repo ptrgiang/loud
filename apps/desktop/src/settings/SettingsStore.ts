@@ -33,6 +33,7 @@ export const defaults = (): Settings => ({
   },
   updates: { check: false, channel: "latest" },
   usage: { share: null },
+  posting: { auto: false },
 });
 
 /** Trimmed, deduplicated, sorted lists for the known keys only. */
@@ -63,6 +64,7 @@ export const parse = (raw: unknown): Settings => {
     collection: { ...base.collection, ...o.collection },
     updates: { ...base.updates, ...o.updates },
     usage: { ...base.usage, ...o.usage },
+    posting: { ...base.posting, ...o.posting },
   };
   return Option.getOrElse(decode(merged), () => base);
 };

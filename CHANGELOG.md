@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.1.12-beta.0 (2026-11-24)
+
+- The posting window can finish the job: after a confirm in the draft pane,
+  Loud attaches the media and clicks Post in the logged-in composer. Drivers
+  for X and Threads ship in this beta — not yet exercised against a real
+  account; Instagram and Facebook still post by hand. Nothing is ever
+  submitted without the confirm, and a checkpoint or captcha aborts, never
+  retries.
+- Turn it on in Settings → Posting; off by default.
+- A posted or scheduled draft shows its badge and sits at the bottom of the list.
+
 ## 0.1.11 (2026-11-23)
 
 - Posting: a Post button on each draft opens a split window — the draft kit

@@ -1,7 +1,18 @@
 // The left pane of the posting window: everything in the draft, each with its own copy or show-in-folder button, so
 // it can go straight into the composer open on the right. No sidebar, no chrome — it lives next to a web page.
-import { CHANNEL_NAMES } from "@loud/contracts";
-import { Check, Copy, Film, FolderOpen, MessageSquarePlus, NotebookPen } from "lucide-react";
+import { CHANNEL_NAMES, type Draft } from "@loud/contracts";
+import { Dialog } from "@base-ui/react/dialog";
+import {
+  CalendarClock,
+  Check,
+  Copy,
+  Film,
+  FolderOpen,
+  Loader2,
+  MessageSquarePlus,
+  NotebookPen,
+  Send,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { ChannelTag } from "~/components/PageHeader";
@@ -118,11 +129,145 @@ function DragHandle() {
   );
 }
 
+/** The automation row: shown when the channel has a driver and posting.auto is on. Confirm happens here, not in the page. */
+function AutoPost({ id, draft }: { id: string; draft: Draft }) {
+  const t = useT();
+  const [capable, setCapable] = useState<{ schedule: boolean; media: boolean } | null>(null);
+  const [confirming, setConfirming] = useState<"now" | "schedule" | null>(null);
+  const [when, setWhen] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<"posted" | "scheduled" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void call("post.capable", { id }).then(setCapable, () =>
+      setCapable({ schedule: false, media: false }),
+    );
+  }, [id]);
+
+  const run = async (schedule?: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await call("post.publish", { id, ...(schedule ? { schedule } : {}) });
+      setDone(r.result);
+      toast("done", t(r.result === "posted" ? "post.postedDone" : "post.scheduledDone"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      say(e);
+    } finally {
+      setBusy(false);
+      setConfirming(null);
+    }
+  };
+
+  if (done)
+    return (
+      <div className="flex items-center justify-between gap-2 rounded-lg border border-success/40 bg-success/8 px-3 py-2.5">
+        <span className="text-sm text-success-foreground">
+          {done === "posted" ? t("post.postedDone") : t("post.scheduledDone")}
+        </span>
+        <Button size="xs" variant="outline" onClick={() => window.close()}>
+          {t("post.close")}
+        </Button>
+      </div>
+    );
+
+  const mediaCount = (draft.images?.length ?? 0) + (draft.videos?.length ?? 0);
+
+  return (
+    <section className="flex flex-col gap-2 rounded-lg border bg-card p-3">
+      <span className="font-medium text-muted-foreground text-2xs uppercase tracking-wide">
+        {t("post.auto")}
+      </span>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" disabled={busy} onClick={() => setConfirming("now")}>
+          {busy ? <Loader2 className="animate-spin" /> : <Send />}
+          {t("post.publishNow")}
+        </Button>
+        {capable?.schedule && (
+          <>
+            <input
+              type="datetime-local"
+              value={when}
+              aria-label={t("post.scheduleAt")}
+              onChange={(e) => setWhen(e.target.value)}
+              className="h-8 rounded-md border bg-background px-2 text-sm"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy || !when}
+              onClick={() => setConfirming("schedule")}
+            >
+              <CalendarClock />
+              {t("post.schedule")}
+            </Button>
+          </>
+        )}
+      </div>
+      <Dialog.Root open={confirming !== null} onOpenChange={(o) => !o && setConfirming(null)}>
+        <Dialog.Portal>
+          <Dialog.Backdrop className="fixed inset-0 z-50 bg-black/32 backdrop-blur-[1px]" />
+          <Dialog.Popup className="-translate-x-1/2 -translate-y-1/2 fixed top-1/2 left-1/2 z-50 w-[min(28rem,calc(100vw-2rem))] rounded-xl border bg-popover p-5 text-popover-foreground shadow-lg/8 outline-none">
+            <Dialog.Title className="font-semibold text-base">
+              {confirming === "schedule" ? t("post.confirmSchedule") : t("post.confirmTitle")}
+            </Dialog.Title>
+            <Dialog.Description
+              render={<div />}
+              className="mt-1.5 text-muted-foreground text-sm leading-relaxed"
+            >
+              <div className="flex flex-col gap-2">
+                <p className="line-clamp-3 whitespace-pre-wrap rounded-md border bg-card p-2 text-foreground text-xs">
+                  {draft.text}
+                </p>
+                <p>
+                  {t("post.confirmBody", {
+                    name: CHANNEL_NAMES[draft.channel],
+                    media: mediaCount ? t("post.confirmMedia", { n: mediaCount }) : "",
+                  })}
+                  {confirming === "schedule" && when
+                    ? ` ${t("post.confirmAt", { at: new Date(when).toLocaleString() })}`
+                    : ""}
+                </p>
+              </div>
+            </Dialog.Description>
+            <div className="mt-5 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setConfirming(null)}>
+                {t("common.cancel")}
+              </Button>
+              <Button
+                disabled={busy}
+                onClick={() =>
+                  void run(
+                    confirming === "schedule" && when ? new Date(when).toISOString() : undefined,
+                  )
+                }
+              >
+                {busy ? <Loader2 className="animate-spin" /> : <Send />}
+                {confirming === "schedule" ? t("post.schedule") : t("post.publishNow")}
+              </Button>
+            </div>
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
+      {error && <p className="text-2xs text-error-foreground">{error}</p>}
+    </section>
+  );
+}
+
 export function PostKitView({ id }: { id: string }) {
   const t = useT();
   const drafts = useWork((s) => s.drafts);
   const loadDrafts = useWork((s) => s.loadDrafts);
+  const [auto, setAuto] = useState<boolean | null>(null);
   useEffect(() => void loadDrafts(), [loadDrafts]);
+  useEffect(() => {
+    void call("posting.settings", {}).then(
+      (s) => setAuto(s.auto),
+      () => setAuto(false),
+    );
+  }, []);
   const d = drafts.find((x) => x.id === id);
 
   if (!d)
@@ -193,6 +338,7 @@ export function PostKitView({ id }: { id: string }) {
           ))}
         </section>
       ) : null}
+      {auto === true && !d.posted && !d.scheduledAt && <AutoPost id={id} draft={d} />}
       <p className="mt-auto text-2xs text-muted-foreground">{t("post.hint")}</p>
       <DragHandle />
     </div>

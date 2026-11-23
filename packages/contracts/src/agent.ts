@@ -165,6 +165,10 @@ export const Draft = Schema.Struct({
   images: Schema.optionalKey(Schema.Array(Schema.String)),
   /** Video file names in the draft's own folder — mp4, mov or webm. */
   videos: Schema.optionalKey(Schema.Array(Schema.String)),
+  /** Set when Loud submitted it through the composer — wall-clock stamp. */
+  posted: Schema.optionalKey(Schema.String),
+  /** Set when the composer scheduled it — the platform's chosen time. */
+  scheduledAt: Schema.optionalKey(Schema.String),
   created: Schema.String,
   updated: Schema.String,
 });

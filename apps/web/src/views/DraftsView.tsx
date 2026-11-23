@@ -46,7 +46,7 @@ import {
   settled,
 } from "~/lib/analytics";
 import { FEATURE_LABEL } from "~/lib/features";
-import { dec, fmt, relative } from "~/lib/format";
+import { dateTime, dec, fmt, relative } from "~/lib/format";
 import { call } from "~/lib/loud";
 import { toast } from "~/lib/toast";
 import { cn } from "~/lib/utils";
@@ -392,6 +392,8 @@ interface EditorDraft {
   readonly text: string;
   readonly note: string;
   readonly comment: string;
+  readonly posted?: string | undefined;
+  readonly scheduledAt?: string | undefined;
 }
 
 const blank = (channel: ChannelId): EditorDraft => ({
@@ -545,10 +547,12 @@ function Editor({
           >
             {t("drafts.save")}
           </Button>
-          <Button size="sm" disabled={!d.text.trim() || over} onClick={() => void post()}>
-            <ExternalLink />
-            {t("drafts.post", { name: CHANNEL_NAMES[d.channel] })}
-          </Button>
+          {!start.posted && !start.scheduledAt && (
+            <Button size="sm" disabled={!d.text.trim() || over} onClick={() => void post()}>
+              <ExternalLink />
+              {t("drafts.post", { name: CHANNEL_NAMES[d.channel] })}
+            </Button>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
           <Sparkles className="size-3.5 text-muted-foreground" />
@@ -596,7 +600,12 @@ export function DraftsView() {
   }, [sure]);
 
   const asEditor = (d: Draft): EditorDraft => ({ ...d, comment: d.comment ?? "" });
-  const current = selected ?? (drafts[0] ? asEditor(drafts[0]) : null);
+  // Posted and scheduled drafts sink to the bottom — nothing left to do with them.
+  const sorted = [...drafts].sort(
+    (a, b) =>
+      Number(Boolean(a.posted || a.scheduledAt)) - Number(Boolean(b.posted || b.scheduledAt)),
+  );
+  const current = selected ?? (sorted[0] ? asEditor(sorted[0]) : null);
   // Swapping the editor drops its state; save first so typing is never silently lost.
   const choose = async (next: EditorDraft) => {
     await editor.current?.flush();
@@ -631,21 +640,31 @@ export function DraftsView() {
       ) : (
         <div className="flex min-h-0 flex-1">
           <ul className="w-72 shrink-0 divide-y overflow-y-auto border-r">
-            {drafts.map((d) => (
+            {sorted.map((d) => (
               <li key={d.id}>
                 <button
                   type="button"
                   data-active={current.id === d.id}
                   onClick={() => current.id !== d.id && void choose(asEditor(d))}
-                  className="flex w-full cursor-pointer flex-col gap-1 px-4 py-3 text-left hover:bg-accent data-[active=true]:bg-accent"
+                  className={cn(
+                    "flex w-full cursor-pointer flex-col gap-1 px-4 py-3 text-left hover:bg-accent data-[active=true]:bg-accent",
+                    (d.posted || d.scheduledAt) && "opacity-55",
+                  )}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <ChannelTag id={d.channel} />
-                    {d.by === "agent" && <Badge variant="outline">agent</Badge>}
+                    <span className="flex items-center gap-1">
+                      {d.posted && <Badge variant="success">{t("drafts.posted")}</Badge>}
+                      {d.scheduledAt && !d.posted && (
+                        <Badge variant="info">{t("drafts.scheduled")}</Badge>
+                      )}
+                      {d.by === "agent" && <Badge variant="outline">agent</Badge>}
+                    </span>
                   </div>
                   <div className="line-clamp-2 text-sm">{d.text || t("drafts.emptyText")}</div>
                   <div className="flex items-center gap-2 text-2xs text-muted-foreground">
                     {relative(d.updated)}
+                    {d.scheduledAt && !d.posted && <span>{dateTime(d.scheduledAt)}</span>}
                     {d.images?.length ? (
                       <span className="inline-flex items-center gap-0.5">
                         <Images className="size-3" />

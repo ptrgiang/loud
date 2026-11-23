@@ -21,6 +21,12 @@ describe("parse", () => {
     expect(s.platforms.x).toEqual({ enabled: false, handle: "" });
   });
 
+  it("posting stays opt-in for files written before the flag existed", () => {
+    expect(parse({}).posting).toEqual({ auto: false });
+    expect(parse({ posting: {} }).posting.auto).toBe(false);
+    expect(parse({ posting: { auto: true } }).posting.auto).toBe(true);
+  });
+
   it("rejects a file with the wrong types as a whole", () => {
     const s = parse({ timezone: 7 });
     expect(typeof s.timezone).toBe("string");

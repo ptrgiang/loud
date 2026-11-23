@@ -39,3 +39,8 @@ Write for a colleague who already knows the codebase: the non-obvious why, order
 - Ask for or store a platform password. Login happens on the platform's own page.
 - Add collection that ignores the rate limits, or retries through a checkpoint or captcha.
 - Fabricate numbers: demo data is clearly fictional (Acme Forms) and labelled as demo.
+- Submit a post or schedule without the confirm click in the posting pane — the
+  draft is always read back from disk and the composer text verified before any click.
+- Retry a publish through a checkpoint or captcha — abort and leave the window for the user.
+- Send a post anywhere the session isn't logged into already, or fabricate a post
+  in the data: the collector reads what the platform reports on the next run.
