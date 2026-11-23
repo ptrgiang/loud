@@ -96,7 +96,10 @@ export function UpdateButton() {
   );
 }
 
-/** Replaces the status line once an update is downloaded: one click installs it and reopens Loud. */
+/**
+ * Once an update is downloaded, a quiet row — same height and rhythm as the sidebar's other rows, marked by a
+ * primary-tinted icon and label — instead of a solid pill that blips in and out.
+ */
 export function RestartToUpdate({ compact }: { compact?: boolean }) {
   const t = useT();
   const status = useWork((s) => s.updates);
@@ -111,7 +114,7 @@ export function RestartToUpdate({ compact }: { compact?: boolean }) {
       onClick={() => void install()}
       title={label}
       aria-label={label}
-      className="flex h-8 w-full cursor-pointer items-center justify-center rounded-[var(--control-radius)] bg-primary text-primary-foreground hover:bg-primary/90 [&>svg]:size-4"
+      className="flex h-8 w-full cursor-pointer items-center justify-center rounded-[var(--control-radius)] text-primary hover:bg-sidebar-row-hover [&>svg]:size-4"
     >
       <RotateCcw />
     </button>
@@ -120,10 +123,10 @@ export function RestartToUpdate({ compact }: { compact?: boolean }) {
       type="button"
       onClick={() => void install()}
       title={t("updates.restartTitle")}
-      className="flex h-7 w-full cursor-pointer items-center justify-center gap-1.5 rounded-full bg-primary px-3 font-medium text-primary-foreground text-xs hover:bg-primary/90 [&>svg]:size-3.5"
+      className="flex h-8 w-full cursor-pointer items-center gap-[var(--sidebar-control-gap)] rounded-[var(--control-radius)] border border-primary/25 bg-primary/8 px-[var(--sidebar-row-content-inset)] text-left font-medium text-primary text-sm hover:bg-primary/12 [&>svg]:size-4"
     >
       <RotateCcw />
-      {label}
+      <span className="truncate">{label}</span>
     </button>
   );
 }
