@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.11-beta.1 (2026-11-23)
+
+- A new install can try the fictional Acme Forms demo in one click — from any empty page, the command palette or Settings — without logging in. While the demo is loaded, a badge sits next to the logo and collection stays off; removing it takes the same click in Settings.
+- Settings gains an About card: version, MIT license, and links to the website, privacy policy and source.
+- The sidebar footer shows the running version.
+
 ## 0.1.11-beta.0 (2026-11-23)
 
 - Switching the update channel or check settings checks for an update right away instead of waiting for the next scheduled look.
