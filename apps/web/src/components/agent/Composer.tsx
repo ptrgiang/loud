@@ -81,7 +81,7 @@ export function Composer({ vendor }: { vendor: { name: string; vendor: string } 
     const el = area.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 240)}px`;
+    if (text) el.style.height = `${Math.min(el.scrollHeight, 240)}px`;
   }, [text]);
 
   if (!agent) return null;
