@@ -19,6 +19,7 @@ import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Textarea } from "~/components/ui/textarea";
 import { Toggle, ToggleGroup } from "~/components/ui/toggle-group";
+import { useLocale, useT, type Locale, type MsgKey } from "~/i18n";
 import { CHANNEL_ORDER, channelsOf, keywordRows, queriesOf, topAuthors } from "~/lib/analytics";
 import { call } from "~/lib/loud";
 import { compact, dayLabel, fmt, isNum, parseStamp, relative, short } from "~/lib/format";
@@ -31,16 +32,16 @@ import { ListenNow } from "~/components/ListenNow";
 /** The table shows the top rows of the current sort; the rest stay a filter away. */
 const MAX_ROWS = 300;
 
-const SOURCE: Record<ChannelId, string> = {
-  threads: "Threads search",
-  ig: "Instagram hashtags or words",
-  fb: "Facebook video search",
-  x: "X search (operators work)",
+const SOURCE: Record<ChannelId, MsgKey> = {
+  threads: "lis.source.threads",
+  ig: "lis.source.ig",
+  fb: "lis.source.fb",
+  x: "lis.source.x",
 };
 
-const langName = (l: string) => {
+const langName = (l: string, locale: Locale) => {
   try {
-    return new Intl.DisplayNames(["en"], { type: "language" }).of(l) ?? l;
+    return new Intl.DisplayNames([locale], { type: "language" }).of(l) ?? l;
   } catch {
     return l;
   }
@@ -56,6 +57,7 @@ function KeywordEditor({
   channels: ReadonlyArray<ChannelId>;
   onClose: () => void;
 }) {
+  const t = useT();
   const [draft, setDraft] = useState<Record<string, string> | null>(null);
   const [state, setState] = useState<"idle" | "saving" | "saved" | string>("idle");
 
@@ -93,11 +95,11 @@ function KeywordEditor({
 
   return (
     <Card
-      title="Listening keywords"
-      hint="One per line. They apply from the next search."
+      title={t("lis.keywordsTitle")}
+      hint={t("lis.keywordsHint")}
       actions={
         <Button size="xs" variant="ghost-muted" onClick={onClose}>
-          Close
+          {t("common.close")}
         </Button>
       }
     >
@@ -106,7 +108,7 @@ function KeywordEditor({
           <label key={id} className="flex flex-col gap-1.5 text-xs">
             <span className="flex items-center gap-2">
               <ChannelTag id={id} />
-              <span className="text-muted-foreground">{SOURCE[id]}</span>
+              <span className="text-muted-foreground">{t(SOURCE[id])}</span>
             </span>
             <Textarea
               rows={6}
@@ -124,10 +126,10 @@ function KeywordEditor({
       </div>
       <div className="mt-3 flex items-center gap-3">
         <Button size="sm" disabled={!draft || state === "saving"} onClick={() => void save()}>
-          Save
+          {t("common.save")}
         </Button>
         <span className="text-muted-foreground text-xs">
-          {state === "saved" ? "Saved." : state === "idle" || state === "saving" ? "" : state}
+          {state === "saved" ? t("lis.saved") : state === "idle" || state === "saving" ? "" : state}
         </span>
       </div>
     </Card>
@@ -135,7 +137,7 @@ function KeywordEditor({
 }
 
 /** Built outside the view: cells are render functions, not components. */
-function listenColumns(): ReadonlyArray<Column<ListenItem>> {
+function listenColumns(t: ReturnType<typeof useT>): ReadonlyArray<Column<ListenItem>> {
   const num = (
     key: "views" | "likes" | "replies" | "reposts" | "shares",
     label: string,
@@ -149,14 +151,14 @@ function listenColumns(): ReadonlyArray<Column<ListenItem>> {
   return [
     {
       key: "channel",
-      label: "Channel",
+      label: t("filters.channel"),
       sortValue: (i) => i.channel,
       cell: (i) => (
         <div className="flex flex-col items-start gap-1">
-          <ChannelTag id={i.channel} label={i.channel === "fb" ? "FB video" : undefined} />
+          <ChannelTag id={i.channel} label={i.channel === "fb" ? t("lis.fbVideo") : undefined} />
           {i.question && (
             <Badge variant="info" size="sm">
-              asks
+              {t("lis.asks")}
             </Badge>
           )}
         </div>
@@ -164,7 +166,7 @@ function listenColumns(): ReadonlyArray<Column<ListenItem>> {
     },
     {
       key: "query",
-      label: "Keyword",
+      label: t("lis.col.keyword"),
       sortValue: (i) => i.query,
       cell: (i) => (
         <div className="flex max-w-40 flex-wrap gap-1">
@@ -176,10 +178,15 @@ function listenColumns(): ReadonlyArray<Column<ListenItem>> {
         </div>
       ),
     },
-    { key: "author", label: "Author", sortValue: (i) => i.author, cell: (i) => i.author ?? "–" },
+    {
+      key: "author",
+      label: t("lis.col.author"),
+      sortValue: (i) => i.author,
+      cell: (i) => i.author ?? "–",
+    },
     {
       key: "posted",
-      label: "Date",
+      label: t("lis.col.date"),
       sortValue: (i) => i.posted,
       cell: (i) => (
         <span className="text-muted-foreground tabular-nums" title={i.date_text ?? i.posted}>
@@ -189,29 +196,34 @@ function listenColumns(): ReadonlyArray<Column<ListenItem>> {
     },
     {
       key: "text",
-      label: "Post",
+      label: t("posts.col.post"),
       className: "w-full min-w-64 whitespace-normal",
       cell: (i) => (
-        <PostText url={i.url} text={short(i.text, 240) || "(no text)"} className="line-clamp-2" />
+        <PostText
+          url={i.url}
+          text={short(i.text, 240) || t("posts.noText")}
+          className="line-clamp-2"
+        />
       ),
     },
-    num("views", "Views"),
-    num("likes", "Likes"),
-    num("replies", "Replies"),
-    num("reposts", "Reposts"),
-    num("shares", "Shares"),
+    num("views", t("metric.views")),
+    num("likes", t("metric.likes")),
+    num("replies", t("metric.replies")),
+    num("reposts", t("metric.reposts")),
+    num("shares", t("metric.shares")),
     {
       key: "score",
-      label: "Score",
+      label: t("lis.col.score"),
       numeric: true,
       sortValue: (i) => i.score,
       cell: (i) => compact(i.score === undefined ? null : Math.round(i.score)),
     },
   ];
 }
-const LISTEN_COLUMNS = listenColumns();
 
 export function ListeningView() {
+  const t = useT();
+  const locale = useLocale((s) => s.locale);
   const hub = useLoud((s) => s.hub);
   const f = useViewState((s) => s.listening);
   const [editing, setEditing] = useState(false);
@@ -239,16 +251,16 @@ export function ListeningView() {
   }, [items, f.channel, f.keyword, f.questions, f.lang, f.q]);
 
   const columns = useMemo<ReadonlyArray<Column<ListenItem>>>(() => {
-    const all = LISTEN_COLUMNS;
+    const all = listenColumns(t);
     return all.filter(
       (c) =>
         !c.numeric ||
         c.key === "score" ||
         filtered.some((i) => isNum(i[c.key as keyof ListenItem])),
     );
-  }, [filtered]);
+  }, [filtered, t]);
 
-  if (!hub) return <NoData title="Listening" icon={Ear} />;
+  if (!hub) return <NoData title={t("nav.listening")} icon={Ear} />;
 
   const channels = channelsOf(hub);
   const sorted = sortRows(filtered, columns, f.sort);
@@ -259,12 +271,12 @@ export function ListeningView() {
   return (
     <>
       <PageHeader
-        title="Listening"
-        description={`Read ${relative(hub.listen.collected)}. Other people's posts, for reference only. Threads shows no view counts on them.`}
+        title={t("nav.listening")}
+        description={t("lis.description", { when: relative(hub.listen.collected) })}
       >
         <Button size="sm" variant="outline" onClick={() => setEditing((e) => !e)}>
           <Pencil />
-          Edit keywords
+          {t("lis.editKeywords")}
         </Button>
         <ListenNow />
       </PageHeader>
@@ -273,7 +285,7 @@ export function ListeningView() {
         {items.length === 0 ? (
           <Card>
             <div className="py-6 text-center text-muted-foreground text-sm">
-              No listening results yet. Add keywords, then Search now.
+              {t("lis.noResults")}
             </div>
           </Card>
         ) : (
@@ -281,23 +293,27 @@ export function ListeningView() {
             <div className="grid grid-cols-1 gap-4 @5xl:grid-cols-12">
               <Card
                 className="@5xl:col-span-7"
-                title="Keywords"
-                hint="By total views (Threads has none, so it ranks low). Click a row to filter the table."
+                title={t("lis.keywordsCard")}
+                hint={t("lis.keywordsCard.hint")}
               >
                 <div className="max-h-90 overflow-y-auto pr-3 [scrollbar-gutter:stable]">
                   <table className="w-full text-xs">
                     <thead className="sticky top-0 bg-card">
                       <tr className="border-b text-muted-foreground">
-                        <th className="py-2 pr-2 text-left font-medium">Keyword</th>
-                        <th className="px-2 py-2 text-left font-medium">Channels</th>
-                        <th className="px-2 py-2 text-right font-medium">Posts</th>
-                        <th className="px-2 py-2 text-left font-medium">Total views</th>
-                        <th className="px-2 py-2 text-right font-medium">Med. likes</th>
+                        <th className="py-2 pr-2 text-left font-medium">{t("lis.col.keyword")}</th>
+                        <th className="px-2 py-2 text-left font-medium">{t("lis.col.channels")}</th>
+                        <th className="px-2 py-2 text-right font-medium">{t("common.posts")}</th>
+                        <th className="px-2 py-2 text-left font-medium">
+                          {t("lis.col.totalViews")}
+                        </th>
+                        <th className="px-2 py-2 text-right font-medium">
+                          {t("lis.col.medLikes")}
+                        </th>
                         <th
                           className="py-2 pl-2 text-right font-medium"
-                          title="Posts asking a question: a chance to help"
+                          title={t("lis.questionsTitle")}
                         >
-                          Questions
+                          {t("lis.questions")}
                         </th>
                       </tr>
                     </thead>
@@ -348,18 +364,18 @@ export function ListeningView() {
               </Card>
               <Card
                 className="@5xl:col-span-5"
-                title="Top authors"
-                hint="By the engagement score of the posts found."
+                title={t("lis.topAuthors")}
+                hint={t("lis.topAuthors.hint")}
               >
                 <div className="max-h-90 overflow-y-auto pr-3 [scrollbar-gutter:stable]">
                   <table className="w-full text-xs">
                     <thead className="sticky top-0 bg-card">
                       <tr className="border-b text-muted-foreground">
                         <th className="w-6 py-2" />
-                        <th className="py-2 text-left font-medium">Author</th>
-                        <th className="px-2 py-2 text-right font-medium">Posts</th>
-                        <th className="px-2 py-2 text-right font-medium">Views</th>
-                        <th className="py-2 pl-2 text-right font-medium">Likes</th>
+                        <th className="py-2 text-left font-medium">{t("lis.col.author")}</th>
+                        <th className="px-2 py-2 text-right font-medium">{t("common.posts")}</th>
+                        <th className="px-2 py-2 text-right font-medium">{t("metric.views")}</th>
+                        <th className="py-2 pl-2 text-right font-medium">{t("metric.likes")}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
@@ -390,13 +406,13 @@ export function ListeningView() {
 
             <ToggleGroup
               variant="pill"
-              aria-label="Keyword"
+              aria-label={t("lis.col.keyword")}
               className="flex-wrap"
               value={[f.keyword ?? ALL]}
               onValueChange={(v) => setKeyword(v[0] && v[0] !== ALL ? v[0] : null)}
             >
               <Toggle value={ALL} size="xs">
-                All keywords{" "}
+                {t("lis.allKeywords")}{" "}
                 <span className="text-muted-foreground tabular-nums">{items.length}</span>
               </Toggle>
               {keywords.map((k) => (
@@ -410,22 +426,22 @@ export function ListeningView() {
               <ChannelFilter
                 value={f.channel}
                 channels={channels}
-                names={{ ...CHANNEL_NAMES, fb: "FB video" }}
+                names={{ ...CHANNEL_NAMES, fb: t("lis.fbVideo") }}
                 onChange={(channel) => patchView("listening", { channel })}
               />
               {langs.length > 1 && (
                 <ToggleGroup
-                  aria-label="Language"
+                  aria-label={t("set.locale")}
                   value={[f.lang ?? ALL]}
                   onValueChange={(v) =>
                     v[0] !== undefined &&
                     patchView("listening", { lang: v[0] === ALL ? null : v[0] })
                   }
                 >
-                  <Toggle value={ALL}>All languages</Toggle>
+                  <Toggle value={ALL}>{t("lis.allLanguages")}</Toggle>
                   {langs.map((l) => (
                     <Toggle key={l} value={l}>
-                      {langName(l)}
+                      {langName(l, locale)}
                     </Toggle>
                   ))}
                 </ToggleGroup>
@@ -436,17 +452,17 @@ export function ListeningView() {
                   onCheckedChange={(questions) => patchView("listening", { questions })}
                 />
                 <MessageCircleQuestion className="size-3.5 text-muted-foreground" aria-hidden />
-                Questions only
+                {t("lis.questionsOnly")}
               </label>
               <SearchBox
                 value={f.q}
                 onChange={(q) => patchView("listening", { q })}
-                placeholder="Search posts or authors"
+                placeholder={t("lis.search")}
               />
               <span className="ml-auto text-muted-foreground text-xs tabular-nums">
                 {sorted.length > rows.length
-                  ? `${rows.length} of ${fmt(sorted.length)} posts`
-                  : `${fmt(sorted.length)} posts`}
+                  ? t("lis.ofPosts", { shown: rows.length, total: fmt(sorted.length) })
+                  : t("bars.posts", { n: fmt(sorted.length) })}
               </span>
             </FilterBar>
 
@@ -461,7 +477,7 @@ export function ListeningView() {
                 />
               ) : (
                 <div className="py-10 text-center text-muted-foreground text-sm">
-                  Nothing matches these filters.
+                  {t("common.noMatchFilters")}
                 </div>
               )}
             </div>

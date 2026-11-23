@@ -9,27 +9,30 @@ import { NoData } from "~/components/NoData";
 import { ChannelTag, PageHeader } from "~/components/PageHeader";
 import { Badge } from "~/components/ui/badge";
 import { Checkbox } from "~/components/ui/checkbox";
+import { useT, type MsgKey } from "~/i18n";
 import { channelsOf } from "~/lib/analytics";
 import { dec, fmt, isNum, short, stampLabel } from "~/lib/format";
 import { useLoud } from "~/store";
 import { patchView, useViewState } from "~/viewState";
 
 const COUNTS = ["likes", "replies", "reposts", "shares", "saves", "follows"] as const;
-const LABEL: Record<(typeof COUNTS)[number], string> = {
-  likes: "Likes",
-  replies: "Replies",
-  reposts: "Reposts",
-  shares: "Shares",
-  saves: "Saves",
-  follows: "Follows",
+const LABEL: Record<(typeof COUNTS)[number], MsgKey> = {
+  likes: "metric.likes",
+  replies: "metric.replies",
+  reposts: "metric.reposts",
+  shares: "metric.shares",
+  saves: "metric.saves",
+  follows: "metric.follows",
 };
 
+type T = ReturnType<typeof useT>;
+
 /** Built outside the view: cells are render functions, not components. */
-function postColumns(medians: Readonly<Record<string, number | null>>): Array<Column<Post>> {
+function postColumns(t: T, medians: Readonly<Record<string, number | null>>): Array<Column<Post>> {
   return [
     {
       key: "posted",
-      label: "Posted",
+      label: t("posts.col.posted"),
       sortValue: (p) => p.posted,
       cell: (p) => (
         <span className="text-muted-foreground tabular-nums">{stampLabel(p.posted)}</span>
@@ -37,14 +40,14 @@ function postColumns(medians: Readonly<Record<string, number | null>>): Array<Co
     },
     {
       key: "channel",
-      label: "Channel",
+      label: t("filters.channel"),
       sortValue: (p) => p.channel,
       cell: (p) => (
         <div className="flex flex-col items-start gap-1">
           <ChannelTag id={p.channel} />
           {p.kind === "reply" && (
             <Badge variant="outline" size="sm" className="text-muted-foreground">
-              reply
+              {t("posts.replyBadge")}
             </Badge>
           )}
         </div>
@@ -52,15 +55,19 @@ function postColumns(medians: Readonly<Record<string, number | null>>): Array<Co
     },
     {
       key: "text",
-      label: "Post",
+      label: t("posts.col.post"),
       className: "w-full min-w-64 whitespace-normal",
       cell: (p) => (
-        <PostText url={p.url} text={short(p.text, 220) || "(no text)"} className="line-clamp-2" />
+        <PostText
+          url={p.url}
+          text={short(p.text, 220) || t("posts.noText")}
+          className="line-clamp-2"
+        />
       ),
     },
     {
       key: "views",
-      label: "Views",
+      label: t("metric.views"),
       numeric: true,
       sortValue: (p) => p.views,
       cell: (p) => {
@@ -69,7 +76,7 @@ function postColumns(medians: Readonly<Record<string, number | null>>): Array<Co
         return (
           <span className="inline-flex items-center gap-1.5">
             {x >= 3 && (
-              <Badge variant="success" size="sm" title={`${dec(x)}× the channel median`}>
+              <Badge variant="success" size="sm" title={t("posts.medianTitle", { x: dec(x) })}>
                 ×{Math.floor(x)}
               </Badge>
             )}
@@ -80,14 +87,14 @@ function postColumns(medians: Readonly<Record<string, number | null>>): Array<Co
     },
     ...COUNTS.map<Column<Post>>((k) => ({
       key: k,
-      label: LABEL[k],
+      label: t(LABEL[k]),
       numeric: true,
       sortValue: (p) => p[k],
       cell: (p) => fmt(p[k]),
     })),
     {
       key: "eng",
-      label: "Eng. %",
+      label: t("metric.eng"),
       numeric: true,
       sortValue: (p) => p.eng,
       cell: (p) => (isNum(p.eng) ? `${dec(p.eng)}%` : "–"),
@@ -96,6 +103,7 @@ function postColumns(medians: Readonly<Record<string, number | null>>): Array<Co
 }
 
 export function PostsView() {
+  const t = useT();
   const hub = useLoud((s) => s.hub);
   const f = useViewState((s) => s.posts);
 
@@ -118,23 +126,26 @@ export function PostsView() {
   }, [hub, f.channel, f.days, f.replies, f.q]);
 
   const columns = useMemo<ReadonlyArray<Column<Post>>>(() => {
-    const all = postColumns(medians);
+    const all = postColumns(t, medians);
     // A count no platform reports for these rows is a column of dashes: leave it out.
     return all.filter(
       (c) => !c.numeric || c.key === "views" || rows.some((p) => isNum(p[c.key as keyof Post])),
     );
-  }, [rows, medians]);
+  }, [t, rows, medians]);
 
-  if (!hub) return <NoData title="Posts" icon={Rows3} />;
+  if (!hub) return <NoData title={t("nav.posts")} icon={Rows3} />;
 
   const sorted = sortRows(rows, columns, f.sort);
-  const views = rows.reduce((t, p) => t + (p.views ?? 0), 0);
+  const views = rows.reduce((sum, p) => sum + (p.views ?? 0), 0);
 
   return (
     <>
       <PageHeader
-        title="Posts"
-        description={`Since ${hub.since ?? "the start date"}, ${hub.timezone ?? "local"} time. ×3 beat the channel's median views three times or more.`}
+        title={t("nav.posts")}
+        description={t("posts.description", {
+          since: hub.since ?? t("posts.sinceFallback"),
+          tz: hub.timezone ?? t("posts.tzFallback"),
+        })}
       />
       <ViewBody wide>
         <FilterBar>
@@ -145,13 +156,13 @@ export function PostsView() {
             onChange={(channel) => patchView("posts", { channel })}
           />
           <Segmented
-            label="Age"
+            label={t("posts.age")}
             value={f.days}
             onChange={(days) => patchView("posts", { days })}
             options={[
-              { value: "7", label: "7 days" },
-              { value: "30", label: "30 days" },
-              { value: "all", label: "All" },
+              { value: "7", label: t("posts.days7") },
+              { value: "30", label: t("posts.days30") },
+              { value: "all", label: t("common.all") },
             ]}
           />
           <label className="flex cursor-pointer items-center gap-2 text-xs">
@@ -159,15 +170,15 @@ export function PostsView() {
               checked={f.replies}
               onCheckedChange={(replies) => patchView("posts", { replies })}
             />
-            Include replies
+            {t("posts.includeReplies")}
           </label>
           <SearchBox
             value={f.q}
             onChange={(q) => patchView("posts", { q })}
-            placeholder="Search posts"
+            placeholder={t("posts.search")}
           />
           <span className="ml-auto text-muted-foreground text-xs tabular-nums">
-            {fmt(rows.length)} posts · {fmt(views)} views
+            {t("posts.summary", { posts: fmt(rows.length), views: fmt(views) })}
           </span>
         </FilterBar>
         <div className="rounded-xl border bg-card shadow-xs/5">
@@ -181,7 +192,7 @@ export function PostsView() {
             />
           ) : (
             <div className="py-10 text-center text-muted-foreground text-sm">
-              Nothing matches these filters.
+              {t("common.noMatchFilters")}
             </div>
           )}
         </div>

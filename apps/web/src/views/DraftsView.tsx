@@ -28,6 +28,7 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
+import { useT, type MsgKey } from "~/i18n";
 import { call } from "~/lib/loud";
 import { toast } from "~/lib/toast";
 import { cn } from "~/lib/utils";
@@ -43,19 +44,20 @@ const composer = (id: ChannelId, text: string) =>
     fb: "https://business.facebook.com/latest/composer",
   })[id];
 
-const ASKS: ReadonlyArray<{ label: string; ask: (d: EditorDraft) => string }> = [
+// The labels are UI; the asks stay English because they are prompts for the agent, not prose for the user.
+const ASKS: ReadonlyArray<{ label: MsgKey; ask: (d: EditorDraft) => string }> = [
   {
-    label: "Tighten",
+    label: "drafts.ask.tighten",
     ask: (d) =>
       `Tighten this ${CHANNEL_NAMES[d.channel]} draft: keep the meaning, cut every word that does not earn its place, stay under ${CHANNEL_LIMITS[d.channel]} characters. Save it with save_draft${d.id ? ` using id ${d.id}` : ""}.\n\n${d.text}`,
   },
   {
-    label: "3 opening lines",
+    label: "drafts.ask.hooks",
     ask: (d) =>
       `Write three different opening lines for this ${CHANNEL_NAMES[d.channel]} draft, based on what has worked in my data. Show them; do not save.\n\n${d.text}`,
   },
   {
-    label: "Adapt for other channels",
+    label: "drafts.ask.adapt",
     ask: (d) =>
       `Adapt this ${CHANNEL_NAMES[d.channel]} draft for my other enabled channels, each in that channel's style and limit, and save each as a draft.\n\n${d.text}`,
   },
@@ -72,6 +74,7 @@ const readBase64 = (file: File) =>
 const say = (e: unknown) => toast("error", e instanceof Error ? e.message : String(e));
 
 function Thumb({ id, name, index }: { id: string; name: string; index: number }) {
+  const t = useT();
   const changeDraft = useWork((s) => s.changeDraft);
   const [src, setSrc] = useState<string | null>(null);
   useEffect(() => {
@@ -87,7 +90,13 @@ function Thumb({ id, name, index }: { id: string; name: string; index: number })
   const act = "bg-popover/90 text-popover-foreground shadow-sm hover:bg-popover";
   return (
     <figure className="group relative size-28 shrink-0 overflow-hidden rounded-lg border bg-muted">
-      {src && <img src={src} alt={`Image ${index + 1}`} className="size-full object-contain" />}
+      {src && (
+        <img
+          src={src}
+          alt={t("drafts.imageAlt", { n: index + 1 })}
+          className="size-full object-contain"
+        />
+      )}
       <span className="absolute top-1 left-1 rounded bg-popover/90 px-1 text-2xs tabular-nums">
         {index + 1}
       </span>
@@ -96,11 +105,11 @@ function Thumb({ id, name, index }: { id: string; name: string; index: number })
           size="icon-xs"
           variant="ghost"
           className={act}
-          aria-label="Copy image"
-          title="Copy the image, then paste it into the platform's composer"
+          aria-label={t("drafts.copyImage")}
+          title={t("drafts.copyImageTitle")}
           onClick={() =>
             void call("drafts.copyImage", { id, name }).then(
-              () => toast("done", "Image copied"),
+              () => toast("done", t("drafts.imageCopied")),
               say,
             )
           }
@@ -111,8 +120,8 @@ function Thumb({ id, name, index }: { id: string; name: string; index: number })
           size="icon-xs"
           variant="ghost"
           className={act}
-          aria-label="Show in folder"
-          title="Show in folder"
+          aria-label={t("drafts.showFolder")}
+          title={t("drafts.showFolder")}
           onClick={() => void call("drafts.showImage", { id, name }).catch(say)}
         >
           <FolderOpen />
@@ -121,8 +130,8 @@ function Thumb({ id, name, index }: { id: string; name: string; index: number })
           size="icon-xs"
           variant="ghost"
           className={act}
-          aria-label="Remove image"
-          title="Remove image"
+          aria-label={t("drafts.removeImage")}
+          title={t("drafts.removeImage")}
           onClick={() => void changeDraft(() => call("drafts.removeImage", { id, name }))}
         >
           <X />
@@ -133,6 +142,7 @@ function Thumb({ id, name, index }: { id: string; name: string; index: number })
 }
 
 function DraftImages({ id }: { id: string | undefined }) {
+  const t = useT();
   const images = useWork((s) => s.drafts.find((x) => x.id === id)?.images) ?? [];
   const changeDraft = useWork((s) => s.changeDraft);
   const input = useRef<HTMLInputElement>(null);
@@ -147,7 +157,7 @@ function DraftImages({ id }: { id: string | undefined }) {
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
         <Images className="size-3.5" />
-        Images
+        {t("drafts.images")}
         <span className="tabular-nums">
           {images.length} / {DRAFT_IMAGES_MAX}
         </span>
@@ -158,12 +168,12 @@ function DraftImages({ id }: { id: string | undefined }) {
           <button
             type="button"
             disabled={!id}
-            title={id ? "Add images from this computer" : "Save the draft first"}
+            title={id ? t("drafts.addFromComputer") : t("drafts.saveFirstTitle")}
             onClick={() => input.current?.click()}
             className="flex size-28 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed text-muted-foreground text-xs hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60 [&>svg]:size-4"
           >
             <ImagePlus />
-            {id ? "Add image" : "Save first"}
+            {id ? t("drafts.addImage") : t("drafts.saveFirst")}
           </button>
         )}
       </div>
@@ -193,6 +203,7 @@ interface EditorDraft {
 const blank = (channel: ChannelId): EditorDraft => ({ id: undefined, channel, text: "", note: "" });
 
 function Editor({ start, onSaved }: { start: EditorDraft; onSaved: (d: Draft) => void }) {
+  const t = useT();
   const saveDraft = useWork((s) => s.saveDraft);
   const ask = useWork((s) => s.ask);
   const agentOn = useWork((s) => s.agentSettings?.enabled ?? false);
@@ -220,7 +231,7 @@ function Editor({ start, onSaved }: { start: EditorDraft; onSaved: (d: Draft) =>
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
         <Segmented<ChannelId>
-          label="Channel"
+          label={t("filters.channel")}
           value={d.channel}
           options={CHANNEL_IDS.map((id) => ({
             value: id,
@@ -245,22 +256,22 @@ function Editor({ start, onSaved }: { start: EditorDraft; onSaved: (d: Draft) =>
       <Textarea
         value={d.text}
         rows={12}
-        placeholder={`Write the ${CHANNEL_NAMES[d.channel]} post…`}
-        aria-label="Post text"
+        placeholder={t("drafts.placeholder", { name: CHANNEL_NAMES[d.channel] })}
+        aria-label={t("drafts.textAria")}
         aria-invalid={over || undefined}
         onChange={(e) => setD({ ...d, text: e.target.value })}
       />
       <Input
         size="sm"
         value={d.note}
-        placeholder="Note to yourself: what this post is for"
-        aria-label="Note"
+        placeholder={t("drafts.notePlaceholder")}
+        aria-label={t("drafts.noteAria")}
         onValueChange={(note) => setD({ ...d, note })}
       />
       <DraftImages id={d.id} />
       <div className="flex flex-wrap items-center gap-1.5">
         <Button size="sm" disabled={!d.text.trim() || !dirty} onClick={() => void save()}>
-          Save draft
+          {t("drafts.save")}
         </Button>
         <Button
           size="sm"
@@ -274,7 +285,7 @@ function Editor({ start, onSaved }: { start: EditorDraft; onSaved: (d: Draft) =>
           }
         >
           {copied ? <Check /> : <Copy />}
-          {copied ? "Copied" : "Copy"}
+          {copied ? t("common.copied") : t("common.copy")}
         </Button>
         <Button
           size="sm"
@@ -283,12 +294,12 @@ function Editor({ start, onSaved }: { start: EditorDraft; onSaved: (d: Draft) =>
           onClick={() => void call("links.open", { url: composer(d.channel, d.text) })}
         >
           <ExternalLink />
-          Open {CHANNEL_NAMES[d.channel]}
+          {t("drafts.open", { name: CHANNEL_NAMES[d.channel] })}
         </Button>
       </div>
       <div className="flex flex-wrap items-center gap-1.5 border-t pt-3">
         <Sparkles className="size-3.5 text-muted-foreground" />
-        <span className="mr-1 text-muted-foreground text-xs">Ask the agent</span>
+        <span className="mr-1 text-muted-foreground text-xs">{t("drafts.askAgent")}</span>
         {ASKS.map((a) => (
           <Button
             key={a.label}
@@ -297,22 +308,18 @@ function Editor({ start, onSaved }: { start: EditorDraft; onSaved: (d: Draft) =>
             disabled={!d.text.trim()}
             onClick={() => void ask(a.ask(d))}
           >
-            {a.label}
+            {t(a.label)}
           </Button>
         ))}
-        {!agentOn && (
-          <span className="text-2xs text-muted-foreground">(turn the agent on in Settings)</span>
-        )}
+        {!agentOn && <span className="text-2xs text-muted-foreground">{t("drafts.agentOff")}</span>}
       </div>
-      <p className="text-2xs text-muted-foreground">
-        Loud never posts. Open the platform, paste or check the text, add the images (copy one, or
-        show the folder) and post it yourself.
-      </p>
+      <p className="text-2xs text-muted-foreground">{t("drafts.footer")}</p>
     </div>
   );
 }
 
 export function DraftsView() {
+  const t = useT();
   const drafts = useWork((s) => s.drafts);
   const loadDrafts = useWork((s) => s.loadDrafts);
   const loadAgent = useWork((s) => s.loadAgent);
@@ -329,26 +336,26 @@ export function DraftsView() {
 
   return (
     <>
-      <PageHeader title="Drafts" description="Posts you are writing, kept on this computer.">
+      <PageHeader title={t("nav.drafts")} description={t("drafts.description")}>
         {current && (
           <Button size="sm" variant="outline" onClick={() => setSelected(blank(first))}>
             <Plus />
-            New draft
+            {t("drafts.new")}
           </Button>
         )}
       </PageHeader>
       {!current ? (
         <Empty
           icon={<NotebookPen />}
-          title="No drafts yet"
+          title={t("drafts.empty")}
           action={
             <Button size="sm" onClick={() => setSelected(blank(first))}>
               <Plus />
-              New draft
+              {t("drafts.new")}
             </Button>
           }
         >
-          Write one here, or ask the agent to write from your best posts.
+          {t("drafts.emptyHint")}
         </Empty>
       ) : (
         <div className="flex min-h-0 flex-1">
@@ -365,7 +372,7 @@ export function DraftsView() {
                     <ChannelTag id={d.channel} />
                     {d.by === "agent" && <Badge variant="outline">agent</Badge>}
                   </div>
-                  <div className="line-clamp-2 text-sm">{d.text || "(empty)"}</div>
+                  <div className="line-clamp-2 text-sm">{d.text || t("drafts.emptyText")}</div>
                   <div className="flex items-center gap-2 text-2xs text-muted-foreground">
                     {d.updated}
                     {d.images?.length ? (
@@ -392,7 +399,7 @@ export function DraftsView() {
                     }}
                   >
                     <Trash2 />
-                    Delete
+                    {t("common.delete")}
                   </Button>
                 </div>
               )}

@@ -18,12 +18,15 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Switch } from "~/components/ui/switch";
+import { useT, type MsgKey } from "~/i18n";
 import { cn } from "~/lib/utils";
 import { useLoud } from "~/store";
 import { useWork } from "~/workStore";
 
-const pausedText = (reason: string, until: string | null) => {
-  const why = reason ? reason[0]!.toUpperCase() + reason.slice(1) : "Paused";
+type T = ReturnType<typeof useT>;
+
+const pausedText = (t: T, reason: string, until: string | null) => {
+  const why = reason ? reason[0]!.toUpperCase() + reason.slice(1) : t("conn.paused");
   const at = until
     ? new Date(until).toLocaleString(undefined, {
         weekday: "short",
@@ -31,10 +34,8 @@ const pausedText = (reason: string, until: string | null) => {
         minute: "2-digit",
       })
     : null;
-  return at ? `${why}. Until ${at}.` : `${why}.`;
+  return at ? t("conn.pausedUntil", { why, at }) : t("conn.pausedReason", { why });
 };
-
-const DEMO_BLOCK = "The demo data folder is never collected into";
 
 function ReloadButton({ p, label }: { p: PlatformView; label: string }) {
   const busy = useLoud((s) => s.busy.has(p.id));
@@ -55,6 +56,7 @@ function ReloadButton({ p, label }: { p: PlatformView; label: string }) {
 
 /** Facebook: which Page Loud reads. The list comes from Business Suite and the Pages the account manages. */
 function PagePicker({ p }: { p: PlatformView }) {
+  const t = useT();
   const busy = useLoud((s) => s.busy.has(p.id));
   const updatePlatform = useLoud((s) => s.updatePlatform);
   const [assetId, setAssetId] = useState(p.assetId ?? "");
@@ -66,15 +68,15 @@ function PagePicker({ p }: { p: PlatformView }) {
         <Input
           size="sm"
           value={assetId}
-          placeholder="Page id, or a Business Suite link"
+          placeholder={t("conn.pagePlaceholder")}
           onValueChange={setAssetId}
           onBlur={() => {
             if (assetId.trim() !== (p.assetId ?? ""))
               void updatePlatform({ id: p.id, assetId, handle: assetId });
           }}
-          aria-label="Facebook Page id"
+          aria-label={t("conn.pageAria")}
         />
-        <ReloadButton p={p} label="Find the Pages again" />
+        <ReloadButton p={p} label={t("conn.findPages")} />
       </div>
     );
 
@@ -83,16 +85,16 @@ function PagePicker({ p }: { p: PlatformView }) {
       <select
         className="h-8 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-sm sm:h-7"
         value={p.assetId ?? ""}
-        aria-label="Facebook Page"
+        aria-label={t("conn.pageSelectAria")}
         disabled={busy}
         onChange={(e) => {
           const id = e.target.value;
           if (id) void updatePlatform({ id: p.id, assetId: id, handle: id });
         }}
       >
-        {!p.assetId && <option value="">Choose a Page ({pages.length})</option>}
+        {!p.assetId && <option value="">{t("conn.choosePage", { n: pages.length })}</option>}
         {p.assetId && !pages.some((x) => x.id === p.assetId) && (
-          <option value={p.assetId}>Page {p.assetId}</option>
+          <option value={p.assetId}>{t("conn.pageId", { id: p.assetId })}</option>
         )}
         {pages.map((x) => (
           <option key={x.id} value={x.id}>
@@ -100,12 +102,13 @@ function PagePicker({ p }: { p: PlatformView }) {
           </option>
         ))}
       </select>
-      <ReloadButton p={p} label="Find the Pages again" />
+      <ReloadButton p={p} label={t("conn.findPages")} />
     </div>
   );
 }
 
 function HandleField({ p }: { p: PlatformView }) {
+  const t = useT();
   const updatePlatform = useLoud((s) => s.updatePlatform);
   const [handle, setHandle] = useState(p.handle);
   return (
@@ -113,19 +116,20 @@ function HandleField({ p }: { p: PlatformView }) {
       <Input
         size="sm"
         value={handle}
-        placeholder="Handle, not detected yet"
+        placeholder={t("conn.handlePlaceholder")}
         onValueChange={setHandle}
         onBlur={() => {
           if (handle.trim() !== p.handle) void updatePlatform({ id: p.id, handle });
         }}
-        aria-label={`${p.name} handle`}
+        aria-label={t("conn.handleAria", { name: p.name })}
       />
-      {!p.handle && <ReloadButton p={p} label="Detect the handle" />}
+      {!p.handle && <ReloadButton p={p} label={t("conn.detectHandle")} />}
     </div>
   );
 }
 
 function PlatformRow({ p }: { p: PlatformView }) {
+  const t = useT();
   const busy = useLoud((s) => s.busy.has(p.id));
   const demo = useLoud((s) => s.info?.demo ?? false);
   const connect = useLoud((s) => s.connect);
@@ -141,16 +145,16 @@ function PlatformRow({ p }: { p: PlatformView }) {
   const paused = Boolean(budget?.pausedUntil);
   const reading = running && last?.status === "running";
   const ready = p.id === "fb" ? Boolean(p.assetId) : Boolean(p.handle);
-  const blocked = demo
-    ? DEMO_BLOCK
+  const blocked: MsgKey | null = demo
+    ? "listen.demoBlock"
     : !p.enabled
-      ? "Turn on Include in runs first"
+      ? "conn.enableFirst"
       : paused
-        ? "Paused: resume it first"
+        ? "conn.resumeFirst"
         : !ready
           ? p.id === "fb"
-            ? "Choose the Page first"
-            : "Waiting for the handle"
+            ? "conn.choosePageFirst"
+            : "conn.waitHandle"
           : null;
 
   return (
@@ -160,17 +164,17 @@ function PlatformRow({ p }: { p: PlatformView }) {
         <span className="font-medium text-sm">{p.name}</span>
         {!connected ? (
           <Badge variant="outline" className="text-muted-foreground">
-            Signed out
+            {t("conn.signedOut")}
           </Badge>
         ) : reading ? (
           <Badge variant="info">
             <Loader className="animate-spin" />
-            Collecting
+            {t("conn.collecting")}
           </Badge>
         ) : paused ? (
-          <Badge variant="warning">Paused</Badge>
+          <Badge variant="warning">{t("conn.paused")}</Badge>
         ) : (
-          <Badge variant="success">Connected</Badge>
+          <Badge variant="success">{t("conn.connected")}</Badge>
         )}
 
         <div className="ml-auto flex items-center gap-1.5">
@@ -180,11 +184,11 @@ function PlatformRow({ p }: { p: PlatformView }) {
                 size="sm"
                 variant="outline"
                 disabled={running || busy || blocked !== null}
-                title={blocked ?? `Read ${p.name} now`}
+                title={blocked ? t(blocked) : t("conn.readNow", { name: p.name })}
                 onClick={() => void start({ steps: [p.id] })}
               >
                 <Play />
-                Collect now
+                {t("conn.collectNow")}
               </Button>
               <Button
                 size="sm"
@@ -193,14 +197,14 @@ function PlatformRow({ p }: { p: PlatformView }) {
                 onClick={() => void openBrowser(p.id)}
               >
                 <ExternalLink />
-                Open
+                {t("common.open")}
               </Button>
               <Button
                 size="icon-sm"
                 variant="ghost-muted"
                 disabled={busy || reading}
-                aria-label={`Disconnect ${p.name}`}
-                title="Disconnect: log out and clear this profile"
+                aria-label={t("conn.disconnectAria", { name: p.name })}
+                title={t("conn.disconnectTitle")}
                 onClick={() => void disconnect(p.id)}
               >
                 <LogOut />
@@ -209,7 +213,7 @@ function PlatformRow({ p }: { p: PlatformView }) {
           ) : (
             <Button size="sm" disabled={busy} onClick={() => void connect(p.id)}>
               {busy ? <Loader className="animate-spin" /> : <Plug />}
-              Connect
+              {t("conn.connect")}
             </Button>
           )}
         </div>
@@ -220,7 +224,7 @@ function PlatformRow({ p }: { p: PlatformView }) {
           {p.id === "fb" ? <PagePicker p={p} /> : <HandleField p={p} />}
           <label
             className="flex items-center gap-2 text-muted-foreground text-xs"
-            title="Off: Collect all and the timer skip this platform"
+            title={t("conn.includeTitle")}
           >
             <Switch
               size="sm"
@@ -228,7 +232,7 @@ function PlatformRow({ p }: { p: PlatformView }) {
               disabled={busy}
               onCheckedChange={(enabled) => void updatePlatform({ id: p.id, enabled })}
             />
-            Include in runs
+            {t("conn.include")}
           </label>
           <div className="flex min-w-0 flex-col items-end gap-0.5 text-xs">
             {last && (
@@ -239,14 +243,14 @@ function PlatformRow({ p }: { p: PlatformView }) {
             )}
             {budget && (
               <span className="text-muted-foreground tabular-nums">
-                {budget.usedToday} of {budget.dailyCap} requests today
+                {t("conn.budget", { used: budget.usedToday, cap: budget.dailyCap })}
               </span>
             )}
           </div>
         </div>
       ) : (
         <p className="mt-1 ml-5.5 text-muted-foreground text-xs">
-          You log in on {p.name}'s own page; the handle is read afterwards.
+          {t("conn.loginNote", { name: p.name })}
         </p>
       )}
 
@@ -254,10 +258,10 @@ function PlatformRow({ p }: { p: PlatformView }) {
         <div className="mt-3 ml-5.5 flex items-start gap-2.5 rounded-lg bg-warning/8 px-3 py-2.5 text-xs dark:bg-warning/16">
           <TriangleAlert className="mt-px size-3.5 shrink-0 text-warning-foreground" />
           <p className="min-w-0 flex-1 leading-relaxed">
-            {pausedText(budget?.reason ?? "", budget?.pausedUntil ?? null)}
+            {pausedText(t, budget?.reason ?? "", budget?.pausedUntil ?? null)}
           </p>
           <Button size="xs" variant="outline" onClick={() => void resume(p.id)}>
-            Resume
+            {t("conn.resume")}
           </Button>
         </div>
       )}
@@ -266,8 +270,7 @@ function PlatformRow({ p }: { p: PlatformView }) {
         <div className="mt-3 ml-5.5 flex items-start gap-2.5 rounded-lg bg-warning/8 px-3 py-2.5 text-xs dark:bg-warning/16">
           <TriangleAlert className="mt-px size-3.5 shrink-0 text-warning-foreground" />
           <p className="min-w-0 flex-1 leading-relaxed">
-            No posts were read in the last {budget!.emptyRuns} runs. The account may just be quiet —
-            or {p.name} changed and Loud needs an update (Settings → Updates).
+            {t("conn.emptyRuns", { n: budget!.emptyRuns, name: p.name })}
           </p>
         </div>
       )}
@@ -276,6 +279,7 @@ function PlatformRow({ p }: { p: PlatformView }) {
 }
 
 function CollectAll() {
+  const t = useT();
   const running = useWork((s) => s.collect?.running ?? false);
   const start = useWork((s) => s.startCollect);
   const cancel = useWork((s) => s.cancelCollect);
@@ -285,28 +289,29 @@ function CollectAll() {
     return (
       <Button size="sm" variant="outline" onClick={() => void cancel()}>
         <Square />
-        Stop
+        {t("common.stop")}
       </Button>
     );
   return (
     <Button
       size="sm"
       disabled={demo || !anyConnected}
-      title={demo ? DEMO_BLOCK : "Every platform included in runs, then listening"}
+      title={demo ? t("listen.demoBlock") : t("palette.collectAll.hint")}
       onClick={() => void start()}
     >
       <Play />
-      Collect all
+      {t("palette.collectAll")}
     </Button>
   );
 }
 
 export function ConnectionsView() {
+  const t = useT();
   const platforms = useLoud((s) => s.platforms);
 
   return (
     <>
-      <PageHeader title="Connections" description="Log in once; Loud reads with that session.">
+      <PageHeader title={t("nav.connections")} description={t("conn.description")}>
         <CollectAll />
       </PageHeader>
       <div className="flex-1 overflow-y-auto">
@@ -322,14 +327,7 @@ export function ConnectionsView() {
 
           <div className="flex gap-3 rounded-xl border border-dashed px-4 py-3.5 text-muted-foreground text-xs leading-relaxed">
             <ShieldCheck className="mt-0.5 size-4 shrink-0" />
-            <p>
-              Each platform gets its own browser profile inside Loud. You log in on the platform's
-              own page, so Loud never sees your password. Sessions, posts and numbers stay on this
-              computer, and Loud talks only to the platform itself. Disconnect clears that profile.
-              Requests are spaced out, capped per day, paused for hours after a "too many requests"
-              answer, and stopped at any login check or captcha until you deal with it on the
-              platform's own page.
-            </p>
+            <p>{t("conn.privacy")}</p>
           </div>
         </div>
       </div>

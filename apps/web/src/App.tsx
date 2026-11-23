@@ -6,6 +6,7 @@ import { CommandPalette } from "~/components/CommandPalette";
 import { Toasts } from "~/components/Toasts";
 import { Empty } from "~/components/PageHeader";
 import { UsageQuestion } from "~/components/UsageReports";
+import { useT } from "~/i18n";
 import { inDesktop } from "~/lib/loud";
 import { useLoud, type View, wireStore } from "~/store";
 import { AgentView } from "~/views/AgentView";
@@ -37,6 +38,7 @@ function Current({ view }: { view: View }) {
 }
 
 export function App() {
+  const t = useT();
   const view = useLoud((s) => s.view);
   const loaded = useLoud((s) => s.loaded);
 
@@ -66,9 +68,7 @@ export function App() {
             <div className="h-32 animate-pulse rounded-xl border bg-card" />
           </div>
         ) : !inDesktop() ? (
-          <Empty title="Loud runs as a desktop app">
-            Start it with pnpm dev from the repository.
-          </Empty>
+          <Empty title={t("app.notDesktop.title")}>{t("app.notDesktop.body")}</Empty>
         ) : (
           <>
             <Current view={view} />

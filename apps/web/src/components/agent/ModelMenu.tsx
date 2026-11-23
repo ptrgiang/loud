@@ -3,6 +3,7 @@ import type { AgentModel, AgentProviderId, AgentProviderView } from "@loud/contr
 import { Brain, Check, ChevronDown } from "lucide-react";
 
 import { Button } from "~/components/ui/button";
+import { useT } from "~/i18n";
 import { cn } from "~/lib/utils";
 import { useWork } from "~/workStore";
 
@@ -11,8 +12,8 @@ const popup =
 const item =
   "flex cursor-default select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none data-disabled:opacity-48 data-highlighted:bg-accent";
 
-export const modelLabel = (models: ReadonlyArray<AgentModel>, id: string) =>
-  models.find((m) => m.id === id)?.label ?? (id || "Default");
+export const modelLabel = (models: ReadonlyArray<AgentModel>, id: string, fallback: string) =>
+  models.find((m) => m.id === id)?.label ?? (id || fallback);
 
 /** Provider and model in one menu, as in T3 Code's composer. A chat that has started keeps its CLI. */
 export function ModelMenu({
@@ -29,9 +30,10 @@ export function ModelMenu({
   locked: boolean;
   disabled: boolean;
 }) {
+  const t = useT();
   const select = useWork((s) => s.selectAgent);
   const current = providers.find((p) => p.id === provider);
-  const label = `${current?.name ?? provider} · ${modelLabel(current?.models ?? [], model)}`;
+  const label = `${current?.name ?? provider} · ${modelLabel(current?.models ?? [], model, t("agent.modelDefault"))}`;
 
   return (
     <Menu.Root>
@@ -54,9 +56,9 @@ export function ModelMenu({
                     <Menu.GroupLabel className="flex items-baseline justify-between gap-3 px-2 pt-2 pb-1 text-muted-foreground text-xs">
                       <span>{p.name}</span>
                       {!p.available ? (
-                        <span className="text-2xs">not installed</span>
+                        <span className="text-2xs">{t("agent.notInstalled")}</span>
                       ) : locked && p.id !== provider ? (
-                        <span className="text-2xs">new chat to switch</span>
+                        <span className="text-2xs">{t("agent.newChatToSwitch")}</span>
                       ) : null}
                     </Menu.GroupLabel>
                     {p.models.map((m) => {
@@ -92,6 +94,7 @@ export function EffortMenu({
   effort: string;
   disabled: boolean;
 }) {
+  const t = useT();
   const select = useWork((s) => s.selectAgent);
   if (!efforts.length) return null;
   const options = ["", ...efforts];
@@ -99,10 +102,12 @@ export function EffortMenu({
     <Menu.Root>
       <Menu.Trigger
         disabled={disabled}
-        render={<Button type="button" size="xs" variant="ghost-muted" aria-label="Effort" />}
+        render={
+          <Button type="button" size="xs" variant="ghost-muted" aria-label={t("agent.effort")} />
+        }
       >
         <Brain />
-        {effort || "Default"}
+        {effort || t("agent.modelDefault")}
         <ChevronDown />
       </Menu.Trigger>
       <Menu.Portal>
@@ -110,7 +115,7 @@ export function EffortMenu({
           <Menu.Popup className={popup}>
             <Menu.Group>
               <Menu.GroupLabel className="px-2 pt-2 pb-1 text-muted-foreground text-xs">
-                Reasoning effort
+                {t("agent.effortTitle")}
               </Menu.GroupLabel>
               {options.map((e) => (
                 <Menu.Item
@@ -119,7 +124,7 @@ export function EffortMenu({
                   onClick={() => void select({ effort: e })}
                 >
                   <Check className={cn("size-3.5", e !== effort && "invisible")} />
-                  {e || "Model default"}
+                  {e || t("agent.effortDefault")}
                 </Menu.Item>
               ))}
             </Menu.Group>

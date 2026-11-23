@@ -9,6 +9,7 @@ import { Freshness } from "~/components/Freshness";
 import { TipRow, useChartTip, useWidth } from "~/components/ChartTip";
 import { NoData } from "~/components/NoData";
 import { ChannelDot, ChannelTag, Empty, PageHeader } from "~/components/PageHeader";
+import { useT, type MsgKey } from "~/i18n";
 import {
   BLOCKS,
   builtAt,
@@ -51,53 +52,52 @@ type BySettled = ReadonlyArray<readonly [ChannelId, ReadonlyArray<Post>]>;
 // ---- What the numbers say ----
 
 function CalloutText({ c }: { c: Callout }) {
-  const b = (s: string) => <span className="font-semibold">{s}</span>;
+  const t = useT();
+  // The numbers lose their bold here: the strings are whole sentences so translations stay natural.
   switch (c.kind) {
     case "concentration":
-      return (
-        <>
-          One post holds {b(`${dec(100 * c.share, 0)}%`)} of the views of {c.posts} posts. The
-          median is {b(fmt(c.median))}.
-        </>
-      );
+      return t("ins.callout.concentration", {
+        pct: dec(100 * c.share, 0),
+        posts: c.posts,
+        median: fmt(c.median),
+      });
     case "timing":
-      return (
-        <>
-          Posts at {b(blockLabel(c.block))} have a median of {b(fmt(Math.round(c.median)))},{" "}
-          {dec(c.ratio)}× the channel median ({c.posts} posts).
-        </>
-      );
+      return t("ins.callout.timing", {
+        block: blockLabel(c.block),
+        median: fmt(Math.round(c.median)),
+        ratio: dec(c.ratio),
+        posts: c.posts,
+      });
     case "content":
-      return (
-        <>
-          Posts that {c.says}: median {b(fmt(Math.round(c.lift.withMedian ?? 0)))} vs{" "}
-          {b(fmt(Math.round(c.lift.withoutMedian ?? 0)))} (×{dec(c.lift.ratio)}; {c.lift.withN} vs{" "}
-          {c.lift.withoutN} posts).
-        </>
-      );
+      return t("ins.callout.content", {
+        says: c.says,
+        withM: fmt(Math.round(c.lift.withMedian ?? 0)),
+        withoutM: fmt(Math.round(c.lift.withoutMedian ?? 0)),
+        ratio: dec(c.lift.ratio),
+        withN: c.lift.withN ?? 0,
+        withoutN: c.lift.withoutN ?? 0,
+      });
   }
 }
 
-const CALLOUT_KIND = {
-  concentration: "Concentration",
-  timing: "Timing",
-  content: "Content",
-} as const;
+const CALLOUT_KIND: Record<Callout["kind"], MsgKey> = {
+  concentration: "ins.kind.concentration",
+  timing: "ins.kind.timing",
+  content: "ins.kind.content",
+};
 
 function Callouts({ hub }: { hub: Hub }) {
+  const t = useT();
   const list = callouts(hub);
   if (!list.length) return null;
   return (
-    <Card
-      title="What the numbers say"
-      hint="Recomputed on every build. Shown only for a difference of 1.5× or more, with at least 3 posts in each group."
-    >
+    <Card title={t("ins.callouts")} hint={t("ins.callouts.hint")}>
       <div className="grid grid-cols-1 gap-3 @3xl:grid-cols-2 @6xl:grid-cols-3">
         {list.map((c) => (
           <div key={`${c.channel}:${c.kind}`} className="rounded-lg bg-muted px-3 py-2.5 text-sm">
             <div className="mb-1 flex items-center gap-1.5 text-2xs text-muted-foreground">
               <ChannelDot id={c.channel} />
-              {CHANNEL_NAMES[c.channel]} · {CALLOUT_KIND[c.kind]}
+              {CHANNEL_NAMES[c.channel]} · {t(CALLOUT_KIND[c.kind])}
             </div>
             <CalloutText c={c} />
           </div>
@@ -123,6 +123,7 @@ export function noteChannel(note: string): { channel: ChannelId | null; body: st
 
 /** What went well and the agent's notes. Checks that need doing are on Today. */
 function Notes({ hub }: { hub: Hub }) {
+  const t = useT();
   const proposals = useLoud((s) => s.proposals);
   const notes = proposals?.audit ?? [];
   const flags = hub.flags.filter((f) => f.level !== "warn");
@@ -130,12 +131,12 @@ function Notes({ hub }: { hub: Hub }) {
   return (
     <div className="grid grid-cols-1 gap-4 @5xl:grid-cols-2">
       {flags.length > 0 && (
-        <Card title="Worked well" hint="Found by the build" bodyClassName="px-0 pb-0">
+        <Card title={t("ins.workedWell")} hint={t("ins.workedWell.hint")} bodyClassName="px-0 pb-0">
           <FlagList flags={flags} />
         </Card>
       )}
       {notes.length > 0 && (
-        <Card title="Agent notes" hint="Written with the proposals" bodyClassName="px-0 pb-0">
+        <Card title={t("ins.agentNotes")} hint={t("ins.agentNotes.hint")} bodyClassName="px-0 pb-0">
           <ul className="divide-y">
             {notes.map((note) => {
               const { channel, body } = noteChannel(note);
@@ -145,7 +146,7 @@ function Notes({ hub }: { hub: Hub }) {
                     {channel ? (
                       <ChannelTag id={channel} />
                     ) : (
-                      <span className="text-muted-foreground text-xs">General</span>
+                      <span className="text-muted-foreground text-xs">{t("ins.general")}</span>
                     )}
                   </span>
                   <span>{body}</span>
@@ -165,6 +166,7 @@ const ROW_H = 52;
 const LEFT = 84;
 
 function ViewsPerPost({ rows }: { rows: BySettled }) {
+  const t = useT();
   const [ref, width] = useWidth<HTMLDivElement>();
   const tip = useChartTip();
   const all = rows.flatMap(([, l]) => l.map((p) => Math.max(1, p.views ?? 1)));
@@ -186,13 +188,7 @@ function ViewsPerPost({ rows }: { rows: BySettled }) {
   return (
     <div ref={ref} className="w-full">
       {width > 0 && (
-        <svg
-          width={W}
-          height={H}
-          role="img"
-          aria-label="Views per post by channel, log scale"
-          className="block"
-        >
+        <svg width={W} height={H} role="img" aria-label={t("ins.chartAria")} className="block">
           {ticks.map((v) => (
             <g key={v}>
               <line
@@ -232,8 +228,8 @@ function ViewsPerPost({ rows }: { rows: BySettled }) {
                         <ChannelDot id={p.channel} />
                         {stampLabel(p.posted)}
                       </div>
-                      <div className="mb-1">{short(p.text, 120) || "(no text)"}</div>
-                      <TipRow value={fmt(p.views)} label="Views" />
+                      <div className="mb-1">{short(p.text, 120) || t("posts.noText")}</div>
+                      <TipRow value={fmt(p.views)} label={t("metric.views")} />
                     </>
                   );
                   return (
@@ -286,15 +282,16 @@ function ViewsPerPost({ rows }: { rows: BySettled }) {
 // ---- Rates per 1k views ----
 
 const RATES = [
-  ["likes", "Likes"],
-  ["replies", "Replies"],
-  ["reposts", "Reposts"],
-  ["shares", "Shares"],
-  ["saves", "Saves"],
-  ["follows", "Follows"],
+  ["likes", "metric.likes"],
+  ["replies", "metric.replies"],
+  ["reposts", "metric.reposts"],
+  ["shares", "metric.shares"],
+  ["saves", "metric.saves"],
+  ["follows", "metric.follows"],
 ] as const;
 
 function Rates({ rows }: { rows: BySettled }) {
+  const t = useT();
   const values = rows.map(([id, l]) => [id, RATES.map(([k]) => ratePer1k(l, k))] as const);
   const max = RATES.map((_, i) => Math.max(1e-4, ...values.map(([, v]) => v[i] ?? 0)));
   return (
@@ -302,11 +299,11 @@ function Rates({ rows }: { rows: BySettled }) {
       <table className="w-full text-xs">
         <thead>
           <tr className="border-b text-muted-foreground">
-            <th className="py-2 pr-3 text-left font-medium">Per 1,000 views</th>
+            <th className="py-2 pr-3 text-left font-medium">{t("ins.per1k")}</th>
             {rows.map(([id, l]) => (
               <th key={id} className="px-2 py-2 text-left font-medium">
                 <ChannelTag id={id} />
-                <div className="font-normal text-2xs">{l.length} posts</div>
+                <div className="font-normal text-2xs">{t("bars.posts", { n: l.length })}</div>
               </th>
             ))}
           </tr>
@@ -314,7 +311,7 @@ function Rates({ rows }: { rows: BySettled }) {
         <tbody className="divide-y">
           {RATES.map(([k, label], i) => (
             <tr key={k}>
-              <td className="py-2 pr-3">{label}</td>
+              <td className="py-2 pr-3">{t(label)}</td>
               {values.map(([id, v]) => (
                 <td key={id} className="px-2 py-2">
                   {v[i] === null ? (
@@ -331,11 +328,8 @@ function Rates({ rows }: { rows: BySettled }) {
           ))}
           {rows.some(([, l]) => rewatch(l) !== null) && (
             <tr>
-              <td
-                className="py-2 pr-3"
-                title="Views per unique viewer: above 1 means people watch again"
-              >
-                Rewatch (views/viewer)
+              <td className="py-2 pr-3" title={t("ins.rewatchTitle")}>
+                {t("ins.rewatch")}
               </td>
               {rows.map(([id, l]) => {
                 const r = rewatch(l);
@@ -366,6 +360,7 @@ function Heat<K extends number>({
   colLabel: (k: K) => string;
   keyOf: (p: Post) => number | null;
 }) {
+  const t = useT();
   const tip = useChartTip();
   return (
     <div className="overflow-x-auto">
@@ -396,7 +391,7 @@ function Heat<K extends number>({
                       <td
                         key={col}
                         className="h-10 rounded-md bg-muted/50 text-center text-muted-foreground/60"
-                        title="Nothing posted in this slot"
+                        title={t("ins.emptySlot")}
                       >
                         ·
                       </td>
@@ -409,10 +404,10 @@ function Heat<K extends number>({
                       <div className="mb-1 text-muted-foreground">
                         {CHANNEL_NAMES[id]} · {colLabel(col)}
                       </div>
-                      <TipRow value={fmt(Math.round(x.median ?? 0))} label="Median views" />
+                      <TipRow value={fmt(Math.round(x.median ?? 0))} label={t("ins.medianViews")} />
                       <TipRow
                         value={x.n}
-                        label={x.n < 2 ? "Posts (too few to compare)" : "Posts"}
+                        label={x.n < 2 ? t("ins.tooFewPosts") : t("common.posts")}
                       />
                     </>
                   );
@@ -435,7 +430,7 @@ function Heat<K extends number>({
                       <div className="font-semibold tabular-nums">
                         {compact(Math.round(x.median ?? 0))}
                       </div>
-                      <div className="text-3xs opacity-75">{x.n} posts</div>
+                      <div className="text-3xs opacity-75">{t("bars.posts", { n: x.n })}</div>
                     </td>
                   );
                 })}
@@ -454,12 +449,13 @@ const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0] as const;
 // ---- Content features ----
 
 function Features({ rows }: { rows: BySettled }) {
+  const t = useT();
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-xs">
         <thead>
           <tr className="border-b text-muted-foreground">
-            <th className="py-2 pr-3 text-left font-medium">Post feature</th>
+            <th className="py-2 pr-3 text-left font-medium">{t("ins.postFeature")}</th>
             {rows.map(([id]) => (
               <th key={id} className="px-2 py-2 text-left font-medium">
                 <ChannelTag id={id} />
@@ -476,7 +472,7 @@ function Features({ rows }: { rows: BySettled }) {
                 if (r.ratio === null) {
                   return (
                     <td key={id} className="px-2 py-2 text-2xs text-muted-foreground">
-                      too few ({r.withN}/{r.withoutN})
+                      {t("ins.tooFew", { a: r.withN ?? 0, b: r.withoutN ?? 0 })}
                     </td>
                   );
                 }
@@ -490,7 +486,11 @@ function Features({ rows }: { rows: BySettled }) {
                         up ? "text-success-foreground" : "text-destructive-foreground",
                       )}
                     >
-                      <Arrow className="size-3" aria-label={up ? "more" : "fewer"} />×{dec(r.ratio)}
+                      <Arrow
+                        className="size-3"
+                        aria-label={up ? t("ins.arrow.more") : t("ins.arrow.fewer")}
+                      />
+                      ×{dec(r.ratio)}
                     </span>
                     <div className="text-2xs text-muted-foreground tabular-nums">
                       {compact(Math.round(r.withMedian ?? 0))} vs{" "}
@@ -510,8 +510,9 @@ function Features({ rows }: { rows: BySettled }) {
 // ---- X: posts vs replies ----
 
 function XReplies({ posts }: { posts: ReadonlyArray<Post> }) {
+  const t = useT();
   const all = posts.filter((p) => p.channel === "x" && isNum(p.views) && (p.age_h ?? 0) >= 24);
-  if (!all.length) return <div className="text-muted-foreground text-sm">No X data yet.</div>;
+  if (!all.length) return <div className="text-muted-foreground text-sm">{t("ins.noX")}</div>;
   const own = all.filter(isOwn);
   const replies = all.filter((p) => !isOwn(p));
   const share = (100 * sumOf(replies, "views")) / Math.max(1, sumOf(all, "views"));
@@ -520,13 +521,16 @@ function XReplies({ posts }: { posts: ReadonlyArray<Post> }) {
       <BucketBars
         channel="x"
         rows={[
-          { label: `Posts (${own.length})`, ...group(own) },
-          { label: `Replies (${replies.length})`, ...group(replies) },
+          { label: t("ins.postsN", { n: own.length }), ...group(own) },
+          { label: t("ins.repliesN", { n: replies.length }), ...group(replies) },
         ]}
       />
       <p className="mt-3 text-muted-foreground text-xs">
-        Total views: posts {fmt(sumOf(own, "views"))} · replies {fmt(sumOf(replies, "views"))}.
-        Replies bring {dec(share, 0)}% of your X views.
+        {t("ins.xTotals", {
+          posts: fmt(sumOf(own, "views")),
+          replies: fmt(sumOf(replies, "views")),
+          pct: dec(share, 0),
+        })}
       </p>
     </>
   );
@@ -535,6 +539,7 @@ function XReplies({ posts }: { posts: ReadonlyArray<Post> }) {
 // ---- Cadence: one cell per day since the first post ----
 
 function Cadence({ hub, channels }: { hub: Hub; channels: ReadonlyArray<ChannelId> }) {
+  const t = useT();
   const tip = useChartTip();
   const now = builtAt(hub);
   const days = daysSinceFirstPost(hub.posts, now);
@@ -584,7 +589,9 @@ function Cadence({ hub, channels }: { hub: Hub; channels: ReadonlyArray<ChannelI
               <tr key={id}>
                 <th className="sticky left-0 z-10 bg-card pr-2 text-left font-normal">
                   <ChannelTag id={id} />
-                  <div className="text-3xs text-muted-foreground">{off} days off</div>
+                  <div className="text-3xs text-muted-foreground">
+                    {t("ins.daysOff", { n: off })}
+                  </div>
                 </th>
                 {cells.map((c, i) => {
                   const day = days[i]!;
@@ -593,7 +600,7 @@ function Cadence({ hub, channels }: { hub: Hub; channels: ReadonlyArray<ChannelI
                       <td
                         key={day}
                         className="h-8 min-w-6 rounded-sm bg-muted/50"
-                        title={`${dayLabel(parseStamp(day))}: no post`}
+                        title={t("ins.noPost", { day: dayLabel(parseStamp(day)) })}
                       />
                     );
                   const v = Math.max(0.08, c.v / max);
@@ -602,8 +609,8 @@ function Cadence({ hub, channels }: { hub: Hub; channels: ReadonlyArray<ChannelI
                       <div className="mb-1 text-muted-foreground">
                         {CHANNEL_NAMES[id]} · {dayLabel(parseStamp(day))}
                       </div>
-                      <TipRow value={fmt(c.v)} label="Views" />
-                      <TipRow value={c.n} label="Posts" />
+                      <TipRow value={fmt(c.v)} label={t("metric.views")} />
+                      <TipRow value={c.n} label={t("common.posts")} />
                     </>
                   );
                   return (
@@ -650,6 +657,7 @@ const LENGTH_EDGES = [
 ] as const;
 
 export function InsightsView() {
+  const t = useT();
   const hub = useLoud((s) => s.hub);
   const rows = useMemo<BySettled>(
     () =>
@@ -660,13 +668,13 @@ export function InsightsView() {
         : [],
     [hub],
   );
-  if (!hub) return <NoData title="Insights" icon={ChartNoAxesColumn} />;
+  if (!hub) return <NoData title={t("nav.insights")} icon={ChartNoAxesColumn} />;
   if (!rows.length) {
     return (
       <>
-        <PageHeader title="Insights" />
-        <Empty icon={<ChartNoAxesColumn />} title="No settled posts yet">
-          Insights compare posts at least a day old. Check back tomorrow.
+        <PageHeader title={t("nav.insights")} />
+        <Empty icon={<ChartNoAxesColumn />} title={t("ins.noSettled")}>
+          {t("ins.noSettledBody")}
         </Empty>
       </>
     );
@@ -679,10 +687,10 @@ export function InsightsView() {
   return (
     <>
       <PageHeader
-        title="Insights"
+        title={t("nav.insights")}
         description={
           <>
-            <Freshness hub={hub} />. Posts at least a day old; medians, not averages.
+            <Freshness hub={hub} />. {t("ins.descriptionTail")}
           </>
         }
       />
@@ -692,46 +700,42 @@ export function InsightsView() {
         <div className="grid grid-cols-1 gap-4 @6xl:grid-cols-12">
           <Card
             className="@6xl:col-span-7"
-            title="Views per post"
-            hint="One dot per post, log scale. The dark tick is the median. Hover for the post; click to open it."
+            title={t("ins.viewsPerPost")}
+            hint={t("ins.viewsPerPost.hint")}
           >
             <ViewsPerPost rows={rows} />
           </Card>
-          <Card
-            className="@6xl:col-span-5"
-            title="Engagement rates"
-            hint="Bars compare channels within a row. A dash means the platform does not report it."
-          >
+          <Card className="@6xl:col-span-5" title={t("ins.engRates")} hint={t("ins.engRates.hint")}>
             <Rates rows={rows} />
           </Card>
           <Card
             className="@6xl:col-span-7"
-            title="Posting hour → median views"
-            hint={`${hub.timezone ?? "Local"} time, 3-hour slots. Shade is scaled per channel; single-post cells stay pale.`}
+            title={t("ins.hourHeat")}
+            hint={t("ins.hourHeat.hint", { tz: hub.timezone ?? t("ins.localTz") })}
           >
             <Heat rows={rows} cols={BLOCKS} colLabel={blockLabel} keyOf={blockOf} />
           </Card>
-          <Card className="@6xl:col-span-5" title="Day of week" hint="Read it like the hour table.">
+          <Card
+            className="@6xl:col-span-5"
+            title={t("ins.dayOfWeek")}
+            hint={t("ins.dayOfWeek.hint")}
+          >
             <Heat rows={rows} cols={WEEK_ORDER} colLabel={(d) => WEEKDAYS[d]} keyOf={weekdayOf} />
           </Card>
-          <Card
-            className="@6xl:col-span-7"
-            title="Content features → views"
-            hint="Median views with the feature vs without. Needs 3 posts on each side; correlation, not causation."
-          >
+          <Card className="@6xl:col-span-7" title={t("ins.features")} hint={t("ins.features.hint")}>
             <Features rows={rows} />
           </Card>
           <Card
             className="@6xl:col-span-5"
-            title="X: posts vs replies"
-            hint="Median views, items a day old or more."
+            title={t("ins.xPostsReplies")}
+            hint={t("ins.xPostsReplies.hint")}
           >
             <XReplies posts={hub.posts} />
           </Card>
           <Card
             className="@6xl:col-span-5"
-            title="Video length → median views"
-            hint={by.fb ? "Instagram and Facebook." : "Instagram."}
+            title={t("ins.videoLen")}
+            hint={by.fb ? t("ins.videoLen.igfb") : t("ins.videoLen.ig")}
           >
             {videos.length ? (
               <BucketBars
@@ -739,14 +743,10 @@ export function InsightsView() {
                 channel={videos.every((p) => p.channel === "ig") ? "ig" : undefined}
               />
             ) : (
-              <div className="text-muted-foreground text-sm">No video lengths yet.</div>
+              <div className="text-muted-foreground text-sm">{t("ins.noVideos")}</div>
             )}
           </Card>
-          <Card
-            className="@6xl:col-span-7"
-            title="Text length → median views"
-            hint="Hashtags and credit lines count too."
-          >
+          <Card className="@6xl:col-span-7" title={t("ins.textLen")} hint={t("ins.textLen.hint")}>
             {textChannels.length ? (
               <div className="flex flex-col gap-4">
                 {textChannels.map(([id, list]) => (
@@ -760,14 +760,11 @@ export function InsightsView() {
                 ))}
               </div>
             ) : (
-              <div className="text-muted-foreground text-sm">Nothing yet.</div>
+              <div className="text-muted-foreground text-sm">{t("ins.nothingYet")}</div>
             )}
           </Card>
         </div>
-        <Card
-          title="Posting cadence"
-          hint="The number is posts that day; shade is that day's views, scaled per channel. Hover for the numbers. Your posts are in Posts."
-        >
+        <Card title={t("ins.cadence")} hint={t("ins.cadence.hint")}>
           <Cadence hub={hub} channels={rows.map(([id]) => id)} />
         </Card>
       </ViewBody>

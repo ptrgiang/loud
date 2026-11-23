@@ -24,6 +24,7 @@ import { NoData } from "~/components/NoData";
 import { ChannelTag, PageHeader } from "~/components/PageHeader";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
+import { useT } from "~/i18n";
 import { builtAt, CHANNEL_ORDER } from "~/lib/analytics";
 import { dayLabel, dec, hm, parseStamp, relative, until, ymd } from "~/lib/format";
 import { toast } from "~/lib/toast";
@@ -35,6 +36,7 @@ import { useWork } from "~/workStore";
 // ---- Proposals ----
 
 function CopyButton({ text }: { text: string }) {
+  const t = useT();
   const [state, setState] = useState<"idle" | "done" | "failed">("idle");
   const copy = async () => {
     try {
@@ -50,10 +52,14 @@ function CopyButton({ text }: { text: string }) {
       size="xs"
       variant="ghost-muted"
       onClick={() => void copy()}
-      aria-label="Copy opening line"
+      aria-label={t("plan.copyOpening")}
     >
       {state === "done" ? <Check /> : <Copy />}
-      {state === "done" ? "Copied" : state === "failed" ? "Could not copy" : "Copy"}
+      {state === "done"
+        ? t("common.copied")
+        : state === "failed"
+          ? t("common.copyFailed")
+          : t("common.copy")}
     </Button>
   );
 }
@@ -74,6 +80,7 @@ const agentAsk = (p: ProposalItem) =>
 
 /** The two ways from an idea to a post: a draft to write yourself, or the agent writing it. */
 export function ProposalActions({ p, size = "xs" }: { p: ProposalItem; size?: "xs" | "sm" }) {
+  const t = useT();
   const saveDraft = useWork((s) => s.saveDraft);
   const ask = useWork((s) => s.ask);
   const go = useLoud((s) => s.go);
@@ -85,23 +92,24 @@ export function ProposalActions({ p, size = "xs" }: { p: ProposalItem; size?: "x
         onClick={async () => {
           const saved = await saveDraft({ channel: p.channel, text: p.hook ?? "", note: p.title });
           if (saved) {
-            toast("done", `Draft saved: ${p.title}`);
+            toast("done", t("plan.draftSaved", { title: p.title }));
             go("drafts");
           }
         }}
       >
         <NotebookPen />
-        Draft it
+        {t("plan.draftIt")}
       </Button>
       <Button size={size} variant="outline" onClick={() => void ask(agentAsk(p))}>
         <Sparkles />
-        Write with agent
+        {t("plan.writeWithAgent")}
       </Button>
     </div>
   );
 }
 
 function ProposalCard({ p }: { p: ProposalItem }) {
+  const t = useT();
   return (
     <article className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-xs/5">
       <div className="flex items-center justify-between gap-2">
@@ -120,7 +128,7 @@ function ProposalCard({ p }: { p: ProposalItem }) {
       {p.hook && (
         <div className="rounded-lg bg-muted px-3 py-2">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-2xs text-muted-foreground">Opening line</span>
+            <span className="text-2xs text-muted-foreground">{t("plan.openingLine")}</span>
             <CopyButton text={p.hook} />
           </div>
           <p className="text-sm">{p.hook}</p>
@@ -129,20 +137,20 @@ function ProposalCard({ p }: { p: ProposalItem }) {
       {p.outline && (
         <details className="group text-sm">
           <summary className="cursor-pointer text-muted-foreground text-xs hover:text-foreground">
-            Outline
+            {t("plan.outline")}
           </summary>
           <p className="mt-1.5 whitespace-pre-line">{p.outline}</p>
         </details>
       )}
       {p.why && (
         <p className="text-sm">
-          <span className="font-medium">Why: </span>
+          <span className="font-medium">{t("plan.why")}: </span>
           <span className="text-muted-foreground">{p.why}</span>
         </p>
       )}
       {!!p.evidence?.length && (
         <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
-          <span className="text-muted-foreground">Based on</span>
+          <span className="text-muted-foreground">{t("plan.basedOn")}</span>
           {p.evidence.map((e) => (
             <PostText key={e.url + e.label} url={e.url} text={e.label} />
           ))}
@@ -156,15 +164,16 @@ function ProposalCard({ p }: { p: ProposalItem }) {
 }
 
 function Ideas() {
+  const t = useT();
   const proposals = useLoud((s) => s.proposals);
   const channel = useViewState((s) => s.proposals.channel);
   const ask = useWork((s) => s.ask);
 
   if (!proposals?.items.length) {
     return (
-      <Card title="Ideas">
+      <Card title={t("plan.ideas")}>
         <div className="flex flex-col items-center gap-3 py-4 text-center text-muted-foreground text-sm">
-          No proposals yet. The agent writes them from your numbers and listening results.
+          {t("plan.noIdeas")}
           <Button
             size="sm"
             onClick={() =>
@@ -174,7 +183,7 @@ function Ideas() {
             }
           >
             <Sparkles />
-            Ask the agent for proposals
+            {t("plan.askProposals")}
           </Button>
         </div>
       </Card>
@@ -191,9 +200,9 @@ function Ideas() {
     <section className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-medium text-sm">
-          Ideas
+          {t("plan.ideas")}
           <span className="ml-2 font-normal text-muted-foreground text-xs">
-            Written {relative(proposals.written)}
+            {t("plan.written", { when: relative(proposals.written) })}
           </span>
         </h2>
         <ChannelFilter
@@ -210,7 +219,7 @@ function Ideas() {
         ))}
       </div>
       {stop.length > 0 && (
-        <Card title="Stop or do less" bodyClassName="px-0 pb-0">
+        <Card title={t("plan.stopLess")} bodyClassName="px-0 pb-0">
           <FlagList flags={stop.map((text) => ({ level: "warn", text }))} />
         </Card>
       )}
@@ -253,6 +262,7 @@ export function scheduleBoard(items: ReadonlyArray<Scheduled>, now: Date) {
 }
 
 function Queue({ hub }: { hub: Hub }) {
+  const t = useT();
   const now = builtAt(hub);
   const { days, total, last } = scheduleBoard(hub.scheduled, now);
   const today = ymd(now);
@@ -268,11 +278,15 @@ function Queue({ hub }: { hub: Hub }) {
   return (
     <section className="flex flex-col gap-3">
       <h2 className="font-medium text-sm">
-        Queue
+        {t("plan.queue")}
         <span className="ml-2 font-normal text-muted-foreground text-xs">
           {total
-            ? `${total} scheduled through ${dayLabel(last)}: ${perChannel.map(([id, n]) => `${CHANNEL_NAMES[id]} ${n}`).join(", ")}`
-            : "Nothing scheduled"}
+            ? t("plan.queueTotal", {
+                total,
+                day: dayLabel(last),
+                per: perChannel.map(([id, n]) => `${CHANNEL_NAMES[id]} ${n}`).join(", "),
+              })
+            : t("plan.nothingScheduled")}
         </span>
       </h2>
       {(empty.length > 0 || unknown.length > 0) && (
@@ -280,13 +294,18 @@ function Queue({ hub }: { hub: Hub }) {
           <FlagList
             flags={[
               ...(empty.length
-                ? [{ level: "warn" as const, text: `Nothing scheduled on ${empty.join(", ")}.` }]
+                ? [
+                    {
+                      level: "warn" as const,
+                      text: t("plan.emptyOn", { names: empty.join(", ") }),
+                    },
+                  ]
                 : []),
               ...(unknown.length
                 ? [
                     {
                       level: "info" as const,
-                      text: `Could not read the queue on ${unknown.join(", ")}.`,
+                      text: t("plan.queueUnreadable", { names: unknown.join(", ") }),
                     },
                   ]
                 : []),
@@ -305,10 +324,10 @@ function Queue({ hub }: { hub: Hub }) {
               )}
             >
               <h3 className="flex items-baseline justify-between px-1 font-medium text-xs">
-                {d.key === today ? "Today" : dayLabel(d.date)}
+                {d.key === today ? t("common.today") : dayLabel(d.date)}
                 {d.slots.length > 0 && (
                   <span className="font-normal text-muted-foreground">
-                    {d.slots.length} {d.slots.length > 1 ? "posts" : "post"}
+                    {d.slots.length} {d.slots.length > 1 ? t("plan.postMany") : t("plan.postOne")}
                   </span>
                 )}
               </h3>
@@ -328,14 +347,17 @@ function Queue({ hub }: { hub: Hub }) {
                     {gapH !== null && gapH < MIN_GAP_H && (
                       <div className="mt-1.5 flex items-center gap-1 text-2xs text-warning-foreground">
                         <TriangleAlert className="size-3" aria-hidden />
-                        {dec(gapH)} h after the previous {CHANNEL_NAMES[item.channel]} post
+                        {t("plan.gapWarn", {
+                          gap: dec(gapH),
+                          name: CHANNEL_NAMES[item.channel],
+                        })}
                       </div>
                     )}
-                    <ClampText text={item.text || "(no text)"} className="mt-1.5 text-xs" />
+                    <ClampText text={item.text || t("posts.noText")} className="mt-1.5 text-xs" />
                   </div>
                 ))
               ) : (
-                <div className="px-1 py-3 text-muted-foreground text-xs">Empty</div>
+                <div className="px-1 py-3 text-muted-foreground text-xs">{t("plan.empty")}</div>
               )}
             </section>
           ))}
@@ -347,14 +369,12 @@ function Queue({ hub }: { hub: Hub }) {
 
 /** What to post next: the agent's ideas, then what is already queued on each platform. */
 export function PlanView() {
+  const t = useT();
   const hub = useLoud((s) => s.hub);
-  if (!hub) return <NoData title="Plan" icon={CalendarClock} />;
+  if (!hub) return <NoData title={t("nav.plan")} icon={CalendarClock} />;
   return (
     <>
-      <PageHeader
-        title="Plan"
-        description="Ideas to post and what is already queued. Loud never posts: you approve and post each one."
-      />
+      <PageHeader title={t("nav.plan")} description={t("plan.description")} />
       <ViewBody wide>
         <Ideas />
         <Queue hub={hub} />

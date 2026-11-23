@@ -18,6 +18,7 @@ import { Freshness } from "~/components/Freshness";
 import { ChannelDot, ChannelTag, Empty, PageHeader } from "~/components/PageHeader";
 import { Button } from "~/components/ui/button";
 import { CheckboxMark } from "~/components/ui/checkbox";
+import { useT } from "~/i18n";
 import {
   builtAt,
   CHANNEL_ORDER,
@@ -57,8 +58,9 @@ function Delta({
   prev: number | null;
   unit?: string;
 }) {
+  const t = useT();
   if (cur === null || prev === null || !prev) {
-    return <div className="text-2xs text-muted-foreground">No previous week to compare</div>;
+    return <div className="text-2xs text-muted-foreground">{t("ov.noPrev")}</div>;
   }
   const change = (cur - prev) / prev;
   const up = change >= 0;
@@ -71,12 +73,14 @@ function Delta({
           up ? "text-success-foreground" : "text-destructive-foreground",
         )}
       >
-        <Arrow className="size-3" aria-label={up ? "up" : "down"} />
+        <Arrow className="size-3" aria-label={up ? t("ov.up") : t("ov.down")} />
         {dec(Math.abs(change) * 100, 0)}%
       </span>
       <span className="text-muted-foreground">
-        vs previous 7 days ({Number.isInteger(prev) ? compact(prev) : dec(prev)}
-        {unit})
+        {t("ov.vsPrev", {
+          prev: Number.isInteger(prev) ? compact(prev) : dec(prev),
+          unit,
+        })}
       </span>
     </div>
   );
@@ -109,6 +113,7 @@ export function followersWeekAgo(history: ReadonlyArray<HistoryDay>, now: Date):
 }
 
 function Kpis({ hub, history }: { hub: Hub; history: ReadonlyArray<HistoryDay> }) {
+  const t = useT();
   const now = builtAt(hub);
   const cur = postsBetween(hub.posts, now, 0, 7);
   const prev = postsBetween(hub.posts, now, 7, 14);
@@ -131,37 +136,37 @@ function Kpis({ hub, history }: { hub: Hub; history: ReadonlyArray<HistoryDay> }
 
   return (
     <div className="grid grid-cols-2 gap-4 @3xl:grid-cols-3 @6xl:grid-cols-6">
-      <Kpi label="Followers" value={fmt(followers)}>
+      <Kpi label={t("ov.kpi.followers")} value={fmt(followers)}>
         {before !== null ? (
           <Delta cur={followers} prev={before} />
         ) : (
-          <div className="text-2xs text-muted-foreground">No snapshot from a week ago yet</div>
+          <div className="text-2xs text-muted-foreground">{t("ov.noSnapshot")}</div>
         )}
         {share("followers")}
       </Kpi>
-      <Kpi label="Views, 7 days" value={fmt(sumOf(cur, "views"))}>
+      <Kpi label={t("ov.kpi.views")} value={fmt(sumOf(cur, "views"))}>
         <Delta cur={sumOf(cur, "views")} prev={sumOf(prev, "views")} />
         {share("views_7d")}
       </Kpi>
-      <Kpi label="Posts, 7 days" value={fmt(cur.length)}>
+      <Kpi label={t("ov.kpi.posts")} value={fmt(cur.length)}>
         <Delta cur={cur.length} prev={prev.length} />
         {share("posts_7d")}
       </Kpi>
-      <Kpi label="Engagement per 1k views" value={dec(engPer1k(cur))}>
+      <Kpi label={t("ov.kpi.eng")} value={dec(engPer1k(cur))}>
         <Delta cur={engPer1k(cur)} prev={engPer1k(prev)} />
-        <div className="mt-auto text-2xs text-muted-foreground">
-          Likes, replies, reposts, shares and saves
-        </div>
+        <div className="mt-auto text-2xs text-muted-foreground">{t("ov.engKinds")}</div>
       </Kpi>
-      <Kpi label="Follows from posts" value={fmt(sumOf(cur, "follows"))}>
+      <Kpi label={t("ov.kpi.follows")} value={fmt(sumOf(cur, "follows"))}>
         <Delta cur={sumOf(cur, "follows")} prev={sumOf(prev, "follows")} />
-        <div className="mt-auto text-2xs text-muted-foreground">Where the platform counts them</div>
+        <div className="mt-auto text-2xs text-muted-foreground">{t("ov.followsHint")}</div>
       </Kpi>
-      <Kpi label="Scheduled" value={fmt(queued)}>
+      <Kpi label={t("ov.kpi.scheduled")} value={fmt(queued)}>
         <div className="text-2xs text-muted-foreground">
           {emptyQueue.length
-            ? `Nothing queued: ${emptyQueue.map((c) => CHANNEL_NAMES[c.id]).join(", ")}`
-            : "Every readable queue has posts"}
+            ? t("ov.nothingQueued", {
+                names: emptyQueue.map((c) => CHANNEL_NAMES[c.id]).join(", "),
+              })
+            : t("ov.queuesOk")}
         </div>
         {share("scheduled")}
       </Kpi>
@@ -181,6 +186,7 @@ function ViewsByDay({
   days: ReadonlyArray<DayViews>;
   channels: ReadonlyArray<ChannelId>;
 }) {
+  const t = useT();
   const [off, setOff] = useState<ReadonlySet<ChannelId>>(new Set());
   const [table, setTable] = useState(false);
   const [ref, width] = useWidth<HTMLDivElement>();
@@ -210,16 +216,16 @@ function ViewsByDay({
 
   return (
     <Card
-      title="Views by publish day"
-      hint="14 days. Each column is today's total views of the posts published that day; replies left out."
+      title={t("ov.viewsByDay")}
+      hint={t("ov.viewsByDay.hint")}
       actions={
         <Button size="xs" variant="ghost-muted" onClick={() => setTable((t) => !t)}>
           {table ? <ChartColumn /> : <Table2 />}
-          {table ? "Show chart" : "Show table"}
+          {table ? t("ov.showChart") : t("ov.showTable")}
         </Button>
       }
     >
-      <div className="mb-3 flex flex-wrap gap-3" role="group" aria-label="Channels in the chart">
+      <div className="mb-3 flex flex-wrap gap-3" role="group" aria-label={t("ov.chartChannels")}>
         {channels.map((id) => (
           <button
             key={id}
@@ -246,13 +252,13 @@ function ViewsByDay({
           <table className="w-full text-xs">
             <thead className="sticky top-0 bg-card">
               <tr className="border-b text-muted-foreground">
-                <th className="py-2 text-left font-medium">Day</th>
+                <th className="py-2 text-left font-medium">{t("ov.col.day")}</th>
                 {on.map((id) => (
                   <th key={id} className="px-2 py-2 text-right font-medium">
                     {CHANNEL_NAMES[id]}
                   </th>
                 ))}
-                <th className="py-2 pl-2 text-right font-medium">Total</th>
+                <th className="py-2 pl-2 text-right font-medium">{t("ov.total")}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -279,7 +285,7 @@ function ViewsByDay({
               width={W}
               height={PLOT_H}
               role="img"
-              aria-label="Views by publish day, 14 days"
+              aria-label={t("ov.chartAria")}
               className="block"
             >
               {[0, 1, 2, 3, 4].map((k) => {
@@ -337,12 +343,15 @@ function ViewsByDay({
                       <TipRow
                         key={id}
                         color={`var(--ch-${id})`}
-                        label={`${CHANNEL_NAMES[id]} · ${d.posts[id] ?? 0} posts`}
+                        label={t("ov.channelPosts", {
+                          name: CHANNEL_NAMES[id],
+                          n: d.posts[id] ?? 0,
+                        })}
                         value={d.views[id] ? fmt(d.views[id]) : "–"}
                       />
                     ))}
                     <div className="mt-1 border-t pt-1">
-                      <TipRow label="Total" value={fmt(total(d))} />
+                      <TipRow label={t("ov.total")} value={fmt(total(d))} />
                     </div>
                   </>
                 );
@@ -394,13 +403,11 @@ function ViewsByDay({
 // ---- Rising now ----
 
 function RisingNow({ hub }: { hub: Hub }) {
+  const t = useT();
   const list = rising(hub.posts);
   const top = Math.max(1, ...list.map((r) => r.ratio));
   return (
-    <Card
-      title="Rising now"
-      hint="Posts under 3 days old against the median of the channel's settled posts."
-    >
+    <Card title={t("ov.rising")} hint={t("ov.rising.hint")}>
       {list.length ? (
         <ul className="flex flex-col divide-y">
           {list.map(({ post: p, ratio, median: m }) => (
@@ -414,13 +421,13 @@ function RisingNow({ hub }: { hub: Hub }) {
                   {CHANNEL_NAMES[p.channel]} · {dec(p.age_h, 0)} h
                 </span>
                 <span className="tabular-nums">
-                  <span className="font-semibold text-foreground">{fmt(p.views)}</span> views ·{" "}
-                  {dec((p.views ?? 0) / Math.max(1, p.age_h ?? 1), 0)}/h
+                  <span className="font-semibold text-foreground">{fmt(p.views)}</span>{" "}
+                  {t("ov.views")} · {dec((p.views ?? 0) / Math.max(1, p.age_h ?? 1), 0)}/h
                 </span>
               </div>
               <PostText
                 url={p.url}
-                text={short(p.text, 110) || "(no text)"}
+                text={short(p.text, 110) || t("posts.noText")}
                 className="line-clamp-2 text-xs"
               />
               <div className="flex items-center gap-2">
@@ -435,14 +442,16 @@ function RisingNow({ hub }: { hub: Hub }) {
                 </span>
                 <span className="text-2xs tabular-nums">
                   <span className="font-semibold">×{dec(ratio)}</span>{" "}
-                  <span className="text-muted-foreground">of {compact(Math.round(m))}</span>
+                  <span className="text-muted-foreground">
+                    {t("ov.ofMedian", { median: compact(Math.round(m)) })}
+                  </span>
                 </span>
               </div>
             </li>
           ))}
         </ul>
       ) : (
-        <Quiet>No new posts in the last 3 days.</Quiet>
+        <Quiet>{t("ov.noRising")}</Quiet>
       )}
     </Card>
   );
@@ -460,55 +469,57 @@ function Stat({ label, value, title }: { label: string; value: string; title?: s
 }
 
 function ChannelCard({ c }: { c: ChannelSummary }) {
+  const t = useT();
   const best = c.best_7d;
   return (
     <section className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-xs/5">
       <div className="flex items-center justify-between gap-2">
         <ChannelTag id={c.id} />
         <span className="text-2xs text-muted-foreground" title={c.collected}>
-          {c.collected ? `Read ${relative(c.collected)}` : "Not read yet"}
+          {c.collected ? t("ov.readAt", { when: relative(c.collected) }) : t("ov.notRead")}
         </span>
       </div>
       <div className="font-semibold text-2xl tracking-tight">
         {fmt(c.followers)}{" "}
-        <span className="font-normal text-muted-foreground text-xs">followers</span>
+        <span className="font-normal text-muted-foreground text-xs">{t("ov.followersWord")}</span>
       </div>
       <div className="grid grid-cols-3 gap-2">
         <Stat
-          label="views 7d"
+          label={t("ov.views7d")}
           value={compact(c.views_7d)}
-          title={`${fmt(c.views_7d)} views in 7 days`}
+          title={t("ov.views7dTitle", { n: fmt(c.views_7d) })}
         />
-        <Stat label="posts 7d" value={fmt(c.posts_7d)} />
+        <Stat label={t("ov.posts7d")} value={fmt(c.posts_7d)} />
         <Stat
-          label="median"
+          label={t("ov.median")}
           value={compact(c.median_views_14d)}
-          title="Median views of posts 1–14 days old"
+          title={t("ov.medianTitle")}
         />
       </div>
       {best ? (
         <div className="rounded-lg bg-muted px-3 py-2 text-xs">
           <div className="mb-0.5 text-2xs text-muted-foreground">
-            Best in 7 days ·{" "}
-            <span className="font-semibold text-foreground">{fmt(best.views)}</span> views
+            {t("ov.best7d", { views: fmt(best.views) })}
             {c.median_views_14d && best.views
-              ? ` · ×${dec(best.views / c.median_views_14d)} median`
+              ? t("ov.timesMedian", { n: dec(best.views / c.median_views_14d) })
               : ""}
           </div>
           <PostText
             url={best.url}
-            text={short(best.text, 140) || "(no text)"}
+            text={short(best.text, 140) || t("posts.noText")}
             className="line-clamp-2"
           />
         </div>
       ) : (
         <div className="rounded-lg bg-muted px-3 py-2 text-muted-foreground text-xs">
-          No posts in the last 7 days.
+          {t("ov.noPosts7d")}
         </div>
       )}
       <div className="mt-auto flex items-center justify-between gap-3 border-t pt-2.5 text-2xs text-muted-foreground">
-        <span>Last post {c.last_post ? relative(c.last_post) : "–"}</span>
-        <span>{c.scheduled_known ? `${c.scheduled} scheduled` : "Queue not read"}</span>
+        <span>{t("ov.lastPost", { when: c.last_post ? relative(c.last_post) : "–" })}</span>
+        <span>
+          {c.scheduled_known ? t("ov.scheduledN", { n: c.scheduled }) : t("ov.queueNotRead")}
+        </span>
       </div>
     </section>
   );
@@ -518,18 +529,19 @@ function ChannelCard({ c }: { c: ChannelSummary }) {
 
 /** Checks that want something done, then the agent's next ideas, each with a way to start on it. */
 function ToDo({ hub }: { hub: Hub }) {
+  const t = useT();
   const proposals = useLoud((s) => s.proposals);
   const go = useLoud((s) => s.go);
   const checks = hub.flags.filter((f) => f.level === "warn");
   const ideas = proposals?.items.slice(0, 3) ?? [];
   return (
     <Card
-      title="To do"
-      hint="Checks from the last build and the agent's next ideas."
+      title={t("ov.todo")}
+      hint={t("ov.todo.hint")}
       bodyClassName="px-0 pb-0"
       actions={
         <Button size="xs" variant="ghost-muted" onClick={() => go("plan")}>
-          Plan
+          {t("nav.plan")}
         </Button>
       }
     >
@@ -553,7 +565,7 @@ function ToDo({ hub }: { hub: Hub }) {
           ))}
         </ul>
       )}
-      {!checks.length && !ideas.length && <Quiet>Nothing needs doing right now.</Quiet>}
+      {!checks.length && !ideas.length && <Quiet>{t("ov.todoEmpty")}</Quiet>}
     </Card>
   );
 }
@@ -561,6 +573,7 @@ function ToDo({ hub }: { hub: Hub }) {
 // ---- The view ----
 
 export function OverviewView() {
+  const t = useT();
   const hub = useLoud((s) => s.hub);
   const history = useLoud((s) => s.history);
   const proposals = useLoud((s) => s.proposals);
@@ -574,10 +587,10 @@ export function OverviewView() {
   if (!hub) {
     return (
       <>
-        <PageHeader title="Today" />
+        <PageHeader title={t("nav.overview")} />
         <Empty
           icon={<LayoutDashboard />}
-          title={connected ? "No data yet" : "Connect a platform to start"}
+          title={connected ? t("nodata.title") : t("ov.connectStart")}
           action={
             connected ? (
               <Button
@@ -586,19 +599,17 @@ export function OverviewView() {
                 onClick={() => void startCollect()}
               >
                 <Play />
-                Collect now
+                {t("conn.collectNow")}
               </Button>
             ) : (
               <Button size="sm" onClick={() => go("connections")}>
                 <Plug />
-                Open Connections
+                {t("nodata.openConnections")}
               </Button>
             )
           }
         >
-          {connected
-            ? "Your accounts are connected. Numbers appear here after the first collection."
-            : "Log in to Threads, Instagram, Facebook or X once. Loud keeps the session and pulls your numbers."}
+          {connected ? t("nodata.connected") : t("ov.connectBody")}
         </Empty>
       </>
     );
@@ -610,11 +621,14 @@ export function OverviewView() {
   return (
     <>
       <PageHeader
-        title="Today"
+        title={t("nav.overview")}
         description={
           <>
-            <Freshness hub={hub} /> · {hub.channels.length} channels since{" "}
-            {hub.since ?? "the start date"}
+            <Freshness hub={hub} /> ·{" "}
+            {t("ov.channelsSince", {
+              n: hub.channels.length,
+              since: hub.since ?? t("posts.sinceFallback"),
+            })}
           </>
         }
       />
@@ -633,7 +647,7 @@ export function OverviewView() {
             <ChannelCard key={c.id} c={c} />
           ))}
         </div>
-        {!hub.posts.some(isOwn) && <Quiet>No posts read yet.</Quiet>}
+        {!hub.posts.some(isOwn) && <Quiet>{t("ov.noPosts")}</Quiet>}
       </ViewBody>
     </>
   );

@@ -1,5 +1,6 @@
 import type { Hub } from "@loud/contracts";
 
+import { useT } from "~/i18n";
 import { relative } from "~/lib/format";
 import { useWork } from "~/workStore";
 
@@ -8,16 +9,17 @@ const at = (iso: string) =>
 
 /** When these numbers were made and when they will change: they are rebuilt after every collection, no other time. */
 export function Freshness({ hub }: { hub: Hub }) {
+  const t = useT();
   const collect = useWork((s) => s.collect);
   const auto = useWork((s) => s.collection?.auto ?? false);
   const next = collect?.running
-    ? "collecting now"
+    ? t("freshness.collecting")
     : auto && collect?.next
-      ? `next collection ${at(collect.next)}`
-      : "next when you collect (timer off)";
+      ? t("freshness.nextAt", { at: at(collect.next) })
+      : t("freshness.nextManual");
   return (
-    <span title="Rebuilt after every collection, from what was collected">
-      Updated {relative(hub.built)} · {next}
+    <span title={t("freshness.title")}>
+      {t("freshness.updated", { when: relative(hub.built), next })}
     </span>
   );
 }

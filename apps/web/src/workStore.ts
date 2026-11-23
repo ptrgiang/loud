@@ -26,6 +26,7 @@ import type {
 } from "@loud/contracts";
 import { create } from "zustand";
 
+import { t } from "~/i18n";
 import { call } from "~/lib/loud";
 import { toast } from "~/lib/toast";
 import { useLoud } from "~/store";
@@ -142,7 +143,7 @@ export const useWork = create<WorkState>()((set, get) => ({
     if (!get().agentSettings?.enabled) return go("settings");
     if (get().agent?.busy) {
       go("agent");
-      return report("The agent is still answering. Stop it or wait, then try again.");
+      return report(t("ag.stillAnswering"));
     }
     if (get().agent?.messages.length) await get().reset();
     if (await get().send(text)) go("agent");
@@ -342,12 +343,8 @@ export function setCollect(collect: CollectStatus) {
   const was = useWork.getState().collect;
   if (was?.running && !collect.running) {
     const failed = collect.steps.filter((s) => s.status === "failed").length;
-    if (failed)
-      toast(
-        "error",
-        `Collection finished; ${failed} step${failed > 1 ? "s" : ""} failed. See Connections.`,
-      );
-    else toast("done", "Collection finished.");
+    if (failed) toast("error", t("collect.failedSteps", { n: failed, s: failed > 1 ? "s" : "" }));
+    else toast("done", t("collect.done"));
   }
   const lastSteps = { ...useWork.getState().lastSteps };
   for (const step of collect.steps) if (step.status !== "waiting") lastSteps[step.step] = step;

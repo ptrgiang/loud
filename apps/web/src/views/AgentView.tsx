@@ -7,6 +7,7 @@ import { Markdown } from "~/components/Markdown";
 import { Empty, PageHeader } from "~/components/PageHeader";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
+import { useT, type MsgKey } from "~/i18n";
 import { call } from "~/lib/loud";
 import { cn } from "~/lib/utils";
 import { useLoud } from "~/store";
@@ -21,18 +22,18 @@ const STARTERS = [
 ];
 
 /** The tool names, said the way a person would. */
-const TOOL_WORDS: Record<string, string> = {
-  get_overview: "overview",
-  get_metrics: "metrics",
-  list_posts: "posts",
-  get_schedule: "plan",
-  search_listening: "listening",
-  get_keywords: "keywords",
-  get_playbook: "playbook",
-  get_proposals: "plan",
-  save_proposals: "saved proposals",
-  list_drafts: "drafts",
-  save_draft: "saved a draft",
+const TOOL_WORDS: Record<string, MsgKey> = {
+  get_overview: "ag.tool.get_overview",
+  get_metrics: "ag.tool.get_metrics",
+  list_posts: "ag.tool.list_posts",
+  get_schedule: "ag.tool.get_schedule",
+  search_listening: "ag.tool.search_listening",
+  get_keywords: "ag.tool.get_keywords",
+  get_playbook: "ag.tool.get_playbook",
+  get_proposals: "ag.tool.get_proposals",
+  save_proposals: "ag.tool.save_proposals",
+  list_drafts: "ag.tool.list_drafts",
+  save_draft: "ag.tool.save_draft",
 };
 
 /** A saved image is read back from the profile when its chat opens; text files show as a chip. */
@@ -72,6 +73,7 @@ function Attachment({ chatId, a }: { chatId: string | null; a: AgentAttachment }
 }
 
 function Message({ m, live, chatId }: { m: AgentMessage; live: boolean; chatId: string | null }) {
+  const t = useT();
   if (m.role === "user")
     return (
       <div className="flex flex-col items-end gap-1.5">
@@ -95,9 +97,9 @@ function Message({ m, live, chatId }: { m: AgentMessage; live: boolean; chatId: 
       {tools.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 text-muted-foreground text-xs">
           <Wrench className="size-3.5" />
-          {tools.map((t) => (
-            <Badge key={t} variant="outline" className="font-normal text-muted-foreground">
-              {TOOL_WORDS[t] ?? t}
+          {tools.map((tool) => (
+            <Badge key={tool} variant="outline" className="font-normal text-muted-foreground">
+              {TOOL_WORDS[tool] ? t(TOOL_WORDS[tool]) : tool}
             </Badge>
           ))}
         </div>
@@ -105,12 +107,12 @@ function Message({ m, live, chatId }: { m: AgentMessage; live: boolean; chatId: 
       {m.text ? (
         <Markdown text={m.text} className="text-sm leading-relaxed" />
       ) : live ? (
-        <div className="text-muted-foreground text-sm">Reading your data…</div>
+        <div className="text-muted-foreground text-sm">{t("ag.reading")}</div>
       ) : null}
       {m.error && (
         <div className="flex items-center gap-1.5 text-error-foreground text-xs">
           <TriangleAlert className="size-3.5" />
-          {m.error === "stopped" ? "Stopped." : m.error}
+          {m.error === "stopped" ? t("ag.stopped") : m.error}
         </div>
       )}
     </div>
@@ -127,6 +129,7 @@ const when = (iso: string) => {
 
 /** Saved chats, newest first, like T3 Code's thread list. Delete asks once more on the same button. */
 function ChatList() {
+  const t = useT();
   const chats = useWork((s) => s.chats);
   const agent = useWork((s) => s.agent);
   const load = useWork((s) => s.loadChats);
@@ -137,8 +140,8 @@ function ChatList() {
   useEffect(() => void load(), [load]);
   useEffect(() => {
     if (!confirm) return;
-    const t = setTimeout(() => setConfirm(null), 3000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setConfirm(null), 3000);
+    return () => clearTimeout(timer);
   }, [confirm]);
   const busy = agent?.busy ?? false;
 
@@ -153,14 +156,12 @@ function ChatList() {
           onClick={() => void reset()}
         >
           <Plus />
-          New chat
+          {t("ag.newChat")}
         </Button>
       </div>
-      <nav className="flex-1 overflow-y-auto px-2 pb-2" aria-label="Chats">
+      <nav className="flex-1 overflow-y-auto px-2 pb-2" aria-label={t("ag.chats")}>
         {chats.length === 0 ? (
-          <p className="px-2 py-3 text-muted-foreground text-xs">
-            Your chats are kept here, on this computer.
-          </p>
+          <p className="px-2 py-3 text-muted-foreground text-xs">{t("ag.chatsKept")}</p>
         ) : (
           <ul className="flex flex-col gap-0.5">
             {chats.map((c) => {
@@ -184,9 +185,11 @@ function ChatList() {
                   <button
                     type="button"
                     aria-label={
-                      confirm === c.id ? `Confirm: delete ${c.title}` : `Delete ${c.title}`
+                      confirm === c.id
+                        ? t("ag.confirmDelete", { title: c.title })
+                        : `${t("common.delete")} ${c.title}`
                     }
-                    title={confirm === c.id ? "Click again to delete" : "Delete chat"}
+                    title={confirm === c.id ? t("ag.confirmDeleteTitle") : t("ag.deleteChat")}
                     disabled={busy && on}
                     className={cn(
                       "absolute top-2 right-1.5 flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none hover:bg-background hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100",
@@ -213,6 +216,7 @@ function ChatList() {
 }
 
 export function AgentView() {
+  const t = useT();
   const agent = useWork((s) => s.agent);
   const settings = useWork((s) => s.agentSettings);
   const chats = useWork((s) => s.chats);
@@ -241,36 +245,34 @@ export function AgentView() {
   if (!settings.enabled)
     return (
       <>
-        <PageHeader title="Agent" />
+        <PageHeader title={t("nav.agent")} />
         <Empty
           icon={<Bot />}
-          title="The agent is off"
+          title={t("ag.off")}
           action={
             <Button size="sm" onClick={() => go("settings")}>
               <Settings2 />
-              Set it up
+              {t("ag.setUp")}
             </Button>
           }
         >
-          It reads your numbers and listening results, proposes posts and writes drafts. It runs
-          through {AGENT_VENDORS.claude.name} or {AGENT_VENDORS.codex.name}, signed in on this
-          computer, so what it reads is sent to that company. Nothing is sent until you turn it on.
+          {t("ag.offBody", {
+            a: AGENT_VENDORS.claude.name,
+            b: AGENT_VENDORS.codex.name,
+          })}
         </Empty>
       </>
     );
 
   const busy = agent.busy;
-  const title = chats.find((c) => c.id === agent.chatId)?.title ?? "New chat";
+  const title = chats.find((c) => c.id === agent.chatId)?.title ?? t("ag.newChat");
 
   return (
     <>
-      <PageHeader title="Agent" description={title}>
+      <PageHeader title={t("nav.agent")} description={title}>
         {agent.costUsd != null && (
-          <span
-            className="text-muted-foreground text-xs tabular-nums"
-            title="As the CLI reports it"
-          >
-            ≈ ${agent.costUsd.toFixed(2)} this chat
+          <span className="text-muted-foreground text-xs tabular-nums" title={t("ag.costTitle")}>
+            {t("ag.cost", { cost: agent.costUsd.toFixed(2) })}
           </span>
         )}
       </PageHeader>
@@ -282,7 +284,7 @@ export function AgentView() {
             <div className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-6">
               {count === 0 ? (
                 <div className="flex flex-col gap-3 pt-6">
-                  <div className="font-medium text-sm">Ask about your channels</div>
+                  <div className="font-medium text-sm">{t("ag.askAbout")}</div>
                   <div className="flex flex-col items-start gap-1.5">
                     {STARTERS.map((s) => (
                       <Button
@@ -296,12 +298,7 @@ export function AgentView() {
                       </Button>
                     ))}
                   </div>
-                  {demo && (
-                    <p className="text-muted-foreground text-xs">
-                      This is the fictional demo (Acme Forms): the agent will answer from made-up
-                      numbers.
-                    </p>
-                  )}
+                  {demo && <p className="text-muted-foreground text-xs">{t("ag.demoNote")}</p>}
                 </div>
               ) : (
                 agent.messages.map((m, i) => (

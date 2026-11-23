@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { EffortMenu, ModelMenu } from "~/components/agent/ModelMenu";
 import { UsageMeter } from "~/components/agent/UsageMeter";
 import { Button } from "~/components/ui/button";
+import { useT } from "~/i18n";
 import { cn } from "~/lib/utils";
 import { useWork } from "~/workStore";
 
@@ -19,17 +20,19 @@ interface Pending {
   readonly preview: string | null;
 }
 
+type T = ReturnType<typeof useT>;
+
 /** The same rule as the desktop's, so a refusal shows before anything is sent. */
-function accept(file: File): { kind: "image" | "text" } | { error: string } {
+function accept(t: T, file: File): { kind: "image" | "text" } | { error: string } {
   if (IMAGE.test(file.type))
     return file.size > AGENT_LIMITS.imageBytes
-      ? { error: `${file.name} is over 5 MB` }
+      ? { error: t("composer.over5mb", { name: file.name }) }
       : { kind: "image" };
   if (file.type.startsWith("text/") || file.type === "application/json" || TEXT_EXT.test(file.name))
     return file.size > AGENT_LIMITS.textBytes
-      ? { error: `${file.name} is over 256 KB` }
+      ? { error: t("composer.over256kb", { name: file.name }) }
       : { kind: "text" };
-  return { error: `${file.name}: only images and text files can be attached` };
+  return { error: t("composer.badType", { name: file.name }) };
 }
 
 const toUpload = (file: File) =>
@@ -53,6 +56,7 @@ const size = (n: number) =>
       : `${(n / 1048576).toFixed(1)} MB`;
 
 export function Composer({ vendor }: { vendor: { name: string; vendor: string } }) {
+  const t = useT();
   const agent = useWork((s) => s.agent);
   const providers = useWork((s) => s.providers);
   const send = useWork((s) => s.send);
@@ -94,16 +98,16 @@ export function Composer({ vendor }: { vendor: { name: string; vendor: string } 
     const next = [...files];
     for (const file of list) {
       if (next.length >= AGENT_LIMITS.files) {
-        setProblem(`Attach at most ${AGENT_LIMITS.files} files.`);
+        setProblem(t("composer.maxFiles", { n: AGENT_LIMITS.files }));
         break;
       }
-      const a = accept(file);
+      const a = accept(t, file);
       if ("error" in a) {
         setProblem(a.error);
         continue;
       }
       if (a.kind === "image" && model && !model.images) {
-        setProblem(`${model.label} does not take images.`);
+        setProblem(t("composer.noImages", { model: model.label }));
         continue;
       }
       next.push({
@@ -172,7 +176,7 @@ export function Composer({ vendor }: { vendor: { name: string; vendor: string } 
                 )}
                 <button
                   type="button"
-                  aria-label={`Remove ${f.file.name}`}
+                  aria-label={t("composer.remove", { name: f.file.name })}
                   className="absolute top-1 right-1 flex size-4 cursor-pointer items-center justify-center rounded-full bg-foreground/80 text-background opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
                   onClick={() => drop((x) => x.key !== f.key)}
                 >
@@ -187,8 +191,8 @@ export function Composer({ vendor }: { vendor: { name: string; vendor: string } 
           ref={area}
           value={text}
           rows={2}
-          placeholder="Ask, or tell it what to write…"
-          aria-label="Message"
+          placeholder={t("composer.placeholder")}
+          aria-label={t("composer.message")}
           className="max-h-60 min-h-14 w-full resize-none bg-transparent px-4 pt-3 pb-1 text-sm outline-none placeholder:text-muted-foreground"
           onChange={(e) => setText(e.target.value)}
           onPaste={(e) => {
@@ -222,8 +226,8 @@ export function Composer({ vendor }: { vendor: { name: string; vendor: string } 
             type="button"
             size="icon-sm"
             variant="ghost-muted"
-            aria-label="Attach files"
-            title="Attach images or text files (or paste, or drop them here)"
+            aria-label={t("composer.attach")}
+            title={t("composer.attachTitle")}
             disabled={busy}
             onClick={() => picker.current?.click()}
           >
@@ -244,7 +248,7 @@ export function Composer({ vendor }: { vendor: { name: string; vendor: string } 
                 type="button"
                 size="icon-sm"
                 variant="outline"
-                aria-label="Stop"
+                aria-label={t("common.stop")}
                 onClick={() => void cancel()}
               >
                 <Square />
@@ -253,7 +257,7 @@ export function Composer({ vendor }: { vendor: { name: string; vendor: string } 
               <Button
                 type="submit"
                 size="icon-sm"
-                aria-label="Send"
+                aria-label={t("composer.send")}
                 disabled={!text.trim() && !files.length}
               >
                 <ArrowUp />
@@ -265,8 +269,7 @@ export function Composer({ vendor }: { vendor: { name: string; vendor: string } 
       <p
         className={cn("px-1 text-2xs", problem ? "text-error-foreground" : "text-muted-foreground")}
       >
-        {problem ??
-          `Sent to ${vendor.vendor} through your ${vendor.name} sign-in: your messages, attached files and what the agent reads from your data. It cannot post.`}
+        {problem ?? t("composer.disclosure", { vendor: vendor.vendor, name: vendor.name })}
       </p>
     </div>
   );

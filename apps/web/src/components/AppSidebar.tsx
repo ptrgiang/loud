@@ -17,6 +17,7 @@ import {
 import { CHANNEL_NAMES, type CollectStep } from "@loud/contracts";
 import { useEffect } from "react";
 
+import { useT, type MsgKey } from "~/i18n";
 import { useTheme } from "~/lib/theme";
 import { cn } from "~/lib/utils";
 import { usePalette } from "~/components/CommandPalette";
@@ -25,35 +26,36 @@ import { RestartToUpdate, UpdateButton } from "~/components/UpdateControl";
 import { useLoud, type View } from "~/store";
 import { useWork } from "~/workStore";
 
-const STEP_NAME: Record<CollectStep, string> = { ...CHANNEL_NAMES, listen: "listening" };
+// Platform names are proper nouns and stay as-is; only the listening step is a translated word.
+const STEP_NAME: Partial<Record<CollectStep, string>> = { ...CHANNEL_NAMES };
 
 interface NavItem {
   readonly view: View;
-  readonly label: string;
+  readonly label: MsgKey;
   readonly icon: LucideIcon;
 }
 
-const GROUPS: ReadonlyArray<{ readonly label: string; readonly items: ReadonlyArray<NavItem> }> = [
+const GROUPS: ReadonlyArray<{ readonly label: MsgKey; readonly items: ReadonlyArray<NavItem> }> = [
   {
-    label: "Results",
+    label: "nav.group.results",
     items: [
-      { view: "overview", label: "Today", icon: LayoutDashboard },
-      { view: "posts", label: "Posts", icon: Rows3 },
-      { view: "insights", label: "Insights", icon: ChartNoAxesColumn },
+      { view: "overview", label: "nav.overview", icon: LayoutDashboard },
+      { view: "posts", label: "nav.posts", icon: Rows3 },
+      { view: "insights", label: "nav.insights", icon: ChartNoAxesColumn },
     ],
   },
   {
-    label: "Next",
+    label: "nav.group.next",
     items: [
-      { view: "plan", label: "Plan", icon: CalendarClock },
-      { view: "listening", label: "Listening", icon: Ear },
+      { view: "plan", label: "nav.plan", icon: CalendarClock },
+      { view: "listening", label: "nav.listening", icon: Ear },
     ],
   },
   {
-    label: "Write",
+    label: "nav.group.write",
     items: [
-      { view: "drafts", label: "Drafts", icon: NotebookPen },
-      { view: "agent", label: "Agent", icon: Bot },
+      { view: "drafts", label: "nav.drafts", icon: NotebookPen },
+      { view: "agent", label: "nav.agent", icon: Bot },
     ],
   },
 ];
@@ -67,6 +69,7 @@ function SidebarRow({
   active: boolean;
   onSelect: () => void;
 }) {
+  const t = useT();
   const Icon = item.icon;
   return (
     <button
@@ -80,12 +83,13 @@ function SidebarRow({
       )}
     >
       <Icon />
-      <span className="truncate">{item.label}</span>
+      <span className="truncate">{t(item.label)}</span>
     </button>
   );
 }
 
 export function AppSidebar() {
+  const t = useT();
   const view = useLoud((s) => s.view);
   const go = useLoud((s) => s.go);
   const platforms = useLoud((s) => s.platforms);
@@ -115,7 +119,7 @@ export function AppSidebar() {
           className="flex h-8 w-full cursor-pointer items-center gap-[var(--sidebar-control-gap)] rounded-[var(--control-radius)] border border-sidebar-border px-[var(--sidebar-row-content-inset)] text-left text-sidebar-muted-foreground text-sm hover:bg-sidebar-row-hover hover:text-sidebar-foreground [&>svg]:size-4"
         >
           <Search />
-          <span className="flex-1 truncate">Search</span>
+          <span className="flex-1 truncate">{t("nav.search")}</span>
           <kbd className="rounded border border-sidebar-border px-1 font-sans text-2xs">
             {navigator.platform.startsWith("Mac") ? "⌘K" : "Ctrl K"}
           </kbd>
@@ -126,7 +130,7 @@ export function AppSidebar() {
         {GROUPS.map((group) => (
           <div key={group.label} className="flex flex-col gap-0.5">
             <div className="px-[var(--sidebar-row-content-inset)] pb-1 font-medium text-2xs text-sidebar-muted-foreground uppercase tracking-wide">
-              {group.label}
+              {t(group.label)}
             </div>
             {group.items.map((item) => (
               <SidebarRow
@@ -142,12 +146,12 @@ export function AppSidebar() {
 
       <div className="flex flex-col gap-0.5 border-sidebar-border border-t px-[var(--sidebar-content-inset)] py-2">
         <SidebarRow
-          item={{ view: "connections", label: "Connections", icon: Plug }}
+          item={{ view: "connections", label: "nav.connections", icon: Plug }}
           active={view === "connections"}
           onSelect={() => go("connections")}
         />
         <SidebarRow
-          item={{ view: "settings", label: "Settings", icon: Settings }}
+          item={{ view: "settings", label: "nav.settings", icon: Settings }}
           active={view === "settings"}
           onSelect={() => go("settings")}
         />
@@ -163,11 +167,18 @@ export function AppSidebar() {
             {current ? (
               <>
                 <Loader className="size-3 shrink-0 animate-spin" />
-                <span className="truncate">Collecting {STEP_NAME[current]}…</span>
+                <span className="truncate">
+                  {t("sidebar.collecting", {
+                    name: STEP_NAME[current] ?? t("sidebar.step.listen"),
+                  })}
+                </span>
               </>
             ) : (
               <span className="truncate">
-                {connected} of {platforms.length || 4} connected
+                {t("sidebar.connected", {
+                  connected,
+                  total: platforms.length || 4,
+                })}
               </span>
             )}
           </button>
@@ -176,7 +187,7 @@ export function AppSidebar() {
             <button
               type="button"
               onClick={toggleTheme}
-              aria-label={dark ? "Use light theme" : "Use dark theme"}
+              aria-label={dark ? t("theme.light") : t("theme.dark")}
               className="flex size-6 cursor-pointer items-center justify-center rounded-md text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground [&>svg]:size-3.5"
             >
               {dark ? <Sun /> : <Moon />}

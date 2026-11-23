@@ -22,6 +22,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { create } from "zustand";
 
+import { useT, type MsgKey } from "~/i18n";
 import { useTheme } from "~/lib/theme";
 import { cn } from "~/lib/utils";
 import { useLoud, type View } from "~/store";
@@ -29,9 +30,9 @@ import { useWork } from "~/workStore";
 
 interface Command {
   readonly id: string;
-  readonly group: "Go to" | "Do";
-  readonly label: string;
-  readonly hint?: string;
+  readonly group: "palette.group.goto" | "palette.group.do";
+  readonly label: MsgKey;
+  readonly hint?: MsgKey;
   readonly icon: LucideIcon;
   readonly run: () => void;
 }
@@ -41,16 +42,16 @@ export const usePalette = create<{
   readonly set: (open: boolean) => void;
 }>()((set) => ({ open: false, set: (open) => set({ open }) }));
 
-const PAGES: ReadonlyArray<readonly [View, string, LucideIcon]> = [
-  ["overview", "Today", LayoutDashboard],
-  ["posts", "Posts", Rows3],
-  ["insights", "Insights", ChartNoAxesColumn],
-  ["plan", "Plan", CalendarClock],
-  ["listening", "Listening", Ear],
-  ["drafts", "Drafts", NotebookPen],
-  ["agent", "Agent", Bot],
-  ["connections", "Connections", Plug],
-  ["settings", "Settings", Settings],
+const PAGES: ReadonlyArray<readonly [View, MsgKey, LucideIcon]> = [
+  ["overview", "nav.overview", LayoutDashboard],
+  ["posts", "nav.posts", Rows3],
+  ["insights", "nav.insights", ChartNoAxesColumn],
+  ["plan", "nav.plan", CalendarClock],
+  ["listening", "nav.listening", Ear],
+  ["drafts", "nav.drafts", NotebookPen],
+  ["agent", "nav.agent", Bot],
+  ["connections", "nav.connections", Plug],
+  ["settings", "nav.settings", Settings],
 ];
 
 function useCommands(): ReadonlyArray<Command> {
@@ -70,7 +71,7 @@ function useCommands(): ReadonlyArray<Command> {
     const canCollect = connected && !demo;
     const list: Array<Command> = PAGES.map(([view, label, icon]) => ({
       id: `go:${view}`,
-      group: "Go to",
+      group: "palette.group.goto",
       label,
       icon,
       run: () => go(view),
@@ -78,8 +79,8 @@ function useCommands(): ReadonlyArray<Command> {
     if (running)
       list.push({
         id: "stop",
-        group: "Do",
-        label: "Stop collecting",
+        group: "palette.group.do",
+        label: "palette.stopCollect",
         icon: Square,
         run: () => void cancel(),
       });
@@ -87,24 +88,24 @@ function useCommands(): ReadonlyArray<Command> {
       list.push(
         {
           id: "collect",
-          group: "Do",
-          label: "Collect all",
-          hint: "Every platform included in runs, then listening",
+          group: "palette.group.do",
+          label: "palette.collectAll",
+          hint: "palette.collectAll.hint",
           icon: Play,
           run: () => void start(),
         },
         {
           id: "listen",
-          group: "Do",
-          label: "Search listening keywords now",
+          group: "palette.group.do",
+          label: "palette.listenNow",
           icon: Search,
           run: () => void start({ steps: ["listen"] }),
         },
         {
           id: "full",
-          group: "Do",
-          label: "Read everything again",
-          hint: "Back to the Count from day, once",
+          group: "palette.group.do",
+          label: "palette.readAll",
+          hint: "palette.readAll.hint",
           icon: History,
           run: () => void start({ full: true }),
         },
@@ -113,8 +114,8 @@ function useCommands(): ReadonlyArray<Command> {
     list.push(
       {
         id: "proposals",
-        group: "Do",
-        label: "Ask the agent for this week's proposals",
+        group: "palette.group.do",
+        label: "palette.proposals",
         icon: Sparkles,
         run: () =>
           void ask(
@@ -123,8 +124,8 @@ function useCommands(): ReadonlyArray<Command> {
       },
       {
         id: "chat",
-        group: "Do",
-        label: "New agent chat",
+        group: "palette.group.do",
+        label: "palette.newChat",
         icon: Bot,
         run: () => {
           go("agent");
@@ -133,15 +134,15 @@ function useCommands(): ReadonlyArray<Command> {
       },
       {
         id: "updates",
-        group: "Do",
-        label: "Check for updates",
+        group: "palette.group.do",
+        label: "updates.check",
         icon: RefreshCw,
         run: () => void check(),
       },
       {
         id: "theme",
-        group: "Do",
-        label: dark ? "Use light theme" : "Use dark theme",
+        group: "palette.group.do",
+        label: dark ? "theme.light" : "theme.dark",
         icon: Moon,
         run: toggleTheme,
       },
@@ -152,6 +153,7 @@ function useCommands(): ReadonlyArray<Command> {
 
 /** As in T3 Code: Ctrl+K (⌘K) jumps to a page or runs an action without hunting for its button. */
 export function CommandPalette() {
+  const t = useT();
   const open = usePalette((s) => s.open);
   const setOpen = usePalette((s) => s.set);
   const commands = useCommands();
@@ -172,7 +174,7 @@ export function CommandPalette() {
 
   const q = query.trim().toLowerCase();
   const shown = q
-    ? commands.filter((c) => `${c.label} ${c.hint ?? ""}`.toLowerCase().includes(q))
+    ? commands.filter((c) => `${t(c.label)} ${c.hint ? t(c.hint) : ""}`.toLowerCase().includes(q))
     : commands;
   const current = Math.min(index, Math.max(0, shown.length - 1));
 
@@ -198,14 +200,14 @@ export function CommandPalette() {
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-50 bg-black/32 backdrop-blur-[1px]" />
         <Dialog.Popup className="-translate-x-1/2 fixed top-[14vh] left-1/2 z-50 flex w-[min(36rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border bg-popover text-popover-foreground shadow-lg/8 outline-none">
-          <Dialog.Title className="sr-only">Jump to a page or run an action</Dialog.Title>
+          <Dialog.Title className="sr-only">{t("palette.title")}</Dialog.Title>
           <div className="flex items-center gap-2 border-b px-3">
             <Search className="size-4 text-muted-foreground" />
             <input
               autoFocus
               value={query}
-              placeholder="Go to a page or run an action…"
-              aria-label="Search commands"
+              placeholder={t("palette.placeholder")}
+              aria-label={t("palette.searchLabel")}
               className="h-11 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               onChange={(e) => {
                 setQuery(e.target.value);
@@ -228,7 +230,7 @@ export function CommandPalette() {
           <div ref={listRef} className="max-h-[min(24rem,60vh)] overflow-y-auto p-1" role="listbox">
             {shown.length === 0 && (
               <div className="px-3 py-6 text-center text-muted-foreground text-sm">
-                Nothing matches.
+                {t("palette.nothing")}
               </div>
             )}
             {shown.map((c, i) => {
@@ -237,7 +239,9 @@ export function CommandPalette() {
               return (
                 <div key={c.id}>
                   {heading && (
-                    <div className="px-2 pt-2 pb-1 text-2xs text-muted-foreground">{c.group}</div>
+                    <div className="px-2 pt-2 pb-1 text-2xs text-muted-foreground">
+                      {t(c.group)}
+                    </div>
                   )}
                   <button
                     type="button"
@@ -252,9 +256,9 @@ export function CommandPalette() {
                     )}
                   >
                     <Icon className="size-4 shrink-0 text-muted-foreground" />
-                    <span className="truncate">{c.label}</span>
+                    <span className="truncate">{t(c.label)}</span>
                     {c.hint && (
-                      <span className="truncate text-muted-foreground text-xs">{c.hint}</span>
+                      <span className="truncate text-muted-foreground text-xs">{t(c.hint)}</span>
                     )}
                     {i === current && (
                       <CornerDownLeft className="ml-auto size-3.5 shrink-0 text-muted-foreground" />

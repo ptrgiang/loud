@@ -1,6 +1,7 @@
 import { Check, Download, RefreshCw, RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { useT } from "~/i18n";
 import { relative } from "~/lib/format";
 import { cn } from "~/lib/utils";
 import { useWork } from "~/workStore";
@@ -34,6 +35,7 @@ function Progress({ percent }: { percent: number }) {
  * update" once it is ready. The full controls stay in Settings → Updates.
  */
 export function UpdateButton() {
+  const t = useT();
   const status = useWork((s) => s.updates);
   const check = useWork((s) => s.checkUpdates);
   const loadUpdates = useWork((s) => s.loadUpdates);
@@ -55,16 +57,21 @@ export function UpdateButton() {
 
   if (!status || state === "ready") return null;
   const title = !status.supported
-    ? "Updates work in the installed app"
+    ? t("updates.unsupported")
     : state === "checking"
-      ? "Checking for updates…"
+      ? t("updates.checking")
       : state === "downloading"
-        ? `Downloading ${status.version ?? "the update"}… ${Math.round(status.progress ?? 0)}%`
+        ? t("updates.downloading", {
+            version: status.version ?? t("updates.theUpdate"),
+            percent: Math.round(status.progress ?? 0),
+          })
         : state === "error"
-          ? `Update check failed: ${status.error ?? "unknown error"}. Click to try again.`
+          ? t("updates.failed", { error: status.error ?? t("updates.unknownError") })
           : state === "none"
-            ? `Up to date${status.checkedAt ? `, checked ${relative(status.checkedAt)}` : ""}. Click to check again.`
-            : "Check for updates";
+            ? status.checkedAt
+              ? t("updates.upToDateChecked", { when: relative(status.checkedAt) })
+              : t("updates.upToDate")
+            : t("updates.check");
 
   return (
     <button
@@ -91,6 +98,7 @@ export function UpdateButton() {
 
 /** Replaces the status line once an update is downloaded: one click installs it and reopens Loud. */
 export function RestartToUpdate() {
+  const t = useT();
   const status = useWork((s) => s.updates);
   const install = useWork((s) => s.installUpdate);
   if (status?.state !== "ready") return null;
@@ -98,11 +106,13 @@ export function RestartToUpdate() {
     <button
       type="button"
       onClick={() => void install()}
-      title="Loud closes, installs the update and opens again"
+      title={t("updates.restartTitle")}
       className="flex h-7 w-full cursor-pointer items-center justify-center gap-1.5 rounded-full bg-primary px-3 font-medium text-primary-foreground text-xs hover:bg-primary/90 [&>svg]:size-3.5"
     >
       <RotateCcw />
-      Restart to update{status.version ? ` to ${status.version}` : ""}
+      {status.version
+        ? t("updates.restartVersion", { version: status.version })
+        : t("updates.restart")}
     </button>
   );
 }

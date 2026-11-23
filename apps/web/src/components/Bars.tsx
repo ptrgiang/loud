@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 
 import type { Bucket } from "~/lib/analytics";
+import { useT } from "~/i18n";
 import { fmt } from "~/lib/format";
 
 const chColor = (channel?: string) =>
@@ -37,6 +38,7 @@ export function BucketBars({
   rows: ReadonlyArray<Bucket>;
   channel?: string | undefined;
 }) {
+  const t = useT();
   const max = Math.max(1, ...rows.map((r) => r.median ?? 0));
   return (
     <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-2 text-xs">
@@ -55,10 +57,10 @@ export function BucketBars({
             {r.n ? (
               <>
                 <span className="font-semibold">{fmt(Math.round(r.median ?? 0))}</span>{" "}
-                <span className="text-muted-foreground">{r.n} posts</span>
+                <span className="text-muted-foreground">{t("bars.posts", { n: r.n })}</span>
               </>
             ) : (
-              <span className="text-muted-foreground">none</span>
+              <span className="text-muted-foreground">{t("bars.none")}</span>
             )}
           </span>
         </Fragment>

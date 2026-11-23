@@ -3,10 +3,11 @@ import { Search, Square } from "lucide-react";
 import { useEffect } from "react";
 
 import { Button } from "~/components/ui/button";
+import { useT, type MsgKey } from "~/i18n";
 import { useLoud } from "~/store";
 import { useWork } from "~/workStore";
 
-const DEMO_BLOCK = "The demo data folder is never collected into";
+const DEMO_BLOCK: MsgKey = "listen.demoBlock";
 
 /**
  * Where a listening run would search: the same rule as the collector (connected, included in runs, has keywords),
@@ -36,14 +37,14 @@ function useListenPlan() {
     return p?.status === "connected" && p.enabled && !paused && counts[id] > 0;
   });
   const anyKeywords = CHANNEL_IDS.some((id) => counts[id] > 0);
-  const blocked = demo
+  const blocked: MsgKey | null = demo
     ? DEMO_BLOCK
     : !keywords
-      ? "Loading keywords"
+      ? "listen.loading"
       : !anyKeywords
-        ? "Add keywords first"
+        ? "listen.addKeywords"
         : !targets.length
-          ? "No connected platform with keywords is included in runs"
+          ? "listen.noTargets"
           : null;
 
   return { counts, targets, blocked, running, listening: running && listening };
@@ -51,6 +52,7 @@ function useListenPlan() {
 
 /** Searches the listening keywords now, on their own, without collecting the accounts. */
 export function ListenNow({ variant = "default" }: { variant?: "default" | "outline" }) {
+  const t = useT();
   const { targets, blocked, running, listening } = useListenPlan();
   const start = useWork((s) => s.startCollect);
   const cancel = useWork((s) => s.cancelCollect);
@@ -59,7 +61,7 @@ export function ListenNow({ variant = "default" }: { variant?: "default" | "outl
     return (
       <Button size="sm" variant="outline" onClick={() => void cancel()}>
         <Square />
-        Stop
+        {t("common.stop")}
       </Button>
     );
   return (
@@ -69,13 +71,17 @@ export function ListenNow({ variant = "default" }: { variant?: "default" | "outl
       disabled={running || blocked !== null}
       title={
         running
-          ? "Collecting: wait for it to finish"
-          : (blocked ?? `Search on ${targets.map((id) => CHANNEL_NAMES[id]).join(", ")}`)
+          ? t("listen.waitRunning")
+          : blocked
+            ? t(blocked)
+            : t("listen.searchOn", {
+                names: targets.map((id) => CHANNEL_NAMES[id]).join(", "),
+              })
       }
       onClick={() => void start({ steps: ["listen"] })}
     >
       <Search />
-      Search now
+      {t("listen.searchNow")}
     </Button>
   );
 }

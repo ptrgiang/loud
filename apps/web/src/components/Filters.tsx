@@ -4,6 +4,7 @@ import type * as React from "react";
 
 import { ChannelDot } from "~/components/PageHeader";
 import { Input } from "~/components/ui/input";
+import { useT } from "~/i18n";
 import { Toggle, ToggleGroup } from "~/components/ui/toggle-group";
 import { safeUrl } from "~/lib/analytics";
 import { cn } from "~/lib/utils";
@@ -59,17 +60,25 @@ export function ChannelFilter({
   counts?: Partial<Record<ChannelId | "all", number>>;
   onChange: (value: ChannelId | null) => void;
 }) {
+  const t = useT();
   const count = (k: ChannelId | "all") =>
     counts?.[k] !== undefined && (
       <span className="text-muted-foreground tabular-nums">{counts[k]}</span>
     );
   return (
     <Segmented<string>
-      label="Channel"
+      label={t("filters.channel")}
       value={value ?? ALL}
       onChange={(v) => onChange(v === ALL ? null : (v as ChannelId))}
       options={[
-        { value: ALL, label: <>All {count("all")}</> },
+        {
+          value: ALL,
+          label: (
+            <>
+              {t("common.all")} {count("all")}
+            </>
+          ),
+        },
         ...channels.map((id) => ({
           value: id,
           label: (
