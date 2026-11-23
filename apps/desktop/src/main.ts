@@ -109,7 +109,7 @@ const program = Effect.gen(function* () {
       main.focus();
       return;
     }
-    const w = yield* MainWindow.create({ openLink });
+    const w = yield* MainWindow.create({ openLink, home: paths.home });
     main = w;
     // Grab these before "closed" fires: after destroy, w.webContents throws.
     const wc = w.webContents;
