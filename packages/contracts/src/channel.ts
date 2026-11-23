@@ -31,11 +31,11 @@ export const CHANNEL_LIMITS: Record<ChannelId, number> = {
 /** X Premium (blue check, Business or Government verified) posts run to 25,000. */
 export const X_PREMIUM_LIMIT = 25_000;
 
-/** Where the user posts it themselves. X and Threads take the text in their share intent; Instagram and Facebook open the composer. */
+/** Where the user posts it themselves. X takes the text in its share intent; Threads opens its home (the intent dialog has no media, reply or community controls); Instagram and Facebook open the composer. */
 export const composerUrl = (id: ChannelId, text: string): string =>
   ({
     x: `https://x.com/intent/post?text=${encodeURIComponent(text)}`,
-    threads: `https://www.threads.com/intent/post?text=${encodeURIComponent(text)}`,
+    threads: "https://www.threads.com/",
     ig: "https://www.instagram.com/",
     fb: "https://business.facebook.com/latest/composer",
   })[id];

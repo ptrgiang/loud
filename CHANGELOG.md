@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.1.12-beta.1 (2026-11-24)
+
+- Threads uses its full composer now — the intent dialog had no media slot —
+  so the posting window opens threads.com and the driver opens the dialog
+  itself.
+- A Threads draft can carry a topic tag, a reply audience, and a community;
+  the editor asks for them and the confirm lists them.
+- The driver sets them before Post; anything it cannot find fails with its
+  stage so you finish by hand. Still not exercised against a real account.
+
 ## 0.1.12-beta.0 (2026-11-24)
 
 - The posting window can finish the job: after a confirm in the draft pane,

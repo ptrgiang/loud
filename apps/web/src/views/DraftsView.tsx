@@ -32,6 +32,7 @@ import { ChannelDot, ChannelTag, Empty, PageHeader } from "~/components/PageHead
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { Select } from "~/components/ui/select";
 import { Textarea } from "~/components/ui/textarea";
 import { useT, type MsgKey } from "~/i18n";
 import {
@@ -394,6 +395,9 @@ interface EditorDraft {
   readonly comment: string;
   readonly posted?: string | undefined;
   readonly scheduledAt?: string | undefined;
+  readonly topic?: string | undefined;
+  readonly reply?: Draft["reply"] | undefined;
+  readonly community?: string | undefined;
 }
 
 const blank = (channel: ChannelId): EditorDraft => ({
@@ -432,6 +436,9 @@ function Editor({
     d.text !== start.text ||
     d.note !== start.note ||
     d.comment !== start.comment ||
+    d.topic !== start.topic ||
+    d.reply !== start.reply ||
+    d.community !== start.community ||
     d.channel !== start.channel;
 
   const save = async (): Promise<Draft | null> => {
@@ -440,8 +447,12 @@ function Editor({
       channel: d.channel,
       text: d.text,
       note: d.note,
-      // Always sent: "" is how the editor clears a comment that was set before.
+      // Always sent: "" is how the editor clears an extra that was set before.
       comment: d.comment.trim(),
+      topic: (d.topic ?? "").trim(),
+      // "anyone" is the platform default, not a cleared value — always a real choice.
+      reply: d.reply ?? "anyone",
+      community: (d.community ?? "").trim(),
     });
     if (saved) {
       setD({
@@ -450,6 +461,9 @@ function Editor({
         text: saved.text,
         note: saved.note,
         comment: saved.comment ?? "",
+        topic: saved.topic,
+        reply: saved.reply,
+        community: saved.community,
       });
       onSaved(saved);
     }
@@ -534,6 +548,39 @@ function Editor({
             aria-label={t("drafts.commentAria")}
             onChange={(e) => setD({ ...d, comment: e.target.value })}
           />
+          {d.channel === "threads" && (
+            <>
+              <div className="mt-1 text-2xs text-muted-foreground uppercase tracking-wide">
+                {t("drafts.threadsOnly")}
+              </div>
+              <Input
+                size="sm"
+                value={d.topic ?? ""}
+                placeholder={t("drafts.topicPlaceholder")}
+                aria-label={t("drafts.topicAria")}
+                onValueChange={(topic) => setD({ ...d, topic })}
+              />
+              <Select
+                className="w-full"
+                value={d.reply ?? ""}
+                aria-label={t("drafts.replyAria")}
+                onChange={(e) =>
+                  setD({ ...d, reply: (e.target.value || undefined) as Draft["reply"] })
+                }
+              >
+                <option value="">{t("drafts.replyAnyone")}</option>
+                <option value="followers">{t("drafts.replyFollowers")}</option>
+                <option value="mentioned">{t("drafts.replyMentioned")}</option>
+              </Select>
+              <Input
+                size="sm"
+                value={d.community ?? ""}
+                placeholder={t("drafts.communityPlaceholder")}
+                aria-label={t("drafts.communityAria")}
+                onValueChange={(community) => setD({ ...d, community })}
+              />
+            </>
+          )}
         </div>
       </details>
       <DraftMedia id={d.id} />

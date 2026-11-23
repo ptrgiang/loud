@@ -1,14 +1,34 @@
-// Threads: the intent URL opens a dialog with the text pre-filled; verify it, attach media, click the dialog's Post.
-// The label is localized, so the driver matches on words, not a data attribute.
+// Threads: the posting window opens threads.com, the driver opens the full composer itself — the intent dialog has
+// no media slot, reply-audience, topic or community controls. Labels are localized, so matching is on words.
 import type { Draft } from "@loud/contracts";
 import * as Electron from "electron";
 
-import { attachFiles, checkpointCheck, evalIn, verifyText, waitFor, waitGone } from "./common.ts";
+import {
+  attachFiles,
+  checkpointCheck,
+  evalIn,
+  insertText,
+  insertTextFallback,
+  verifyText,
+  waitFor,
+  waitGone,
+} from "./common.ts";
 
 const DIALOG = '[role="dialog"]';
 const EDITOR = '[role="dialog"] [contenteditable="true"], [role="dialog"] textarea';
 const FILE = '[role="dialog"] input[type="file"]';
 const UPLOADING = '[role="progressbar"], [aria-label*="pload"]';
+
+/** The home page's compose affordance: the "+" nav button or the "Start a thread" bar. */
+const clickCompose = (wc: Electron.WebContents) =>
+  evalIn<boolean>(
+    wc,
+    `(()=>{
+const re=/(create|compose|new thread|start a thread|what's new|tạo|viết|créer|crear|erstellen)/i;
+const el=[...document.querySelectorAll('[role="button"],button,[aria-label]')]
+  .find(b=>re.test(b.getAttribute("aria-label")||"")||re.test((b.innerText||"").trim()));
+if(!el)return false;el.click();return true})()`,
+  );
 
 /** The dialog's Post control is a role=button whose label is just the word "Post" (localized). */
 const clickPost = (wc: Electron.WebContents) =>
@@ -19,6 +39,72 @@ const re=/^(post|đăng|publier|publicar|posten|postar|poste)$/i;
 const el=[...d.querySelectorAll('[role="button"],button')].find(b=>re.test((b.innerText||b.textContent||"").trim()));
 if(!el)return false;el.click();return true})()`,
   );
+
+/** "Add topic" opens a small field inside the dialog; typing then Enter sets it. */
+const addTopic = async (wc: Electron.WebContents, topic: string) => {
+  const open = await evalIn<boolean>(
+    wc,
+    `(()=>{const d=document.querySelector('[role="dialog"]');if(!d)return false;
+const re=/(add topic|thêm chủ đề|ajouter un sujet|agregar tema|thema hinzufügen|topic)/i;
+const el=[...d.querySelectorAll('[role="button"],button,[aria-label]')]
+  .find(b=>re.test(b.getAttribute("aria-label")||"")||re.test((b.innerText||"").trim()));
+if(!el)return false;el.click();return true})()`,
+  );
+  if (!open) return false;
+  if (!(await waitFor(wc, '[role="dialog"] input[type="text"]', 4_000))) return false;
+  return (
+    (await insertText(wc, '[role="dialog"] input[type="text"]', topic)) ||
+    (await insertTextFallback(wc, '[role="dialog"] input[type="text"]', topic))
+  );
+};
+
+const REPLY_LABEL: Record<NonNullable<Draft["reply"]>, string> = {
+  anyone: "^(anyone|everyone|bất kỳ ai|tất cả)",
+  followers: "(follower|theo dõi|abonnés|seguidores)",
+  mentioned: "(mention|nhắc đến|mentionné|mencionados)",
+};
+
+/** The audience row ("Anyone can reply") opens a menu; pick the entry matching the draft's setting. */
+const setReply = async (wc: Electron.WebContents, reply: Draft["reply"]) => {
+  if (!reply) return true;
+  const open = await evalIn<boolean>(
+    wc,
+    `(()=>{const d=document.querySelector('[role="dialog"]');if(!d)return false;
+const re=/(reply|trả lời|répondre|responder|antworten)/i;
+const el=[...d.querySelectorAll('[role="button"],button')].find(b=>re.test((b.innerText||b.getAttribute("aria-label")||"").trim()));
+if(!el)return false;el.click();return true})()`,
+  );
+  if (!open) return false;
+  await waitFor(wc, '[role="menu"], [role="listbox"]', 4_000);
+  return await evalIn<boolean>(
+    wc,
+    `(()=>{
+const re=/${REPLY_LABEL[reply]}/i;
+const el=[...document.querySelectorAll('[role="menuitemradio"],[role="menuitem"],[role="option"],[role="button"],button')]
+  .find(b=>re.test((b.innerText||"").trim()));
+if(!el)return false;el.click();return true})()`,
+  );
+};
+
+/** The community picker lists the account's communities by name. */
+const pickCommunity = async (wc: Electron.WebContents, name: string) => {
+  const open = await evalIn<boolean>(
+    wc,
+    `(()=>{const d=document.querySelector('[role="dialog"]');if(!d)return false;
+const re=/(community|communities|cộng đồng|communauté|comunidad)/i;
+const el=[...d.querySelectorAll('[role="button"],button')].find(b=>re.test((b.innerText||b.getAttribute("aria-label")||"").trim()));
+if(!el)return false;el.click();return true})()`,
+  );
+  if (!open) return false;
+  await waitFor(wc, '[role="menu"], [role="listbox"], [role="dialog"] [role="dialog"]', 4_000);
+  return await evalIn<boolean>(
+    wc,
+    `(()=>{const want=${JSON.stringify(name.toLowerCase())};
+const el=[...document.querySelectorAll('[role="menuitemradio"],[role="menuitem"],[role="option"],[role="button"],button,li')]
+  .find(b=>(b.innerText||"").trim().toLowerCase()===want||(b.innerText||"").trim().toLowerCase().includes(want));
+if(!el)return false;el.click();return true})()`,
+  );
+};
 
 const TOTAL_MS = 60_000;
 
@@ -32,14 +118,29 @@ export const publish = async (
     return {
       ok: false,
       stage: "schedule",
-      message: "Threads' quick composer cannot schedule.",
+      message: "the composer did not offer scheduling",
     } as const;
 
   const blocked = await checkpointCheck(wc);
   if (blocked) return blocked;
 
+  // No pre-fill on the home page: the driver opens the dialog and types the text itself.
+  if (!(await evalIn<boolean>(wc, `!!document.querySelector(${JSON.stringify(DIALOG)})`)))
+    if (!(await clickCompose(wc)))
+      return {
+        ok: false,
+        stage: "composer",
+        message: "the compose control was not found",
+      } as const;
+
   if (!(await waitFor(wc, EDITOR, 12_000)))
     return { ok: false, stage: "composer", message: "the composer dialog did not appear" } as const;
+
+  const inserted =
+    (await insertText(wc, EDITOR, draft.text)) ||
+    (await insertTextFallback(wc, EDITOR, draft.text));
+  if (!inserted)
+    return { ok: false, stage: "text", message: "the caption field would not take text" } as const;
 
   const bad = await verifyText(wc, EDITOR, draft);
   if (bad) return bad;
@@ -49,6 +150,21 @@ export const publish = async (
       return { ok: false, stage: "media", message: "the media input was not found" } as const;
     await waitGone(wc, UPLOADING, TOTAL_MS);
   }
+
+  if (draft.topic && !(await addTopic(wc, draft.topic)))
+    return { ok: false, stage: "topic", message: "the topic field was not found" } as const;
+  if (draft.reply && !(await setReply(wc, draft.reply)))
+    return {
+      ok: false,
+      stage: "reply",
+      message: "the reply-audience menu was not found",
+    } as const;
+  if (draft.community && !(await pickCommunity(wc, draft.community)))
+    return {
+      ok: false,
+      stage: "community",
+      message: `no community named "${draft.community}" in the picker`,
+    } as const;
 
   if (!(await clickPost(wc)))
     return {

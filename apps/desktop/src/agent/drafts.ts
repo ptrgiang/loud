@@ -38,6 +38,9 @@ export function upsertDraft(
     text: string;
     note?: string | undefined;
     comment?: string | undefined;
+    topic?: string | undefined;
+    reply?: Draft["reply"];
+    community?: string | undefined;
   },
   by: Draft["by"],
   now: Date,
@@ -46,12 +49,21 @@ export function upsertDraft(
   const at = stampNow(now);
   const prev = input.id ? all.find((d) => d.id === input.id) : undefined;
   const comment = input.comment ?? prev?.comment;
+  // An explicit empty value clears a Threads extra that was set before; absent keeps it.
+  const pick = (next: string | undefined, prev: string | undefined) =>
+    next !== undefined ? next.trim() || undefined : prev;
+  const topic = pick(input.topic, prev?.topic);
+  const community = pick(input.community, prev?.community);
+  const reply = input.reply !== undefined ? input.reply || undefined : prev?.reply;
   const draft: Draft = {
     id: prev?.id ?? newId(),
     channel: input.channel,
     text: input.text,
     note: input.note ?? prev?.note ?? "",
     ...(comment ? { comment } : {}),
+    ...(topic ? { topic } : {}),
+    ...(reply ? { reply } : {}),
+    ...(community ? { community } : {}),
     by: prev?.by ?? by,
     ...(prev?.images?.length ? { images: prev.images } : {}),
     ...(prev?.videos?.length ? { videos: prev.videos } : {}),

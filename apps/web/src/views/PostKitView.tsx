@@ -230,6 +230,18 @@ function AutoPost({ id, draft }: { id: string; draft: Draft }) {
                     ? ` ${t("post.confirmAt", { at: new Date(when).toLocaleString() })}`
                     : ""}
                 </p>
+                {(draft.topic || draft.reply || draft.community) && (
+                  <p className="text-2xs">
+                    {[
+                      draft.topic && t("drafts.extrasTopic", { topic: draft.topic }),
+                      draft.reply === "followers" && t("drafts.replyFollowers"),
+                      draft.reply === "mentioned" && t("drafts.replyMentioned"),
+                      draft.community && t("drafts.extrasCommunity", { name: draft.community }),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                )}
               </div>
             </Dialog.Description>
             <div className="mt-5 flex justify-end gap-2">

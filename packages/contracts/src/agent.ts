@@ -160,6 +160,12 @@ export const Draft = Schema.Struct({
   note: Schema.String,
   /** A comment to post under the post right after publishing (a link, the hashtags), kept with the draft. */
   comment: Schema.optionalKey(Schema.String),
+  /** Threads only: a topic tag shown under the post. */
+  topic: Schema.optionalKey(Schema.String),
+  /** Threads only: who may reply — anyone, followers, or mentioned. */
+  reply: Schema.optionalKey(Schema.Literals(["anyone", "followers", "mentioned"])),
+  /** Threads only: post into one of the account's communities, matched by name. */
+  community: Schema.optionalKey(Schema.String),
   by: Schema.Literals(["you", "agent"]),
   /** File names in the draft's own folder, in posting order. */
   images: Schema.optionalKey(Schema.Array(Schema.String)),
@@ -180,6 +186,9 @@ export const DraftInput = Schema.Struct({
   text: Schema.String,
   note: Schema.optionalKey(Schema.String),
   comment: Schema.optionalKey(Schema.String),
+  topic: Schema.optionalKey(Schema.String),
+  reply: Schema.optionalKey(Schema.Literals(["anyone", "followers", "mentioned"])),
+  community: Schema.optionalKey(Schema.String),
 });
 export type DraftInput = typeof DraftInput.Type;
 
