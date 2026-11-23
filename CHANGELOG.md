@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+## 0.1.11 (2026-11-23)
+
+- Posting: a Post button on each draft opens a split window — the draft kit
+  (caption, first comment, images and videos, copy and show-in-folder buttons)
+  beside the platform's own logged-in composer. Drafts carry videos, autosave
+  on switch, and reorder images by dragging.
+- X Premium: a Premium or Verified Organization account gets its real 25,000
+  -character draft limit instead of 280 — and the flag never leaks to the next
+  connected account.
+- Trends: every post keeps its counts by day, so the Posts page draws a small
+  view trend per post.
+- Collection: runs can't get stuck, posts deleted on the platform drop, Facebook
+  reads the whole published list, Threads' scheduled posts reach the Plan queue,
+  and a checkpoint or captcha pauses the platform for 24 hours with an OS
+  notification. Listening merges results correctly and expires undated ones.
+- Dashboard: a full visual pass — violet identity, collapsible sidebar rail,
+  command palette, image lightbox, per-view bundles — and dates, times and
+  numbers now follow the chosen language.
+- Demo mode: a fictional Acme Forms dataset loads in one click from any empty
+  page or the command palette, no account needed.
+- Agent: provider API keys and settings pass through to Claude Code and Codex,
+  usage checks share the same trimmed environment, and nothing is written
+  unless asked.
+
 ## 0.1.11-beta.12 (2026-11-23)
 
 - The dashboard speaks its dates and numbers in your language: weekdays, "3h ago", separators follow the chosen locale instead of always English.
