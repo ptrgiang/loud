@@ -40,12 +40,12 @@ const el=[...d.querySelectorAll('[role="button"],button')].find(b=>re.test((b.in
 if(!el)return false;el.click();return true})()`,
   );
 
-/** "Add topic" opens a small field inside the dialog; typing then Enter sets it. */
+/** "Add topic" opens a small field inside the dialog; typing then Enter sets it. Absent on builds that dropped topics. */
 const addTopic = async (wc: Electron.WebContents, topic: string) => {
   const open = await evalIn<boolean>(
     wc,
     `(()=>{const d=document.querySelector('[role="dialog"]');if(!d)return false;
-const re=/(add topic|thêm chủ đề|ajouter un sujet|agregar tema|thema hinzufügen|topic)/i;
+const re=/(add topic|thêm chủ đề|ajouter un sujet|agregar tema|thema hinzufügen|^topic)/i;
 const el=[...d.querySelectorAll('[role="button"],button,[aria-label]')]
   .find(b=>re.test(b.getAttribute("aria-label")||"")||re.test((b.innerText||"").trim()));
 if(!el)return false;el.click();return true})()`,
@@ -60,22 +60,23 @@ if(!el)return false;el.click();return true})()`,
 
 const REPLY_LABEL: Record<NonNullable<Draft["reply"]>, string> = {
   anyone: "^(anyone|everyone|bất kỳ ai|tất cả)",
-  followers: "(follower|theo dõi|abonnés|seguidores)",
+  followers: "(follower|theo dõi|abonnés|seguidores|profiles you follow)",
   mentioned: "(mention|nhắc đến|mentionné|mencionados)",
 };
 
-/** The audience row ("Anyone can reply") opens a menu; pick the entry matching the draft's setting. */
+/** "Post options" opens a menu whose first group is "Who can reply and quote". */
 const setReply = async (wc: Electron.WebContents, reply: Draft["reply"]) => {
   if (!reply) return true;
   const open = await evalIn<boolean>(
     wc,
     `(()=>{const d=document.querySelector('[role="dialog"]');if(!d)return false;
-const re=/(reply|trả lời|répondre|responder|antworten)/i;
-const el=[...d.querySelectorAll('[role="button"],button')].find(b=>re.test((b.innerText||b.getAttribute("aria-label")||"").trim()));
+const re=/(post options|options|reply|quote|tuỳ chọn|opciones|optionen|options de publication)/i;
+const el=[...d.querySelectorAll('[role="button"],button,[aria-label]')]
+  .find(b=>re.test(b.getAttribute("aria-label")||"")||re.test((b.innerText||"").trim()));
 if(!el)return false;el.click();return true})()`,
   );
   if (!open) return false;
-  await waitFor(wc, '[role="menu"], [role="listbox"]', 4_000);
+  await waitFor(wc, '[role="menu"], [role="listbox"], [role="group"]', 4_000);
   return await evalIn<boolean>(
     wc,
     `(()=>{
@@ -86,13 +87,14 @@ if(!el)return false;el.click();return true})()`,
   );
 };
 
-/** The community picker lists the account's communities by name. */
+/** The community picker lists the account's communities by name — only builds with joined communities show it. */
 const pickCommunity = async (wc: Electron.WebContents, name: string) => {
   const open = await evalIn<boolean>(
     wc,
     `(()=>{const d=document.querySelector('[role="dialog"]');if(!d)return false;
 const re=/(community|communities|cộng đồng|communauté|comunidad)/i;
-const el=[...d.querySelectorAll('[role="button"],button')].find(b=>re.test((b.innerText||b.getAttribute("aria-label")||"").trim()));
+const el=[...d.querySelectorAll('[role="button"],button,[aria-label]')]
+  .find(b=>re.test(b.getAttribute("aria-label")||"")||re.test((b.innerText||"").trim()));
 if(!el)return false;el.click();return true})()`,
   );
   if (!open) return false;
@@ -143,20 +145,17 @@ export const publish = async (
     await waitGone(wc, UPLOADING, TOTAL_MS);
   }
 
-  if (draft.topic && !(await addTopic(wc, draft.topic)))
-    return { ok: false, stage: "topic", message: "the topic field was not found" } as const;
+  // Extras the composer has no control for are reported, not blocking: the post still goes out and the pane
+  // names what it could not set.
+  const missing: Array<string> = [];
+  if (draft.topic && !(await addTopic(wc, draft.topic))) missing.push("topic");
   if (draft.reply && !(await setReply(wc, draft.reply)))
     return {
       ok: false,
       stage: "reply",
       message: "the reply-audience menu was not found",
     } as const;
-  if (draft.community && !(await pickCommunity(wc, draft.community)))
-    return {
-      ok: false,
-      stage: "community",
-      message: `no community named "${draft.community}" in the picker`,
-    } as const;
+  if (draft.community && !(await pickCommunity(wc, draft.community))) missing.push("community");
 
   if (!(await clickPost(wc)))
     return {
@@ -165,8 +164,21 @@ export const publish = async (
       message: "the Post button was not found in the dialog",
     } as const;
 
-  const done = await waitGone(wc, DIALOG, 15_000);
-  return done
-    ? ({ ok: true, result: "posted" } as const)
+  // The home page keeps a hidden dialog in the DOM, so "[role=dialog] gone" is not the signal —
+  // the composer editor disappearing or a posted toast is.
+  const confirmed = await evalIn<boolean>(
+    wc,
+    `(async()=>{const deadline=Date.now()+${TOTAL_MS};
+const toast=/post|shared|published|đã đăng|publi/i;
+for(;;){
+  if(!document.querySelector(${JSON.stringify(EDITOR)}))return true;
+  const t=[...document.querySelectorAll('[role="alert"],[data-testid="toast"]')]
+    .some(e=>toast.test(e.innerText||""));
+  if(t)return true;
+  if(Date.now()>deadline)return false;
+  await new Promise(r=>setTimeout(r,400))}})()`,
+  );
+  return confirmed
+    ? ({ ok: true, result: "posted", ...(missing.length ? { missing } : {}) } as const)
     : ({ ok: false, stage: "confirm", message: "the dialog stayed open after Post" } as const);
 };

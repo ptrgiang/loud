@@ -357,7 +357,10 @@ export const install = (isMainFrame: (frame: Electron.WebFrameMain | null) => bo
         Effect.orDie(
           Effect.flatMap(poster.publish(id, schedule), (r) =>
             r.ok
-              ? Effect.succeed({ result: r.result })
+              ? Effect.succeed({
+                  result: r.result,
+                  ...(r.missing?.length ? { missing: r.missing } : {}),
+                })
               : Effect.fail(new Error(`${r.stage}: ${r.message}`)),
           ),
         ),

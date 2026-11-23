@@ -22,7 +22,7 @@ Write for a colleague who already knows the codebase: the non-obvious why, order
 
 - `pnpm typecheck`, `pnpm test` and `pnpm build`.
 - For anything a user can see, run the app and look at it: `LOUD_HOME=<scratch dir> LOUD_SHOT=.shots/x.png pnpm --filter @loud/desktop start` saves a screenshot. Use demo data (`LOUD_DATA`), never a real account.
-- Never claim something works against a platform unless it ran against that platform.
+- Never claim something works against a platform unless it ran against that platform. A posting or collection change ships only after a real-account run that worked, with the evidence (screenshots, the post's URL) kept in the ignored `.shots/` — fix and verify first, tag and release second.
 
 ## Before you commit
 

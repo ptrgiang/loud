@@ -623,6 +623,7 @@ export const vi: Record<MsgKey, string> = {
   "post.confirmAt": "Hẹn vào {at}.",
   "post.postedDone": "Đã đăng.",
   "post.scheduledDone": "Đã hẹn giờ.",
+  "post.missing": "Composer không có field cho: {list}.",
   "post.gone": "Nháp này đã xoá.",
   "post.close": "Đóng cửa sổ này",
   "post.resize": "Kéo để đổi độ rộng khung này",

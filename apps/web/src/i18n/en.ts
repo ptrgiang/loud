@@ -628,6 +628,7 @@ export const en = {
   "post.confirmAt": "Scheduled for {at}.",
   "post.postedDone": "Posted.",
   "post.scheduledDone": "Scheduled.",
+  "post.missing": "The composer had no field for: {list}.",
   "post.gone": "That draft is gone.",
   "post.close": "Close this window",
   "post.resize": "Drag to resize this pane",

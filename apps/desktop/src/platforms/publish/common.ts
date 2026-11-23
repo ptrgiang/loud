@@ -5,7 +5,12 @@ import type { Draft } from "@loud/contracts";
 import * as Electron from "electron";
 
 export type PublishResult =
-  | { readonly ok: true; readonly result: "posted" | "scheduled" }
+  | {
+      readonly ok: true;
+      readonly result: "posted" | "scheduled";
+      /** Draft extras the composer had no control for — posted anyway, named here. */
+      readonly missing?: ReadonlyArray<string>;
+    }
   | { readonly ok: false; readonly stage: string; readonly message: string };
 
 const fail = (stage: string, message: string): PublishResult => ({ ok: false, stage, message });
@@ -86,7 +91,7 @@ export const attachFiles = async (
   try {
     dbg.attach("1.3");
   } catch {
-    return false; // already attached is fine, a hard failure is not
+    // Already attached (insertText got there first, or devtools is open) — the commands still work.
   }
   try {
     const doc = (await dbg.sendCommand("DOM.getDocument", { depth: 1 })) as {

@@ -261,7 +261,11 @@ export const IpcMethods = {
       /** ISO wall-clock stamp; absent = post now. */
       schedule: Schema.optionalKey(Schema.String),
     }),
-    output: Schema.Struct({ result: Schema.Literals(["posted", "scheduled"]) }),
+    output: Schema.Struct({
+      result: Schema.Literals(["posted", "scheduled"]),
+      /** Draft extras the composer had no control for — posted anyway, named here. */
+      missing: Schema.optionalKey(Schema.Array(Schema.String)),
+    }),
   },
   /** What the composer can do right now (media slot, schedule support) — for the pane to hide what isn't there. */
   "post.capable": {
