@@ -314,9 +314,7 @@ function ChatList() {
                             ? t("ag.confirmDelete", { title: c.title })
                             : `${t("common.delete")} ${c.title}`
                         }
-                        title={
-                          confirm === c.id ? t("ag.confirmDeleteTitle") : t("ag.deleteChat")
-                        }
+                        title={confirm === c.id ? t("ag.confirmDeleteTitle") : t("ag.deleteChat")}
                         disabled={running}
                         className={cn(
                           "absolute top-2 right-1.5 flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none hover:bg-background hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100",

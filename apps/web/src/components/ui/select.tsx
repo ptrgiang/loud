@@ -5,10 +5,7 @@ import type * as React from "react";
 
 import { cn } from "~/lib/utils";
 
-export function Select({
-  className,
-  ...props
-}: React.SelectHTMLAttributes<HTMLSelectElement>) {
+export function Select({ className, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <span className="relative inline-flex w-full items-center">
       <select

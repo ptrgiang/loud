@@ -27,9 +27,7 @@ const VIEW: Record<View, React.LazyExoticComponent<() => React.ReactNode>> = {
   connections: lazy(() =>
     import("~/views/ConnectionsView").then((m) => ({ default: m.ConnectionsView })),
   ),
-  settings: lazy(() =>
-    import("~/views/SettingsView").then((m) => ({ default: m.SettingsView })),
-  ),
+  settings: lazy(() => import("~/views/SettingsView").then((m) => ({ default: m.SettingsView }))),
 };
 
 /** Matches a loaded page's shape: top bar, a card row, then a wide surface. */
@@ -113,7 +111,11 @@ export function App() {
         {t("app.skipToContent")}
       </a>
       <AppSidebar />
-      <main id="loud-main" tabIndex={-1} className="flex min-w-0 flex-1 flex-col bg-background outline-none">
+      <main
+        id="loud-main"
+        tabIndex={-1}
+        className="flex min-w-0 flex-1 flex-col bg-background outline-none"
+      >
         {!loaded ? (
           <Skeleton />
         ) : !inDesktop() ? (

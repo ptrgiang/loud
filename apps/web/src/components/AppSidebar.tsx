@@ -137,10 +137,7 @@ export function AppSidebar() {
           collapsed ? "justify-center px-2" : "px-4",
         )}
       >
-        <span
-          className="relative"
-          title={demo && collapsed ? t("common.demo") : undefined}
-        >
+        <span className="relative" title={demo && collapsed ? t("common.demo") : undefined}>
           <LoudMark />
           {demo && collapsed && (
             <span

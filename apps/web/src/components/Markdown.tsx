@@ -87,7 +87,7 @@ function Blocks({ b }: { b: ReadonlyArray<Block> }) {
           </p>
         );
       case "h": {
-        const H = (`h${Math.min(6, n.level + 1)}`) as "h2" | "h3" | "h4" | "h5" | "h6";
+        const H = `h${Math.min(6, n.level + 1)}` as "h2" | "h3" | "h4" | "h5" | "h6";
         return (
           <H key={i} className={cn("font-semibold", n.level <= 2 && "text-base")}>
             <Spans c={n.c} />

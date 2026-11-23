@@ -124,8 +124,7 @@ function HandleField({ p }: { p: PlatformView }) {
         placeholder={t("conn.handlePlaceholder")}
         onValueChange={setHandle}
         onBlur={() => {
-          if (handle.trim() !== p.handle)
-            void updatePlatform({ id: p.id, handle }).then(mark);
+          if (handle.trim() !== p.handle) void updatePlatform({ id: p.id, handle }).then(mark);
         }}
         aria-label={t("conn.handleAria", { name: p.name })}
       />

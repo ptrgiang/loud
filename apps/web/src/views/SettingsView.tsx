@@ -327,9 +327,7 @@ function AgentSettingsCard() {
             aria-label={t("set.playbook")}
             placeholder={t("set.playbook.placeholder")}
             onChange={(e) => setPlaybook(e.target.value)}
-            onBlur={() =>
-              playbook !== settings.playbook && void configure({ playbook }).then(mark)
-            }
+            onBlur={() => playbook !== settings.playbook && void configure({ playbook }).then(mark)}
           />
           {flash}
         </div>

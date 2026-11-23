@@ -48,8 +48,7 @@ export const layer = (ipcFrames: Set<Electron.WebFrameMain>) =>
       let win: Electron.BrowserWindow | null = null;
       let pane: Electron.WebContentsView | null = null;
       let web: Electron.WebContentsView | null = null;
-      let paneWidth =
-        readJson<WindowState>(stateFile(paths.home))?.paneWidth ?? PANE_WIDTH;
+      let paneWidth = readJson<WindowState>(stateFile(paths.home))?.paneWidth ?? PANE_WIDTH;
 
       const layout = () => {
         if (!win || win.isDestroyed() || !pane || !web) return;
