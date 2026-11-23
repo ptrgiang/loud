@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.1.11-beta.3 (2026-11-23)
+
+- A visual pass on the whole dashboard: page titles carry weight, rising bars use quiet channel tints instead of stacked saturated fills, the second proposal action shrinks to an icon, the active nav row shows a left accent, the sidebar footer stops truncating next to the version, and first-run pages show a numbered next-step checklist.
+
 ## 0.1.11-beta.2 (2026-11-23)
 
 - The draft editor shows a "What works" strip for the chosen channel: the text features your own settled posts prove (1.5x median lift or more), checked live against the draft as you type, plus the posting block that outperforms. Nothing is hardcoded — it is measured on your numbers.
