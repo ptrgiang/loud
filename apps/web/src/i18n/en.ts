@@ -404,6 +404,9 @@ export const en = {
   "drafts.dragOrder": "Drag to reorder — this is the post's image order",
   "drafts.posted": "Posted",
   "drafts.scheduled": "Scheduled",
+  "drafts.unpost": "Mark as not posted",
+  "drafts.unpost.hint":
+    "The post was deleted on the platform — clear the mark so this can go out again",
   "drafts.threadsOnly": "Threads only",
   "drafts.topicPlaceholder": "Topic tag",
   "drafts.topicAria": "Topic tag for the post",

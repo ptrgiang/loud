@@ -23,6 +23,7 @@ import {
   Sparkles,
   Trash2,
   TrendingUp,
+  Undo2,
   X,
 } from "lucide-react";
 import { useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
@@ -598,6 +599,25 @@ function Editor({
             <Button size="sm" disabled={!d.text.trim() || over} onClick={() => void post()}>
               <ExternalLink />
               {t("drafts.post", { name: CHANNEL_NAMES[d.channel] })}
+            </Button>
+          )}
+          {(start.posted || start.scheduledAt) && start.id && (
+            <Button
+              size="sm"
+              variant="outline"
+              title={t("drafts.unpost.hint")}
+              onClick={async () => {
+                try {
+                  const cleared = await call("drafts.unpost", { id: start.id! });
+                  await useWork.getState().loadDrafts();
+                  onSaved(cleared);
+                } catch (e) {
+                  say(e);
+                }
+              }}
+            >
+              <Undo2 />
+              {t("drafts.unpost")}
             </Button>
           )}
         </div>

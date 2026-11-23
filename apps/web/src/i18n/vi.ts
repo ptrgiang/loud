@@ -402,6 +402,8 @@ export const vi: Record<MsgKey, string> = {
   "drafts.dragOrder": "Kéo để sắp xếp — đây là thứ tự ảnh khi đăng",
   "drafts.posted": "Đã đăng",
   "drafts.scheduled": "Đã hẹn giờ",
+  "drafts.unpost": "Đánh dấu chưa đăng",
+  "drafts.unpost.hint": "Bài đã xoá trên nền tảng — bỏ dấu để đăng lại",
   "drafts.threadsOnly": "Chỉ Threads",
   "drafts.topicPlaceholder": "Chủ đề",
   "drafts.topicAria": "Chủ đề của bài",

@@ -33,6 +33,7 @@ import {
   removeDraftImage,
   reorderDraftImages,
   removeDraftVideo,
+  unmarkDraft,
   upsertDraft,
 } from "../agent/drafts.ts";
 import { AppPaths } from "../app/AppPaths.ts";
@@ -310,6 +311,7 @@ export const install = (isMainFrame: (frame: Electron.WebFrameMain | null) => bo
             new Date(),
           ),
         ),
+      "drafts.unpost": ({ id }) => Effect.sync(() => unmarkDraft(paths.data, id)),
       "drafts.delete": ({ id }) =>
         Effect.as(
           Effect.sync(() => deleteDraft(paths.data, id)),

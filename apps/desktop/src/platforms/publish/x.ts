@@ -3,7 +3,15 @@
 import type { Draft } from "@loud/contracts";
 import * as Electron from "electron";
 
-import { attachFiles, checkpointCheck, click, verifyText, waitFor, waitGone } from "./common.ts";
+import {
+  attachFiles,
+  checkpointCheck,
+  click,
+  evalIn,
+  verifyText,
+  waitFor,
+  waitGone,
+} from "./common.ts";
 
 const EDITOR = '[data-testid="tweetTextarea_0"], .public-DraftEditor-content';
 const FILE = 'input[data-testid="fileInput"]';
@@ -46,9 +54,22 @@ export const publish = async (
   if (!(await click(wc, POST)))
     return { ok: false, stage: "post", message: "the Post button was not found" } as const;
 
-  // The dialog closing or the composer clearing is the confirmation; a toast is the fallback.
-  const done = await waitGone(wc, EDITOR, 15_000);
-  return done
+  // Posted shows as a toast ("Your post was sent") or a navigation back; the intent editor staying
+  // in the DOM is normal — it is not a failure.
+  const posted = await evalIn<boolean>(
+    wc,
+    `(()=>new Promise(r=>{const d=Date.now()+15_000;
+const check=()=>{const t=[...document.querySelectorAll('[role="alert"],[data-testid="toast"]')]
+  .some(e=>/(post|tweet).*(sent|posted)/i.test(e.innerText||""));
+if(t)return r(true);
+if(!document.querySelector(${JSON.stringify(EDITOR)}))return r(true);
+if(Date.now()>d)return r(false);setTimeout(check,400)};check()}))()`,
+  );
+  return posted
     ? ({ ok: true, result: "posted" } as const)
-    : ({ ok: false, stage: "confirm", message: "the composer stayed open after Post" } as const);
+    : ({
+        ok: false,
+        stage: "confirm",
+        message: "no posted toast and the composer stayed open",
+      } as const);
 };

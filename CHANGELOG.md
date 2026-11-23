@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.12-beta.2 (2026-11-24)
+
+- A posted or scheduled draft can be marked as not posted — for a post that
+  was deleted on the platform — so it can go out again.
+- X's driver now counts a post as sent when the posted toast or a navigation
+  appears; the intent editor lingering in the page no longer reads as a fail.
+
 ## 0.1.12-beta.1 (2026-11-24)
 
 - Threads uses its full composer now — the intent dialog had no media slot —

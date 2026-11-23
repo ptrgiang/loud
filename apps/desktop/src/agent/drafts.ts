@@ -102,6 +102,19 @@ export function markDraftPosted(
   return next;
 }
 
+/** Clears posted/scheduled so the draft can go out again — e.g. a post deleted on the platform. */
+export function unmarkDraft(data: string, id: string): Draft {
+  const all = readDrafts(data);
+  const d = all.find((x) => x.id === id);
+  if (!d) throw new Error("That draft is gone.");
+  const { posted: _posted, scheduledAt: _scheduledAt, ...rest } = d;
+  writeDrafts(
+    data,
+    all.map((x) => (x.id === id ? rest : x)),
+  );
+  return rest;
+}
+
 export function deleteDraft(data: string, id: string) {
   writeDrafts(
     data,
