@@ -44,6 +44,7 @@ import {
   stampLabel,
   WEEKDAYS,
 } from "~/lib/format";
+import { FEATURE_LABEL, FEATURE_SAYS } from "~/lib/features";
 import { cn } from "~/lib/utils";
 import { useLoud } from "~/store";
 
@@ -70,7 +71,7 @@ function CalloutText({ c }: { c: Callout }) {
       });
     case "content":
       return t("ins.callout.content", {
-        says: c.says,
+        says: t(FEATURE_SAYS[c.key]),
         withM: fmt(Math.round(c.lift.withMedian ?? 0)),
         withoutM: fmt(Math.round(c.lift.withoutMedian ?? 0)),
         ratio: dec(c.lift.ratio),
@@ -465,8 +466,8 @@ function Features({ rows }: { rows: BySettled }) {
         </thead>
         <tbody className="divide-y">
           {FEATURES.map((f) => (
-            <tr key={f.label}>
-              <td className="py-2 pr-3">{f.label}</td>
+            <tr key={f.key}>
+              <td className="py-2 pr-3">{t(FEATURE_LABEL[f.key])}</td>
               {rows.map(([id, list]) => {
                 const r = lift(list, f.test);
                 if (r.ratio === null) {

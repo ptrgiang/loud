@@ -14,13 +14,15 @@ import {
   FolderOpen,
   ImagePlus,
   Images,
+  Minus,
   NotebookPen,
   Plus,
   Sparkles,
   Trash2,
+  TrendingUp,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Segmented } from "~/components/Filters";
 import { ChannelDot, ChannelTag, Empty, PageHeader } from "~/components/PageHeader";
@@ -29,6 +31,19 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 import { useT, type MsgKey } from "~/i18n";
+import {
+  BLOCKS,
+  blockLabel,
+  blockOf,
+  FEATURES,
+  group,
+  lift,
+  median,
+  MIN_SIDE,
+  settled,
+} from "~/lib/analytics";
+import { FEATURE_LABEL } from "~/lib/features";
+import { dec } from "~/lib/format";
 import { call } from "~/lib/loud";
 import { toast } from "~/lib/toast";
 import { cn } from "~/lib/utils";
@@ -193,6 +208,63 @@ function DraftImages({ id }: { id: string | undefined }) {
   );
 }
 
+/** What the channel's own settled posts say works: top feature lifts plus the best posting block. */
+function ChannelPatterns({ channel, text }: { channel: ChannelId; text: string }) {
+  const t = useT();
+  const hub = useLoud((s) => s.hub);
+  const list = useMemo(() => (hub ? settled(hub.posts, channel) : []), [hub, channel]);
+
+  const feats = useMemo(
+    () =>
+      FEATURES.map((f) => ({ f, r: lift(list, f.test) }))
+        .filter((x) => x.r.ratio !== null && x.r.ratio >= 1.5)
+        .sort((a, b) => b.r.ratio! - a.r.ratio!)
+        .slice(0, 3),
+    [list],
+  );
+  const timing = useMemo(() => {
+    const m = median(list.map((p) => p.views));
+    if (m === null) return null;
+    return (
+      BLOCKS.map((b) => ({ b, ...group(list.filter((p) => blockOf(p) === b)) }))
+        .filter((x) => x.n >= MIN_SIDE && x.median !== null && x.median >= 1.5 * m)
+        .sort((a, b) => b.median! - a.median!)[0] ?? null
+    );
+  }, [list]);
+
+  if (list.length < 2 * MIN_SIDE || (!feats.length && !timing)) return null;
+  return (
+    <div
+      className="flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs text-muted-foreground"
+      title={t("drafts.works.hint")}
+    >
+      <span className="inline-flex items-center gap-1 font-medium">
+        <TrendingUp className="size-3" />
+        {t("drafts.works", { name: CHANNEL_NAMES[channel] })}
+      </span>
+      {feats.map(({ f, r }) => (
+        <span key={f.key} className="inline-flex items-center gap-1">
+          {f.test(text) ? (
+            <Check className="size-3 text-success-foreground" />
+          ) : (
+            <Minus className="size-3 opacity-50" />
+          )}
+          {t(FEATURE_LABEL[f.key])}
+          <span className="font-semibold text-foreground tabular-nums">×{dec(r.ratio)}</span>
+        </span>
+      ))}
+      {timing && (
+        <span>
+          {t("drafts.works.time", {
+            block: blockLabel(timing.b),
+            ratio: dec(timing.median! / (median(list.map((p) => p.views)) ?? 1)),
+          })}
+        </span>
+      )}
+    </div>
+  );
+}
+
 interface EditorDraft {
   readonly id: string | undefined;
   readonly channel: ChannelId;
@@ -253,6 +325,7 @@ function Editor({ start, onSaved }: { start: EditorDraft; onSaved: (d: Draft) =>
           {length.toLocaleString("en-US")} / {limit.toLocaleString("en-US")}
         </span>
       </div>
+      <ChannelPatterns channel={d.channel} text={d.text} />
       <Textarea
         value={d.text}
         rows={12}

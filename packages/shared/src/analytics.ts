@@ -64,7 +64,11 @@ export const rewatch = (list: ReadonlyArray<Post>): number | null => {
 
 export const firstLine = (t: string) => t.split("\n").find((l) => l.trim()) ?? "";
 
+/** Stable id per feature, so the dashboard can show a localized label. */
+export type FeatureKey = "question" | "comments" | "number" | "firstline" | "link" | "hashtags";
+
 export interface Feature {
+  readonly key: FeatureKey;
   readonly label: string;
   /** Completes "Posts that …". */
   readonly says: string;
@@ -72,24 +76,42 @@ export interface Feature {
 }
 
 export const FEATURES: ReadonlyArray<Feature> = [
-  { label: "Asks a question (?)", says: "ask a question", test: (t) => t.includes("?") },
   {
-    label: "Asks for comments",
-    says: "ask for comments",
-    test: (t) => /comment|reply|👇|let me know|tell me/i.test(t),
+    key: "question",
+    label: "Asks a question (?)",
+    says: "ask a question",
+    test: (t) => t.includes("?"),
   },
   {
+    key: "comments",
+    label: "Asks for comments",
+    says: "ask for comments",
+    test: (t) => /comment|\bcmt\b|reply|👇|let me know|tell me|bình luận|nhận xét/i.test(t),
+  },
+  {
+    key: "number",
     label: "Number in first line",
     says: "have a number in the first line",
     test: (t) => /\d/.test(firstLine(t)),
   },
   {
+    key: "firstline",
     label: "First line ≤ 60 chars",
     says: "open with a line of 60 chars or less",
     test: (t) => firstLine(t).trim().length <= 60,
   },
-  { label: "Has a link", says: "include a link", test: (t) => /https?:\/\//i.test(t) },
-  { label: "Has hashtags", says: "use hashtags", test: (t) => /#[\p{L}\p{N}_]/u.test(t) },
+  {
+    key: "link",
+    label: "Has a link",
+    says: "include a link",
+    test: (t) => /https?:\/\//i.test(t),
+  },
+  {
+    key: "hashtags",
+    label: "Has hashtags",
+    says: "use hashtags",
+    test: (t) => /#[\p{L}\p{N}_]/u.test(t),
+  },
 ];
 
 export interface Lift {
@@ -180,6 +202,7 @@ export type Callout =
   | {
       readonly channel: ChannelId;
       readonly kind: "content";
+      readonly key: FeatureKey;
       readonly says: string;
       readonly lift: Lift;
     };
@@ -215,7 +238,7 @@ export function callouts(hub: Hub): ReadonlyArray<Callout> {
         posts: best.n,
       });
     }
-    const feature = FEATURES.map((f) => ({ says: f.says, lift: lift(list, f.test) }))
+    const feature = FEATURES.map((f) => ({ key: f.key, says: f.says, lift: lift(list, f.test) }))
       .filter((x) => x.lift.ratio !== null && (x.lift.ratio >= 1.5 || x.lift.ratio <= 1 / 1.5))
       .sort((a, b) => Math.abs(Math.log(b.lift.ratio!)) - Math.abs(Math.log(a.lift.ratio!)))[0];
     if (feature) out.push({ channel: id, kind: "content", ...feature });
