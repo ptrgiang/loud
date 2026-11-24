@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.12-beta.5 (2026-11-24)
+
+- Chats: a running answer is never lost when you switch chats or start a
+  new one mid-run — streamed text is kept per chat, and New chat cancels the
+  old turn so the fresh chat can send right away.
+
 ## 0.1.12-beta.4 (2026-11-23)
 
 - Instagram and Facebook now post through the composer — exercised against

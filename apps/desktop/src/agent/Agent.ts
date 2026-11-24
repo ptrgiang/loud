@@ -168,11 +168,15 @@ export const layer = Layer.effect(
     const publishChats = () =>
       Effect.runFork(events.publish({ type: "agentChats", chats: store.list() }));
 
+    // The newest copy of each chat — streamed text lands here even while a different chat is open,
+    // so switching mid-run never drops an answer.
+    const latest = new Map<string, SavedChat>();
     /** Changes a saved chat, open or not, keeping the open copy in step. Streaming updates skip the disk. */
     const updateChat = (id: string, f: (c: SavedChat) => SavedChat, persist = true) => {
-      const base = chat?.id === id ? chat : store.read(id);
+      const base = chat?.id === id ? chat : (latest.get(id) ?? store.read(id));
       if (!base) return;
       const next = f(base);
+      latest.set(id, next);
       if (chat?.id === id) chat = next;
       if (persist) store.write(next);
     };
@@ -290,7 +294,7 @@ export const layer = Layer.effect(
       abort: AbortController,
     ) =>
       Effect.promise(async () => {
-        const c = (chat?.id === chatId ? chat : store.read(chatId))!;
+        const c = (chat?.id === chatId ? chat : latest.get(chatId) ?? store.read(chatId))!;
         const p = PROVIDERS[c.provider];
         const exe = p.locate();
         const reply: AgentMessage = {
@@ -361,7 +365,8 @@ export const layer = Layer.effect(
         } catch (e) {
           update({ error: e instanceof Error ? e.message : String(e) });
         } finally {
-          running = null;
+          // Only this turn clears its running record — a new chat's turn may already hold it.
+          if (running?.abort === abort) running = null;
           // preview_images staged files in the attachments folder; hang them on this answer so the user can see them.
           const stagedFile = NodePath.join(store.attachmentsDir(chatId), "preview.json");
           const staged = readJson<Array<AgentAttachment>>(stagedFile);
@@ -506,14 +511,19 @@ export const layer = Layer.effect(
         return snapshot();
       }),
       // The running turn keeps writing to its own chat through updateChat; a view change is safe.
+      // A turn still running cancels: the new chat must be usable right away.
       reset: Effect.sync(() => {
+        if (running) {
+          running.abort.abort();
+          running = null;
+        }
         chat = null;
         publishNow();
         return snapshot();
       }),
       open: (id) =>
         Effect.gen(function* () {
-          const c = store.read(id);
+          const c = latest.get(id) ?? store.read(id);
           if (!c) return yield* fail("That chat is gone.");
           chat = c;
           publishNow();
@@ -523,6 +533,7 @@ export const layer = Layer.effect(
         Effect.gen(function* () {
           if (running?.chatId === id)
             return yield* fail("Stop the agent before you delete this chat.");
+          latest.delete(id);
           store.remove(id);
           if (chat?.id === id) chat = null;
           publishNow();
